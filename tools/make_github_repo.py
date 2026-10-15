@@ -21,7 +21,7 @@ DST = r"C:\Users\30947\Desktop\深空铸造"
 DIRS = ["src", "tools", "docs", "art", "publish", "examples", "gradle", "libs"]
 # 要带的根文件
 FILES = ["build.gradle", "settings.gradle", "gradle.properties", "gradlew", "gradlew.bat",
-         "LICENSE", ".gitignore",
+         "LICENSE", ".gitignore", ".gitattributes",
          # 手写的说明文档（README-交接.md 是给接手者/AI 的自述文档，必须同步）
          "README.md", "README-交接.md", "CONTRIBUTING.md"]
 
