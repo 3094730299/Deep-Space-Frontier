@@ -11,11 +11,12 @@
 > `python tools/verify_readme_claims.py` → **46 条全部符合 ✓**
 > （它逐条检查本文档声称的代码结构是否真的还在。改完代码后请重跑，红了就更新本文档。）
 >
-> 最后更新：2026-10-15 21:55（对应 jar `812,099` 字节）
+> 最后更新：2026-10-15 22:30（对应 jar `812,099` 字节；本次只改文档，没动代码/资源）
 > **本轮五个改动**：①「放置动画不播」真凶在**动画文件**里（见**铁律 11**）；
 > ②「动画播两次」真凶是**用了触发式动画**（见**铁律 12**）；
 > ③ 载具打印机**「12 格缺一不放」**（见 §7.2）；④ 收购投送机**「顶上有方块不工作」**（见 §7.5）；
 > ⑤ 通用终端贴图**曾被误缩到 64×64 → 已恢复 128×128**（见**铁律 13**）。
+> ⑥ **仓库改用项目根目录的 git 仓库**（分支 main），桌面副本停用 —— 见**铁律 10**。
 
 ---
 
@@ -34,7 +35,7 @@
 | 7 | **动画阶段是纯客户端状态，存 NBT 必须配套"读回 + 写回"** | 只存不读或只读不写 → 阶段被同步包反复重置 → **动画反复重播** |
 | 8 | **不要用"格子空了"检测卖出** | 玩家自己拿走物品也会触发 → 误播动画 |
 | 9 | **`GeoBlockRenderer` 自动做 `translate(0.5, 0, 0.5)`**，自己不要再平移 | 位置偏移翻倍 |
-| 10 | **改动后必须更新桌面仓库**：`python tools/make_github_repo.py` | 老板要求仓库和项目始终同步 |
+| 10 | **改动后必须提交到 git 仓库**：`git add -A && git commit -m "..."` | 老板 2026-10-15 改的规矩：**只提交 git 仓库就够了**，不再同步桌面副本（旧规矩见 §2 的说明）|
 | 11 | **动画 JSON 里 `"0.0"` 关键帧必须是该通道的第一项**（GeckoLib **不排序**，按书写顺序读） | 否则抛 `Invalid keyframe data - multiple starting keyframes?0.0` → **整份 animation.json 作废**，同文件里**所有**动画一起失效（模型还在，但一动不动）。**改完动画必须跑 `python tools/check_gecko_animations.py`** |
 | 12 | **重启动画只用 `AnimationController.forceAnimationReset()`**；**绝不要**注册 `.triggerableAnim()` / 调 `tryTriggerAnimation()` | 触发式动画一播完，GeckoLib 会置 `needsAnimationReload=true` **再回头问状态处理器**；相位还没结束时状态处理器又返回同一动画 → 动画被**从头重建又播一遍**。现象：**"播完后又重播一次 / 播到一半重置"**（真发生过，就是这个） |
 | 13 | **贴图和 geo 声明要一致，但"一致"要往原图的高分辨率靠 —— 绝不要把原图缩小去迁就声明** | 曾经为了让 64 的声明"对上"而把 **128 原图缩成 64×64** → 颜色数 299→138、**贴图肉眼可见变糊/像素块变大**（老板原话）。正确做法：**PNG 用原图尺寸 + 声明改成同样的尺寸**，两个一起改。改完跑 `python tools/check_gecko_textures.py` |
@@ -73,7 +74,9 @@
 
 ```
 项目根目录   C:\Users\30947\Documents\deepseek-harness\default-workspace\deep-space-deployer
-桌面仓库     C:\Users\30947\Desktop\深空铸造              （每次改动后同步，给协作用）
+git 仓库     就是项目根目录本身（.git 在里面，分支 main）
+             ⚠️ 2026-10-15 起：**改动只提交这个仓库**，不再往桌面副本同步
+桌面副本     C:\Users\30947\Desktop\深空铸造   ← **已停用**（旧规矩遗留；别再去同步它）
 整合包版本   C:\Users\30947\Desktop\.minecraft\versions\孢子危机
 装机目录     …\versions\孢子危机\mods\deepspacedeployer-0.1.0+mc1.21.1.jar
 
@@ -118,8 +121,9 @@ $env:JAVA_HOME='C:\Program Files\Java\jdk-21.0.10'
 # ④ 安全装机（复制 + SHA256 比对 + 逐条目解压校验，失败自动重试）
 & $py tools\install.py
 
-# ⑤ 同步桌面仓库（老板要求每次必做）
-& $py tools\make_github_repo.py
+# ⑤ 提交到 git 仓库（老板要求每次必做）
+git add -A
+git commit -m "一句话说清这次改了什么"
 ```
 
 ### 3.2 导入老板新做的模型
@@ -239,8 +243,8 @@ docs\    设计决策.md（★77KB，最有价值） 模组介绍 玩法手册 �
 | `install.py` | **安全装机**：复制 + SHA256 + 逐条目解压校验，失败重试 3 次 |
 | `validate.py` | 工程自检：模型/贴图引用、语言键、掉落表、工具标签、机器注册、世界生成、结构 NBT |
 | `check_mod_ids.py` | 校验引用的物品/方块 id 在整合包 194 个 jar 里真实存在 |
-| `verify_readme_claims.py` | **验证 `README-交接.md` 的 35 条技术断言是否仍与实际代码一致**（改代码后必跑）|
-| `make_github_repo.py` | 同步到桌面仓库 `C:\Users\30947\Desktop\深空铸造` |
+| `verify_readme_claims.py` | **验证 `README-交接.md` 的技术断言是否仍与实际代码一致**（改代码后必跑；当前 46 条）|
+| `make_github_repo.py` | 【**已停用**】以前用来同步桌面副本 `C:\Users\30947\Desktop\深空铸造`。老板 2026-10-15 改成"只提交 git 仓库"，**平时不要再跑**（脚本本体保留，需要导出干净副本时还能用）|
 
 ### 建模相关
 
@@ -456,7 +460,7 @@ sellAllSlots()       → if (blockedAbove()) return false;   // 手动「立即�
    **改过模型/动画后必搜**：`Unable to parse animation`（搜到就是铁律 11，跑 check_gecko_animations.py）
 
 ④ 每次改动后：clean build → validate → check_gecko_animations → verify_readme_claims → install
-   → make_github_repo → 更新设计决策.md
+   → **git 提交** → 更新设计决策.md
 ```
 
 ### 日志关键词速查
@@ -480,8 +484,10 @@ sellAllSlots()       → if (blockedAbove()) return false;   // 手动「立即�
 3. **老板不喜欢反复失败** —— 每次改动前先说清"改什么、为什么、预期看到什么"，一次说清。
 4. **不要擅自动老板的建模数据**（动画数值、造型）——
    只在"导入"层面处理（格式修正、尺寸对齐、坐标平移），改数值前必须问。
-5. **桌面仓库必须保持同步** —— 老板明确要求"每做一次改动顺便把那个文件里相对应的东西也改一下"。
-6. **老板会用多个对话并行** —— 所以**改动要立即落盘到项目 + 仓库**，不要留在临时变量里。
+5. **改动要提交到 git 仓库**（老板 2026-10-15 的规矩）——
+   仓库就是项目根目录本身，`git add -A && git commit`。
+   **桌面副本 `C:\Users\30947\Desktop\深空铸造` 已停用，别再去同步它。**
+6. **老板会用多个对话并行** —— 所以**改动要立即落盘到项目 + 提交 git**，不要留在临时变量里。
 
 ---
 
@@ -490,6 +496,8 @@ sellAllSlots()       → if (blockedAbove()) return false;   // 手动「立即�
 ```
 版本        0.1.0+mc1.21.1
 License     见 LICENSE
-仓库        C:\Users\30947\Desktop\深空铸造（698 个文件 / 4.7 MB）
+仓库        项目根目录里的 git 仓库（分支 main）
+             C:\Users\30947\Documents\deepseek-harness\default-workspace\deep-space-deployer
+             【桌面副本 深空铸造 已停用，不再同步】
 贡献        CONTRIBUTING.md
 ```
