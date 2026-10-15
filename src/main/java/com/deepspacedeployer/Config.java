@@ -1,0 +1,121 @@
+package com.deepspacedeployer;
+
+import net.neoforged.neoforge.common.ModConfigSpec;
+
+/**
+ * 通用配置（config/deepspacedeployer-common.toml）
+ *
+ * <p>这里只放"服务器全局"开关；价格、商品、收购清单都在数据包里改，不在这里。</p>
+ */
+public final class Config {
+
+    private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
+
+    // ---------------- 世界生成 ----------------
+    public static final ModConfigSpec.BooleanValue ENABLE_FACTORY_WORLDGEN = BUILDER
+            .comment("是否让六家公司的工厂在世界里自然生成", "关掉之后只能用指令/刷怪蛋生成，方便测试")
+            .define("worldgen.enable_factory_worldgen", true);
+
+    public static final ModConfigSpec.DoubleValue WORLDGEN_RARITY_MULTIPLIER = BUILDER
+            .comment("工厂生成稀有度倍率：1.0 = 默认；2.0 = 少一半；0.5 = 多一倍")
+            .defineInRange("worldgen.rarity_multiplier", 1.0D, 0.1D, 20.0D);
+
+    // ---------------- 经济 ----------------
+    public static final ModConfigSpec.IntValue CROSS_COMPANY_EXCHANGE_FEE = BUILDER
+            .comment("跨公司兑换手续费（百分比，0~50）。20 表示换 100 票据要交 20 的手续费")
+            .defineInRange("economy.exchange_fee_percent", 20, 0, 50);
+
+    public static final ModConfigSpec.IntValue REPUTATION_PER_1000_SPENT = BUILDER
+            .comment("在该公司每消费多少票据，增加 1 点声望")
+            .defineInRange("economy.scrip_per_reputation_point", 1000, 1, 1_000_000);
+
+    // ---------------- 工厂 ----------------
+    public static final ModConfigSpec.IntValue ASSEMBLY_SECONDS_LOW = BUILDER
+            .comment("低级工厂组装一个物理结构需要多少秒")
+            .defineInRange("factory.assembly_seconds_low", 20, 1, 3600);
+
+    public static final ModConfigSpec.IntValue ASSEMBLY_SECONDS_MID = BUILDER
+            .comment("中级工厂组装秒数")
+            .defineInRange("factory.assembly_seconds_mid", 12, 1, 3600);
+
+    public static final ModConfigSpec.IntValue ASSEMBLY_SECONDS_HIGH = BUILDER
+            .comment("高级工厂组装秒数")
+            .defineInRange("factory.assembly_seconds_high", 6, 1, 3600);
+
+    public static final ModConfigSpec.BooleanValue REQUIRE_CARD_FOR_MACHINES = BUILDER
+            .comment("机器是否必须插着银行卡才能「花钱」（买商品 / 组装 / 收购结算）。",
+                    "界面本身不再要求插卡（老板要求随时能打开界面）；关掉这项等于取消所有插卡限制。")
+            .define("factory.require_bank_card", true);
+
+    public static final ModConfigSpec.IntValue ASSEMBLY_FEE_PER_BLOCK = BUILDER
+            .comment("组装费：蓝图里每个方块收多少票据（材料另算）")
+            .defineInRange("factory.assembly_fee_per_block", 20, 0, 100000);
+
+    public static final ModConfigSpec.IntValue MAX_BLUEPRINT_BLOCKS = BUILDER
+            .comment("单份蓝图允许的最大方块数（防止有人放超大蓝图卡服务器）")
+            .defineInRange("factory.max_blueprint_blocks", 8000, 16, 200000);
+
+    public static final ModConfigSpec.IntValue ASSEMBLY_MAX_RADIUS = BUILDER
+            .comment("组装好的结构最多离工厂多远（格）；地图选投放点的范围也是它")
+            .defineInRange("factory.assembly_max_radius", 96, 4, 256);
+
+    public static final ModConfigSpec.BooleanValue ASSEMBLE_AS_PHYSICS = BUILDER
+            .comment("工厂组装完成后是否直接变成物理结构（需要装 Sable；关掉就只放方块）")
+            .define("factory.assemble_as_physics", true);
+
+    public static final ModConfigSpec.BooleanValue CREATIVE_CRATE_INFINITE = BUILDER
+            .comment("工厂装配核心附近有【机械动力·创造板条箱】时：视为材料无限、不收组装费、立刻放置",
+                    "关掉就恢复成「要材料 + 要钱 + 要等」的正常流程")
+            .define("factory.creative_crate_infinite", true);
+
+    public static final ModConfigSpec.IntValue CREATIVE_CRATE_RANGE = BUILDER
+            .comment("找创造板条箱的半径（格）：以工厂装配核心为中心的正方体范围")
+            .defineInRange("factory.creative_crate_range", 5, 1, 32);
+
+    // ---------------- 收购站 ----------------
+    /**
+     * 收购节奏：每多少 tick 收一批（一格里的一批）。
+     *
+     * <p>老板定稿 = 10（每 0.5 秒收一批），这样投送动画（0.21 秒）放得完再收下一批。</p>
+     */
+    public static final ModConfigSpec.IntValue BUYER_TICKS_PER_BATCH = BUILDER
+            .comment("收购站每多少 tick 收一批（一格里的一批）",
+                    "10 = 每 0.5 秒收一批（老板定稿，配合投送动画）",
+                    "1 = 每 tick 都收（很快，但动画会跟不上）")
+            .defineInRange("buyer.ticks_per_batch", 10, 1, 200);
+
+    public static final ModConfigSpec.IntValue BUYER_BATCHES_PER_TICK = BUILDER
+            .comment("【已弃用】旧参数，保留只为兼容老配置文件；实际节奏看 buyer.ticks_per_batch")
+            .defineInRange("buyer.batches_per_tick", 1, 1, 100);
+
+    public static final ModConfigSpec.IntValue PHYSICS_MAX_BLOCKS = BUILDER
+            .comment("物理化时最多收集多少方块（太大的结构不物理化，避免卡服）")
+            .defineInRange("factory.physics_max_blocks", 4096, 64, 100000);
+
+    // ---------------- 焊接台 ----------------
+    public static final ModConfigSpec.IntValue WELDER_MAX_BLOCKS = BUILDER
+            .comment("焊接台一次最多把多少方块焊成一个物理结构")
+            .defineInRange("welder.max_blocks", 512, 8, 20000);
+
+    public static final ModConfigSpec.IntValue WELDER_RADIUS = BUILDER
+            .comment("焊接台的搜索范围（格）")
+            .defineInRange("welder.radius", 24, 2, 128);
+
+    // ---------------- 界面主题（客户端） ----------------
+    /**
+     * 用哪套界面主题。
+     *
+     * <p>目录约定见 {@code ThemeManager}：{@code default} 是模组内置的预设，
+     * {@code theme/custom/<名字>/} 是玩家自定义主题（每个文件夹一套，里面要有 index.html）。
+     * 填的名字不存在时<b>安静回退到 default</b>。</p>
+     */
+    public static final ModConfigSpec.ConfigValue<String> UI_THEME = BUILDER
+            .comment("界面主题：default = 模组内置预设；也可以填 theme/custom/ 下的文件夹名",
+                    "找不到就自动回退到 default（不会报错）")
+            .define("ui.theme", "default");
+
+    public static final ModConfigSpec SPEC = BUILDER.build();
+
+    private Config() {
+    }
+}

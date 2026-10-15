@@ -1,0 +1,34 @@
+{
+  "structures": [
+    {
+      "structure": "deepspacedeployer:factory_threshold_mid",
+      "weight": 1
+    },
+    {
+      "structure": "deepspacedeployer:factory_whisperbelt_mid",
+      "weight": 1
+    },
+    {
+      "structure": "deepspacedeployer:factory_brokenedge_mid",
+      "weight": 1
+    },
+    {
+      "structure": "deepspacedeployer:factory_skimmer_mid",
+      "weight": 1
+    },
+    {
+      "structure": "deepspacedeployer:factory_bedrock_mid",
+      "weight": 1
+    },
+    {
+      "structure": "deepspacedeployer:factory_astralink_mid",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 60,
+    "separation": 22,
+    "salt": 147002
+  }
+}

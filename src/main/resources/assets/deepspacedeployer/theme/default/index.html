@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<!--
+  深空铸造体 · 默认界面主题（收购投送机）
+  ================================================================
+  这就是一套完整的"界面主题"示例，你可以整个复制到
+      <版本文件夹>/deepspacedeployer/theme/custom/我的主题/
+  然后随便改，改完在游戏里按 F3+T 就能看到效果。
+
+  允许用的东西（子集，超出范围会被忽略，不会报错）：
+    标签   div  span  b  i  p  img  br  hr
+    选择器 标签 / .类 / #id / 后代（.a .b）
+    颜色  #RGB  #RRGGBB  #AARRGGBB  rgb()  rgba()  少量色名
+    盒子  width height padding margin border border-radius
+    文字  color font-size text-align line-height
+    布局  display(block/flex/none) flex-direction align-items
+          justify-content gap  position(relative/absolute) top/left/right/bottom
+    其它  opacity  overflow(hidden/scroll)  image-rendering(pixelated)
+
+  数据绑定（没有 JS！）：
+    {{键名}}            换成真实数据
+    data-if="键名"       为真才显示；data-if="!键名" 取反
+    data-repeat="列表"   按列表条数复制这段（配合 {{键名}} 取每项，全局键也能用）
+    data-action="动作"   按钮：点击时把动作发给模组
+-->
+<html>
+<head>
+  <title>收购投送机</title>
+  <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+  <div class="win">
+
+    <div class="bar">
+      <div class="title">{{公司}}</div>
+      <div class="chip" data-if="online">已开机</div>
+      <div class="chip off" data-if="!online">未插卡</div>
+    </div>
+
+    <div class="warn" data-if="blocked">⚠ 上方被阻挡无法工作</div>
+
+    <div class="info">
+      <div class="col">
+        <div class="k">账户</div>
+        <div class="v">{{账户}}</div>
+        <div class="k">本公司余额</div>
+        <div class="v gold">{{余额}}</div>
+      </div>
+      <div class="col">
+        <div class="k">等级 · 声望</div>
+        <div class="v">{{等级}} · {{声望}}</div>
+        <div class="k">卡上余额</div>
+        <div class="v">{{卡余额}}</div>
+      </div>
+    </div>
+
+    <div class="btns">
+      <div class="btn" data-action="toggle_autosell">自动收购：{{自动收购}}</div>
+      <div class="btn" data-action="sell_now">立即收购</div>
+      <div class="btn ghost" data-action="open_transfer">资金转化</div>
+    </div>
+
+    <div class="list">
+      <div class="listhead">收购价（每个）</div>
+      <div class="row" data-repeat="items">
+        <div class="name">{{名称}}</div>
+        <div class="price">{{单价}}</div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "deepspacedeployer:block/factory_terminal_brokenedge_low_lit"
+  }
+}

@@ -1,0 +1,14 @@
+pluginManagement {
+    repositories {
+        // 国内镜像优先，官方仓库兜底
+        maven { url = 'https://bmclapi2.bangbang93.com/maven' }
+        gradlePluginPortal()
+        maven { url = 'https://maven.neoforged.net/releases' }
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.8.0'
+}
+
+rootProject.name = 'deep-space-deployer'

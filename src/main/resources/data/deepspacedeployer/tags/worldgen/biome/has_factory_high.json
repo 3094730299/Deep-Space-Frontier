@@ -1,0 +1,16 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:jagged_peaks",
+    "minecraft:frozen_peaks",
+    "minecraft:stony_peaks",
+    "minecraft:stony_shore",
+    "minecraft:windswept_gravelly_hills",
+    "minecraft:snowy_slopes",
+    "minecraft:grove",
+    "minecraft:ice_spikes",
+    "biomesoplenty:auroral_garden",
+    "biomesoplenty:rocky_rainforest",
+    "biomesoplenty:rainforest"
+  ]
+}

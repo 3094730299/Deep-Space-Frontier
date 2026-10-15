@@ -1,0 +1,292 @@
+{
+  "variants": {
+    "column=c0,layer=l0,facing=north,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c0,layer=l0,facing=north,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c0,layer=l0,facing=east,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c0,layer=l0,facing=east,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c0,layer=l0,facing=south,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c0,layer=l0,facing=south,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c0,layer=l0,facing=west,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c0,layer=l0,facing=west,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c0,layer=l1,facing=north,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c0,layer=l1,facing=north,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c0,layer=l1,facing=east,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c0,layer=l1,facing=east,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c0,layer=l1,facing=south,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c0,layer=l1,facing=south,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c0,layer=l1,facing=west,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c0,layer=l1,facing=west,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c1,layer=l0,facing=north,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c1,layer=l0,facing=north,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c1,layer=l0,facing=east,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c1,layer=l0,facing=east,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c1,layer=l0,facing=south,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c1,layer=l0,facing=south,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c1,layer=l0,facing=west,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c1,layer=l0,facing=west,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c1,layer=l1,facing=north,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c1,layer=l1,facing=north,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c1,layer=l1,facing=east,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c1,layer=l1,facing=east,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c1,layer=l1,facing=south,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c1,layer=l1,facing=south,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c1,layer=l1,facing=west,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c1,layer=l1,facing=west,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c2,layer=l0,facing=north,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c2,layer=l0,facing=north,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c2,layer=l0,facing=east,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c2,layer=l0,facing=east,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c2,layer=l0,facing=south,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c2,layer=l0,facing=south,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c2,layer=l0,facing=west,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c2,layer=l0,facing=west,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c2,layer=l1,facing=north,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c2,layer=l1,facing=north,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c2,layer=l1,facing=east,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c2,layer=l1,facing=east,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c2,layer=l1,facing=south,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c2,layer=l1,facing=south,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c2,layer=l1,facing=west,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c2,layer=l1,facing=west,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c3,layer=l0,facing=north,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c3,layer=l0,facing=north,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c3,layer=l0,facing=east,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c3,layer=l0,facing=east,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c3,layer=l0,facing=south,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c3,layer=l0,facing=south,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c3,layer=l0,facing=west,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c3,layer=l0,facing=west,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c3,layer=l1,facing=north,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c3,layer=l1,facing=north,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c3,layer=l1,facing=east,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c3,layer=l1,facing=east,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c3,layer=l1,facing=south,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c3,layer=l1,facing=south,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c3,layer=l1,facing=west,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c3,layer=l1,facing=west,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c4,layer=l0,facing=north,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c4,layer=l0,facing=north,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c4,layer=l0,facing=east,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c4,layer=l0,facing=east,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c4,layer=l0,facing=south,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c4,layer=l0,facing=south,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c4,layer=l0,facing=west,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c4,layer=l0,facing=west,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c4,layer=l1,facing=north,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c4,layer=l1,facing=north,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c4,layer=l1,facing=east,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c4,layer=l1,facing=east,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c4,layer=l1,facing=south,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c4,layer=l1,facing=south,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c4,layer=l1,facing=west,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c4,layer=l1,facing=west,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c5,layer=l0,facing=north,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c5,layer=l0,facing=north,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c5,layer=l0,facing=east,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c5,layer=l0,facing=east,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c5,layer=l0,facing=south,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c5,layer=l0,facing=south,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c5,layer=l0,facing=west,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c5,layer=l0,facing=west,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c5,layer=l1,facing=north,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c5,layer=l1,facing=north,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c5,layer=l1,facing=east,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c5,layer=l1,facing=east,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c5,layer=l1,facing=south,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c5,layer=l1,facing=south,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c5,layer=l1,facing=west,formed=true": {
+      "model": "deepspacedeployer:block/printer_part"
+    },
+    "column=c5,layer=l1,facing=west,formed=false": {
+      "model": "deepspacedeployer:block/printer_part"
+    }
+  }
+}

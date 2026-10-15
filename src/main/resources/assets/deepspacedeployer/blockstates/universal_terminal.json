@@ -1,0 +1,20 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "deepspacedeployer:block/universal_terminal",
+      "y": 0
+    },
+    "facing=east": {
+      "model": "deepspacedeployer:block/universal_terminal",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "deepspacedeployer:block/universal_terminal",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "deepspacedeployer:block/universal_terminal",
+      "y": 270
+    }
+  }
+}

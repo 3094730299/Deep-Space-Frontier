@@ -1,0 +1,32 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "bonus_rolls": 0.0,
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "deepspacedeployer:buyer_whisperbelt",
+          "functions": [
+            {
+              "function": "minecraft:copy_state",
+              "source": "block_state",
+              "block": "deepspacedeployer:buyer",
+              "properties": [
+                "company",
+                "tier"
+              ]
+            }
+          ]
+        }
+      ],
+      "rolls": 1.0
+    }
+  ],
+  "random_sequence": "deepspacedeployer:blocks/buyer_whisperbelt"
+}

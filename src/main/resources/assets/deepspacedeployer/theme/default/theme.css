@@ -1,0 +1,142 @@
+/*
+  深空铸造体 · 默认主题样式表
+  ----------------------------------------------------------------
+  改这里就能改界面长相。想长期保留请复制到 theme/custom/<名字>/ 再改
+  （default 目录在模组更新时会被覆盖）。
+*/
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #101014;
+  color: #E8F4FF;
+  font-size: 9;
+}
+
+.win {
+  width: 100%;
+  padding: 6;
+}
+
+/* ---------- 顶部标题条 ---------- */
+.bar {
+  display: flex;
+  align-items: center;
+  height: 16;
+  padding: 0 6;
+  background: #171A22;
+  border: 1px;
+  border-color: #2A2F3D;
+  border-radius: 3;
+}
+
+.title {
+  color: #54C8FF;
+  font-size: 10;
+}
+
+.chip {
+  margin-left: 6;
+  padding: 0 4;
+  background: #1E3A2A;
+  color: #7CE38B;
+  border-radius: 3;
+}
+
+.chip.off {
+  background: #3A2222;
+  color: #FF7A7A;
+}
+
+/* ---------- 警告行（顶上被挡时才出现） ---------- */
+.warn {
+  margin-top: 4;
+  padding: 2 6;
+  background: #3A2222;
+  color: #FF7A7A;
+  border-radius: 3;
+}
+
+/* ---------- 两栏信息 ---------- */
+.info {
+  display: flex;
+  margin-top: 6;
+  gap: 8;
+}
+
+.col {
+  width: 48%;
+  padding: 4 6;
+  background: #171A22;
+  border-radius: 3;
+}
+
+.k {
+  color: #98A2B3;
+}
+
+.v {
+  margin-bottom: 4;
+  font-size: 10;
+}
+
+.gold {
+  color: #FFD479;
+}
+
+/* ---------- 按钮行 ---------- */
+.btns {
+  display: flex;
+  margin-top: 6;
+  gap: 4;
+}
+
+.btn {
+  padding: 3 6;
+  background: #223047;
+  color: #E8F4FF;
+  border: 1px;
+  border-color: #35507A;
+  border-radius: 3;
+  text-align: center;
+}
+
+.btn.ghost {
+  background: #1B1E28;
+  border-color: #2A2F3D;
+  color: #98A2B3;
+}
+
+/* ---------- 收购清单（可滚动） ---------- */
+.list {
+  margin-top: 6;
+  height: 74;
+  padding: 0 4;
+  background: #14161F;
+  border: 1px;
+  border-color: #2A2F3D;
+  border-radius: 3;
+  overflow: scroll;
+}
+
+.listhead {
+  color: #54C8FF;
+  padding: 3 2;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  height: 13;
+  padding: 0 2;
+}
+
+.row .name {
+  width: 70%;
+}
+
+.row .price {
+  width: 30%;
+  color: #FFD479;
+  text-align: right;
+}

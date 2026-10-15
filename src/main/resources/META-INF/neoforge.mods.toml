@@ -1,0 +1,83 @@
+modLoader = "javafml"
+loaderVersion = "${loader_version_range}"
+license = "${mod_license}"
+# 发布前可以在这里填你的问题反馈地址（GitHub Issues / Discord 邀请链接等）
+# issueTrackerURL = "https://github.com/你的名字/你的仓库/issues"
+
+[[mods]]
+modId = "${mod_id}"
+version = "${mod_version}"
+displayName = "Deep Space Deployer"
+displayTest = "MATCH_VERSION"
+authors = "${mod_authors}"
+description = '''
+深空铸造体 / Deep Space Deployer
+航空学附属：六大星际公司在世界上建厂，交易模块、上传蓝图、一键组装并焊接物理结构。
+'''
+logoFile = "deepspacedeployer_logo.png"
+
+# ---------------- 依赖 ----------------
+# 硬依赖：机械动力（蓝图格式与模块都来自 Create 生态）
+[[dependencies.${mod_id}]]
+modId = "neoforge"
+type = "required"
+versionRange = "${neo_version_range}"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.${mod_id}]]
+modId = "minecraft"
+type = "required"
+versionRange = "${minecraft_version_range}"
+ordering = "NONE"
+side = "BOTH"
+
+# 机械动力：默认表里引用了 create: 的物品、蓝图也是机械动力格式，
+# 但代码并不直接调用 Create 的类，所以设成 optional —— 没装 Create 也能进游戏，
+# 只是价目表里那些 create: 条目会被自动跳过（/dsd selftest 会列出来）。
+[[dependencies.${mod_id}]]
+modId = "create"
+type = "optional"
+versionRange = "[6.0.0,)"
+ordering = "AFTER"
+side = "BOTH"
+
+# ---------------- 可选联动（装了才启用对应功能） ----------------
+# GeckoLib：收购投送机 / 载具打印机 / 通用终端的模型与动画都靠它渲染。
+# 设成 optional —— 没装也能进游戏，只是这三个方块退回原版方块模型
+# （代码里用 ModList.isLoaded("geckolib") 判断，见 UniversalTerminalGeoSetup.available()）。
+[[dependencies.${mod_id}]]
+modId = "geckolib"
+type = "optional"
+versionRange = "[4.0.0,)"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies.${mod_id}]]
+modId = "aeronautics"
+type = "optional"
+versionRange = "[1.0.0,)"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies.${mod_id}]]
+modId = "sable"
+type = "optional"
+versionRange = "[2.0.0,)"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies.${mod_id}]]
+modId = "sable_schematic_api"
+type = "optional"
+versionRange = "[1.0.0,)"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies.${mod_id}]]
+modId = "synaxis"
+type = "optional"
+versionRange = "[1.0.0,)"
+ordering = "AFTER"
+side = "BOTH"
+

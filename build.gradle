@@ -1,0 +1,131 @@
+// ============================================================
+//  深空铸造体 Deep Space Deployer —— 构建脚本
+//  用的是 ModDevGradle（NeoForge 官方推荐的现代插件）
+//  你不需要看懂全部，改版本号请去 gradle.properties
+// ============================================================
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.143'
+}
+
+version = "${mod_version}+mc${minecraft_version}"
+group = mod_group_id
+base { archivesName = mod_id }
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+// ------------------------------------------------------------
+//  仓库：国内镜像放最前面（官方 maven.neoforged.net 在国内连不通）
+// ------------------------------------------------------------
+repositories {
+    // ★ NeoForge 官方 CDN 镜像：完整同步 maven.neoforged.net（国内直连可用）
+    maven { name = 'NeoForged-CDN'; url = 'https://neoforged.forgecdn.net/releases/' }
+    maven { name = 'NeoForged-CDN-MojangMeta'; url = 'https://neoforged.forgecdn.net/mojang-meta/' }
+    // 备用镜像（BMCLAPI，只缓存热门构件，放第二位兜底）
+    maven { name = 'BMCLAPI-NeoForge-Mirror'; url = 'https://bmclapi2.bangbang93.com/maven' }
+    maven { name = 'CreateMod'; url = 'https://maven.createmod.net' }
+    maven { name = 'RyanHCode (Sable/Aeronautics)'; url = 'https://maven.ryanhcode.dev/releases' }
+    maven { name = 'ithundxr (Registrate)'; url = 'https://maven.ithundxr.dev/snapshots' }
+    maven { name = 'Modrinth'; url = 'https://api.modrinth.com/maven' }
+    mavenCentral()
+}
+
+// ------------------------------------------------------------
+//  ⚠️ 国内网络修正（重要，别删）
+//  ModDevGradle 会自动添加 maven.neoforged.net 的两个仓库，而且排在前面；
+//  这个域名在国内被 DNS 污染（解析到 Facebook 的 IP），每次访问都要等到超时。
+//  下面把所有指向它的仓库"改写"成国内可达的地址：
+//    maven.neoforged.net/releases     → neoforged.forgecdn.net/releases（官方 CDN 镜像）
+//    maven.neoforged.net/mojang-meta  → neoforged.forgecdn.net/mojang-meta（同一个镜像）
+//  用 configureEach 是懒加载写法，所以插件后面加的仓库也会被改到。
+// ------------------------------------------------------------
+repositories.withType(MavenArtifactRepository).configureEach { repo ->
+    def repoUrl = repo.url.toString()
+    if (repoUrl.contains('maven.neoforged.net/mojang-meta')) {
+        repo.setUrl('https://neoforged.forgecdn.net/mojang-meta/')
+    } else if (repoUrl.contains('maven.neoforged.net')) {
+        repo.setUrl('https://neoforged.forgecdn.net/releases/')
+    }
+}
+
+neoForge {
+    // NeoForge 版本在 gradle.properties 里改
+    version = project.neo_version
+
+    // 访问转换器（暂时不需要，留空即可）
+    // accessTransformers.from 'src/main/resources/META-INF/accesstransformer.cfg'
+
+    runs {
+        client {
+            client()
+            // 中文字体/调试：需要的话可以在这里加 JVM 参数
+        }
+        server {
+            server()
+            programArgument '--nogui'
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+// ------------------------------------------------------------
+//  依赖
+//  说明：一期（M1）刻意不依赖任何其它模组，纯 NeoForge 就能编译，
+//       这样只要 NeoForge 能下载成功，模组就一定能编译出来。
+//       与航空学/控制学的联动通过「方块 id 字符串 + 反射」实现，
+//       等一期跑通后再决定要不要加编译期依赖。
+// ------------------------------------------------------------
+dependencies {
+    // GeckoLib：通用终端的模型与动画（几何/动画都用官方导出器的产物）。
+    // 运行期由整合包提供，所以是 compileOnly。
+    compileOnly files("libs/geckolib-neoforge-1.21.1-4.9.3.jar")
+    // compileOnly("com.simibubi.create:create-1.21.1:6.0.10-280:slim") { transitive = false }
+    // compileOnly("dev.ryanhcode.sable:sable-neoforge-1.21.1:2.0.6")
+
+}
+
+// ------------------------------------------------------------
+//  把 gradle.properties 里的值填进 neoforge.mods.toml
+// ------------------------------------------------------------
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            neo_version            : neo_version,
+            neo_version_range      : neo_version_range,
+            loader_version_range   : loader_version_range,
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+            mod_authors            : mod_authors,
+            mod_description        : mod_description
+    ]
+    inputs.properties replaceProperties
+    filesMatching(['META-INF/neoforge.mods.toml']) {
+        expand replaceProperties
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    manifest {
+        attributes([
+                'Specification-Title'     : mod_id,
+                'Specification-Vendor'    : mod_authors,
+                'Specification-Version'   : '1',
+                'Implementation-Title'    : project.name,
+                'Implementation-Version'  : project.version,
+                'Implementation-Vendor'   : mod_authors
+        ])
+    }
+}
+
+// 中文注释不会影响编译；编译时如果看到乱码警告可以忽略
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}

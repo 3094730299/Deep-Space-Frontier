@@ -1,0 +1,141 @@
+﻿package com.deepspacedeployer.client;
+
+import com.deepspacedeployer.menu.MachineMenu;
+import com.deepspacedeployer.menu.TransferMenu;
+import com.deepspacedeployer.net.MachineActionPayload;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Inventory;
+import net.neoforged.neoforge.network.PacketDistributor;
+
+/**
+ * 璧勯噾杞寲鐣岄潰锛氫袱寮犻摱琛屽崱 + 閲戦 + 鍚勭璧勯噾鎿嶄綔锛堜粠鍟嗗簵鐣岄潰鎼繃鏉ョ殑锛夈€? */
+public class TransferScreen extends AbstractContainerScreen<TransferMenu> {
+
+    private static final int BG = 0xFF101018;
+    private static final int PANEL = 0xFF1E1E28;
+    private static final int ACCENT = 0xFF54C8FF;
+    private static final int TEXT = 0xFFE8F4FF;
+    private static final int TEXT_DIM = 0xFF8A94A6;
+
+    // 鍔ㄤ綔缂栧彿锛堝拰 MachineBlockEntity.handleTransfer 瀵归綈锛?    private static final int ACT_CARD_TO_CARD = 21;
+    private static final int ACT_DEPOSIT_ALL = 22;
+    private static final int ACT_TO_CARD = 23;
+    private static final int ACT_TO_ITEMS = 24;
+    private static final int ACT_FROM_CARD = 25;
+    private static final int ACT_EXCHANGE = 26;
+    private static final int ACT_REPORT = 27;
+    private static final int ACT_BACK = 28;
+
+    private EditBox amountBox;
+
+    public TransferScreen(TransferMenu menu, Inventory inventory, Component title) {
+        super(menu, inventory, title);
+        this.imageWidth = 288;
+        this.imageHeight = 270;
+        this.inventoryLabelY = -1000;
+    }
+
+    private long amount() {
+        if (this.amountBox == null) {
+            return 100L;
+        }
+        try {
+            return Math.max(1L, Long.parseLong(this.amountBox.getValue().trim()));
+        } catch (NumberFormatException e) {
+            return 1L;
+        }
+    }
+
+    @Override
+    protected void init() {
+        super.init();
+        int x = this.leftPos;
+        int y = this.topPos;
+
+        // 宸︿笂瑙掞細杩斿洖鍟嗗簵
+        addRenderableWidget(Button.builder(Component.translatable("gui.deepspacedeployer.transfer_back"),
+                        b -> send(ACT_BACK, 0L))
+                .bounds(x + 6, y + 6, 52, 18).build());
+
+        // 閲戦杈撳叆
+        this.amountBox = new EditBox(this.font, x + 96, y + 96, 80, 18,
+                Component.translatable("gui.deepspacedeployer.amount_hint"));
+        this.amountBox.setMaxLength(10);
+        this.amountBox.setFilter(text -> text.isEmpty() || text.matches("[0-9]{1,10}"));
+        this.amountBox.setValue("100");
+        addRenderableWidget(this.amountBox);
+
+        // 鍗?鈫?鍗★紙涓昏鍔熻兘锛?        addRenderableWidget(Button.builder(Component.translatable("gui.deepspacedeployer.transfer_card_to_card"),
+                        b -> send(ACT_CARD_TO_CARD, amount()))
+                .bounds(x + 182, y + 96, 100, 18).build());
+
+        // 浠庡晢搴楃晫闈㈡惉杩囨潵鐨勯偅浜?        addRenderableWidget(Button.builder(Component.translatable("gui.deepspacedeployer.deposit"),
+                        b -> send(ACT_DEPOSIT_ALL, 0L))
+                .bounds(x + 8, y + 122, 66, 18).build());
+        addRenderableWidget(Button.builder(Component.translatable("gui.deepspacedeployer.to_card"),
+                        b -> send(ACT_TO_CARD, amount()))
+                .bounds(x + 78, y + 122, 66, 18).build());
+        addRenderableWidget(Button.builder(Component.translatable("gui.deepspacedeployer.withdraw_amount"),
+                        b -> send(ACT_TO_ITEMS, amount()))
+                .bounds(x + 148, y + 122, 60, 18).build());
+        addRenderableWidget(Button.builder(Component.translatable("gui.deepspacedeployer.from_card"),
+                        b -> send(ACT_FROM_CARD, amount()))
+                .bounds(x + 212, y + 122, 70, 18).build());
+        addRenderableWidget(Button.builder(Component.translatable("gui.deepspacedeployer.exchange"),
+                        b -> send(ACT_EXCHANGE, 0L))
+                .bounds(x + 8, y + 144, 88, 18).build());
+        addRenderableWidget(Button.builder(Component.translatable("gui.deepspacedeployer.balance_button"),
+                        b -> send(ACT_REPORT, 0L))
+                .bounds(x + 100, y + 144, 88, 18).build());
+    }
+
+    private void send(int action, long amount) {
+        if (this.minecraft == null) {
+            return;
+        }
+        PacketDistributor.sendToServer(new MachineActionPayload(
+                this.menu.dataValue(MachineMenu.DATA_POS_X),
+                this.menu.dataValue(MachineMenu.DATA_POS_Y),
+                this.menu.dataValue(MachineMenu.DATA_POS_Z),
+                action, amount));
+    }
+
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        this.renderBackground(graphics, mouseX, mouseY, partialTick);
+        int x = this.leftPos;
+        int y = this.topPos;
+        graphics.fill(x, y, x + this.imageWidth, y + this.imageHeight, BG);
+        graphics.fill(x + 1, y + 1, x + this.imageWidth - 1, y + this.imageHeight - 1, PANEL);
+        graphics.fill(x + 1, y + 15, x + this.imageWidth - 1, y + 16, ACCENT);
+
+        graphics.drawString(this.font, this.title, x + 66, y + 10, ACCENT, false);
+        graphics.drawString(this.font, Component.translatable("gui.deepspacedeployer.transfer_hint"),
+                x + 8, y + 34, TEXT_DIM, false);
+
+        // 涓や釜鍗℃Ы鐨勮鏄?        graphics.drawString(this.font, Component.translatable("gui.deepspacedeployer.transfer_card_from"),
+                x + TransferMenu.CARD1_X, y + TransferMenu.CARD1_Y - 12, TEXT, false);
+        graphics.drawString(this.font, Component.translatable("gui.deepspacedeployer.transfer_card_to"),
+                x + TransferMenu.CARD2_X, y + TransferMenu.CARD2_Y - 12, TEXT, false);
+        graphics.drawString(this.font, "鈫?, x + 140, y + TransferMenu.CARD1_Y + 4, ACCENT, false);
+
+        super.render(graphics, mouseX, mouseY, partialTick);
+    }
+
+    @Override
+    protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
+        // 鍏ㄧ敤缁濆鍧愭爣鐢伙紝杩欓噷涓嶇敾浠讳綍涓滆タ
+    }
+
+    @Override
+    public boolean isPauseScreen() {
+        return false;
+    }
+}
+

@@ -1,0 +1,200 @@
+{
+  "company": "skimmer",
+  "_说明": "价格单位是该公司票据；tier=low/mid/high 是需要的工厂等级；reputation 是需要的声望；blueprint 只用于蓝图凭证。改完用 /reload 生效。",
+  "buy": [
+    {
+      "item": "aeronautics:wooden_propeller",
+      "count": 1,
+      "price": 90,
+      "tier": "low",
+      "reputation": 0
+    },
+    {
+      "item": "aeronautics:andesite_propeller",
+      "count": 1,
+      "price": 190,
+      "tier": "low",
+      "reputation": 0
+    },
+    {
+      "item": "aeronautics:propeller_bearing",
+      "count": 1,
+      "price": 260,
+      "tier": "low",
+      "reputation": 0
+    },
+    {
+      "item": "simulated:orange_portable_engine",
+      "count": 1,
+      "price": 380,
+      "tier": "mid",
+      "reputation": 5
+    },
+    {
+      "item": "simulated:yellow_portable_engine",
+      "count": 1,
+      "price": 380,
+      "tier": "mid",
+      "reputation": 5
+    },
+    {
+      "item": "aeronautics:gyroscopic_propeller_bearing",
+      "count": 1,
+      "price": 620,
+      "tier": "mid",
+      "reputation": 15
+    },
+    {
+      "item": "aeronautics:steam_vent",
+      "count": 1,
+      "price": 550,
+      "tier": "high",
+      "reputation": 20
+    },
+    {
+      "item": "deepspacedeployer:blueprint_voucher",
+      "count": 1,
+      "price": 1100,
+      "tier": "low",
+      "reputation": 0,
+      "blueprint": "test_platform"
+    },
+    {
+      "item": "deepspacedeployer:blueprint_voucher",
+      "count": 1,
+      "price": 3600,
+      "tier": "mid",
+      "reputation": 15,
+      "blueprint": "small_airship"
+    },
+    {
+      "item": "deepspacedeployer:skimmer_license",
+      "count": 1,
+      "price": 2500,
+      "tier": "mid",
+      "reputation": 10
+    }
+  ],
+  "sell": [
+    {
+      "item": "minecraft:iron_ingot",
+      "count": 1,
+      "price": 8
+    },
+    {
+      "item": "minecraft:copper_ingot",
+      "count": 1,
+      "price": 5
+    },
+    {
+      "item": "minecraft:gold_ingot",
+      "count": 1,
+      "price": 12
+    },
+    {
+      "item": "minecraft:redstone",
+      "count": 1,
+      "price": 3
+    },
+    {
+      "item": "minecraft:quartz",
+      "count": 1,
+      "price": 6
+    },
+    {
+      "item": "minecraft:diamond",
+      "count": 1,
+      "price": 45
+    },
+    {
+      "item": "minecraft:netherite_scrap",
+      "count": 1,
+      "price": 200
+    },
+    {
+      "item": "create:andesite_alloy",
+      "count": 1,
+      "price": 10
+    },
+    {
+      "item": "create:zinc_ingot",
+      "count": 1,
+      "price": 9
+    },
+    {
+      "item": "create:brass_ingot",
+      "count": 1,
+      "price": 20
+    },
+    {
+      "item": "create:iron_sheet",
+      "count": 1,
+      "price": 7
+    },
+    {
+      "item": "create:copper_sheet",
+      "count": 1,
+      "price": 6
+    },
+    {
+      "item": "create:brass_sheet",
+      "count": 1,
+      "price": 16
+    },
+    {
+      "item": "create:electron_tube",
+      "count": 1,
+      "price": 28
+    },
+    {
+      "item": "create:precision_mechanism",
+      "count": 1,
+      "price": 95
+    },
+    {
+      "item": "create:sturdy_sheet",
+      "count": 1,
+      "price": 65
+    },
+    {
+      "item": "create:powdered_obsidian",
+      "count": 1,
+      "price": 32
+    },
+    {
+      "item": "create:rose_quartz",
+      "count": 1,
+      "price": 22
+    },
+    {
+      "item": "create:propeller",
+      "count": 1,
+      "price": 48
+    },
+    {
+      "item": "create:whisk",
+      "count": 1,
+      "price": 48
+    },
+    {
+      "item": "aeronautics:end_stone_powder",
+      "count": 1,
+      "price": 14
+    },
+    {
+      "item": "aeronautics:levitite",
+      "count": 1,
+      "price": 160
+    },
+    {
+      "item": "simulated:altitude_sensor",
+      "count": 1,
+      "price": 45
+    },
+    {
+      "item": "simulated:laser_sensor",
+      "count": 1,
+      "price": 45
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "deepspacedeployer:block/market_brokenedge_low_lit"
+  }
+}

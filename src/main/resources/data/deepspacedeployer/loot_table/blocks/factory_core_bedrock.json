@@ -1,0 +1,32 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "bonus_rolls": 0.0,
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "deepspacedeployer:factory_core_bedrock",
+          "functions": [
+            {
+              "function": "minecraft:copy_state",
+              "source": "block_state",
+              "block": "deepspacedeployer:factory_core",
+              "properties": [
+                "company",
+                "tier"
+              ]
+            }
+          ]
+        }
+      ],
+      "rolls": 1.0
+    }
+  ],
+  "random_sequence": "deepspacedeployer:blocks/factory_core_bedrock"
+}

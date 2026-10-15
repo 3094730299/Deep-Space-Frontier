@@ -1,0 +1,153 @@
+package com.deepspacedeployer.menu;
+
+import com.deepspacedeployer.blockentity.MachineBlockEntity;
+import com.deepspacedeployer.registry.ModItems;
+import com.deepspacedeployer.registry.ModMenus;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ContainerData;
+import net.minecraft.world.inventory.SimpleContainerData;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+
+/**
+ * 资金转化界面：两张银行卡（真卡槽）+ 金额输入 + 各种资金操作。
+ *
+ * <p>两张卡放在菜单自带的容器里（不写进世界），关界面时会还给玩家 ——
+ * 这样"从一张卡转到另一张卡"才有地方放卡。</p>
+ */
+public class TransferMenu extends AbstractContainerMenu {
+
+    /** 卡槽格数 */
+    public static final int CARD_SLOTS = 2;
+    /** 玩家背包起点（和机器界面保持一致） */
+    private static final int PLAYER_INV_Y = 186;
+    private static final int PLAYER_INV_X = 63;
+
+    /** 卡1（来源）/ 卡2（目标）在界面上的位置 */
+    public static final int CARD1_X = 60;
+    public static final int CARD1_Y = 60;
+    public static final int CARD2_X = 180;
+    public static final int CARD2_Y = 60;
+
+    private final SimpleContainer cards = new SimpleContainer(CARD_SLOTS);
+    private final MachineBlockEntity machine;
+    private final ContainerData data;
+
+    /** 服务端用：从方块实体打开 */
+    public TransferMenu(int windowId, Inventory playerInventory, MachineBlockEntity machine) {
+        super(ModMenus.TRANSFER.get(), windowId);
+        this.machine = machine;
+        this.data = machine.createDataAccess();
+        addDataSlots(this.data);
+        setupSlots(playerInventory);
+    }
+
+    /** 客户端用：只靠数据槽（公司/等级/余额都是同步过来的） */
+    public TransferMenu(int windowId, Inventory playerInventory) {
+        super(ModMenus.TRANSFER.get(), windowId);
+        this.machine = null;
+        this.data = new SimpleContainerData(MachineMenu.DATA_COUNT);
+        addDataSlots(this.data);
+        setupSlots(playerInventory);
+    }
+
+    private void setupSlots(Inventory playerInventory) {
+        this.addSlot(new Slot(this.cards, 0, CARD1_X, CARD1_Y) {
+            @Override
+            public boolean mayPlace(ItemStack stack) {
+                return ModItems.isBankCard(stack);
+            }
+
+            @Override
+            public int getMaxStackSize() {
+                return 1;
+            }
+        });
+        this.addSlot(new Slot(this.cards, 1, CARD2_X, CARD2_Y) {
+            @Override
+            public boolean mayPlace(ItemStack stack) {
+                return ModItems.isBankCard(stack);
+            }
+
+            @Override
+            public int getMaxStackSize() {
+                return 1;
+            }
+        });
+
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 9; col++) {
+                this.addSlot(new Slot(playerInventory, col + row * 9 + 9,
+                        PLAYER_INV_X + col * 18, PLAYER_INV_Y + row * 18));
+            }
+        }
+        for (int col = 0; col < 9; col++) {
+            this.addSlot(new Slot(playerInventory, col, PLAYER_INV_X + col * 18, PLAYER_INV_Y + 58));
+        }
+    }
+
+    /** 关界面时把两张卡还给玩家（背包满了就掉在脚边） */
+    @Override
+    public void removed(Player player) {
+        super.removed(player);
+        if (!player.level().isClientSide) {
+            for (int i = 0; i < CARD_SLOTS; i++) {
+                ItemStack stack = this.cards.removeItemNoUpdate(i);
+                if (!stack.isEmpty() && !player.getInventory().add(stack)) {
+                    player.drop(stack, false);
+                }
+            }
+        }
+    }
+
+    public ItemStack card(int index) {
+        return this.cards.getItem(index);
+    }
+
+    /** 服务端拿方块实体（客户端返回 null） */
+    public MachineBlockEntity machine() {
+        return this.machine;
+    }
+
+    public int dataValue(int index) {
+        return this.data.get(index);
+    }
+
+    @Override
+    public ItemStack quickMoveStack(Player player, int index) {
+        Slot slot = this.slots.get(index);
+        if (slot == null || !slot.hasItem()) {
+            return ItemStack.EMPTY;
+        }
+        ItemStack stack = slot.getItem();
+        ItemStack copy = stack.copy();
+        if (index < CARD_SLOTS) {
+            if (!this.moveItemStackTo(stack, CARD_SLOTS, this.slots.size(), true)) {
+                return ItemStack.EMPTY;
+            }
+        } else if (ModItems.isBankCard(stack)) {
+            if (!this.moveItemStackTo(stack, 0, CARD_SLOTS, false)) {
+                return ItemStack.EMPTY;
+            }
+        } else {
+            return ItemStack.EMPTY;
+        }
+        if (stack.isEmpty()) {
+            slot.set(ItemStack.EMPTY);
+        } else {
+            slot.setChanged();
+        }
+        return copy;
+    }
+
+    @Override
+    public boolean stillValid(Player player) {
+        BlockPos pos = new BlockPos(this.data.get(MachineMenu.DATA_POS_X),
+                this.data.get(MachineMenu.DATA_POS_Y), this.data.get(MachineMenu.DATA_POS_Z));
+        return player.distanceToSqr(pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D) <= 64.0D;
+    }
+}

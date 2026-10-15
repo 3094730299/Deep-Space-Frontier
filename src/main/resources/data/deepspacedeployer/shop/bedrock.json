@@ -1,0 +1,198 @@
+{
+  "company": "bedrock",
+  "_说明": "价格单位是该公司票据；tier=low/mid/high 是需要的工厂等级；reputation 是需要的声望；blueprint 只用于蓝图凭证。改完用 /reload 生效。",
+  "buy": [
+    {
+      "item": "create:iron_sheet",
+      "count": 8,
+      "price": 90,
+      "tier": "low",
+      "reputation": 0
+    },
+    {
+      "item": "create:copper_sheet",
+      "count": 8,
+      "price": 80,
+      "tier": "low",
+      "reputation": 0
+    },
+    {
+      "item": "simulated:gray_handle",
+      "count": 4,
+      "price": 140,
+      "tier": "low",
+      "reputation": 0
+    },
+    {
+      "item": "simulated:gray_nameplate",
+      "count": 4,
+      "price": 120,
+      "tier": "low",
+      "reputation": 0
+    },
+    {
+      "item": "simulated:analog_transmission",
+      "count": 1,
+      "price": 340,
+      "tier": "mid",
+      "reputation": 5
+    },
+    {
+      "item": "simulated:directional_gearshift",
+      "count": 1,
+      "price": 380,
+      "tier": "mid",
+      "reputation": 10
+    },
+    {
+      "item": "simulated:auger_shaft",
+      "count": 1,
+      "price": 420,
+      "tier": "mid",
+      "reputation": 10
+    },
+    {
+      "item": "simulated:auger_cog",
+      "count": 1,
+      "price": 420,
+      "tier": "high",
+      "reputation": 20
+    },
+    {
+      "item": "deepspacedeployer:bedrock_license",
+      "count": 1,
+      "price": 2500,
+      "tier": "mid",
+      "reputation": 10
+    },
+    {
+      "item": "deepspacedeployer:tier_upgrade_kit",
+      "count": 1,
+      "price": 3000,
+      "tier": "low",
+      "reputation": 5
+    }
+  ],
+  "sell": [
+    {
+      "item": "minecraft:iron_ingot",
+      "count": 1,
+      "price": 8
+    },
+    {
+      "item": "minecraft:copper_ingot",
+      "count": 1,
+      "price": 5
+    },
+    {
+      "item": "minecraft:gold_ingot",
+      "count": 1,
+      "price": 12
+    },
+    {
+      "item": "minecraft:redstone",
+      "count": 1,
+      "price": 3
+    },
+    {
+      "item": "minecraft:quartz",
+      "count": 1,
+      "price": 6
+    },
+    {
+      "item": "minecraft:diamond",
+      "count": 1,
+      "price": 45
+    },
+    {
+      "item": "minecraft:netherite_scrap",
+      "count": 1,
+      "price": 200
+    },
+    {
+      "item": "create:andesite_alloy",
+      "count": 1,
+      "price": 10
+    },
+    {
+      "item": "create:zinc_ingot",
+      "count": 1,
+      "price": 9
+    },
+    {
+      "item": "create:brass_ingot",
+      "count": 1,
+      "price": 20
+    },
+    {
+      "item": "create:iron_sheet",
+      "count": 1,
+      "price": 7
+    },
+    {
+      "item": "create:copper_sheet",
+      "count": 1,
+      "price": 6
+    },
+    {
+      "item": "create:brass_sheet",
+      "count": 1,
+      "price": 16
+    },
+    {
+      "item": "create:electron_tube",
+      "count": 1,
+      "price": 28
+    },
+    {
+      "item": "create:precision_mechanism",
+      "count": 1,
+      "price": 95
+    },
+    {
+      "item": "create:sturdy_sheet",
+      "count": 1,
+      "price": 65
+    },
+    {
+      "item": "create:powdered_obsidian",
+      "count": 1,
+      "price": 32
+    },
+    {
+      "item": "create:rose_quartz",
+      "count": 1,
+      "price": 22
+    },
+    {
+      "item": "create:propeller",
+      "count": 1,
+      "price": 48
+    },
+    {
+      "item": "create:whisk",
+      "count": 1,
+      "price": 48
+    },
+    {
+      "item": "aeronautics:end_stone_powder",
+      "count": 1,
+      "price": 14
+    },
+    {
+      "item": "aeronautics:levitite",
+      "count": 1,
+      "price": 160
+    },
+    {
+      "item": "simulated:altitude_sensor",
+      "count": 1,
+      "price": 45
+    },
+    {
+      "item": "simulated:laser_sensor",
+      "count": 1,
+      "price": 45
+    }
+  ]
+}
