@@ -42,7 +42,16 @@ python tools\check_gecko_textures.py   # 贴图尺寸 vs geo 声明（黑紫问�
 python tools\check_gecko_animations.py # 动画关键帧规则（"模型在但一动不动"）
 python tools\verify_readme_claims.py   # 交接文档里的技术断言是否还成立（46 条）
 python tools\install.py                # 安全装机（SHA256 + 逐条目校验）
-python tools\make_github_repo.py       # 同步到桌面仓库
 ```
+
+**改完必须提交到 git 仓库**（老板 2026-10-15 定的规矩）：
+
+```powershell
+git add -A
+git commit -m "一句话说清这次改了什么"
+```
+
+> `tools/make_github_repo.py`（把项目导出到桌面副本）**已停用**，平时不要跑 ——
+> 仓库就是项目根目录本身，不再维护第二份副本。
 
 **红了就先修，不要往下做。**
