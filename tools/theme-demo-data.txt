@@ -1,0 +1,40 @@
+# 界面主题 · 离线预览用的示例数据（UTF-8，一行一个 key=value）
+# ---------------------------------------------------------------
+# 用法（详见 docs/开发文档/界面主题系统.md 第五节）：
+#   java -cp out com.deepspacedeployer.ui.theme.PreviewCanvas ^
+#        src\main\resources\assets\deepspacedeployer\theme\default 256 200 preview.png ^
+#        "@tools\theme-demo-data.txt"
+#
+# 这些键就是默认主题 index.html 里 {{...}} 用的那些。
+# 接进游戏后，同样的键由界面代码从方块实体里取真实值填进去。
+
+# ---- 单值 ----
+公司=星联动力联盟
+账户=小雾
+余额=12,340
+等级=高级工厂
+声望=37
+卡余额=980
+自动收购=开
+online=1
+blocked=1
+
+# ---- 列表（data-repeat="items"）----
+# 列表必须有 <名字>.count；每一项的键是 <名字>.<序号>.<字段>
+items.count=8
+items.0.名称=铁锭
+items.0.单价=12
+items.1.名称=铜锭
+items.1.单价=9
+items.2.名称=钢锭
+items.2.单价=24
+items.3.名称=金锭
+items.3.单价=61
+items.4.名称=红石
+items.4.单价=3
+items.5.名称=青金石
+items.5.单价=7
+items.6.名称=下界石英
+items.6.单价=15
+items.7.名称=工业级电路板
+items.7.单价=128
