@@ -75,7 +75,10 @@
 ```
 项目根目录   C:\Users\30947\Documents\deepseek-harness\default-workspace\deep-space-deployer
 git 仓库     就是项目根目录本身（.git 在里面，分支 main）
+             远程 origin = https://github.com/3094730299/Deep-Space-Frontier.git（**私有仓库**）
              ⚠️ 2026-10-15 起：**改动只提交这个仓库**，不再往桌面副本同步
+             ⚠️ 这台机器 github.com 被 Steam++/Watt Toolkit 代理到 127.0.0.1，
+                浏览器正常，git 也能用（已实测推送成功）；不要以为"DNS 坏了"去乱改 hosts
 桌面副本     C:\Users\30947\Desktop\深空铸造   ← **已停用**（旧规矩遗留；别再去同步它）
 整合包版本   C:\Users\30947\Desktop\.minecraft\versions\孢子危机
 装机目录     …\versions\孢子危机\mods\deepspacedeployer-0.1.0+mc1.21.1.jar
@@ -495,9 +498,11 @@ sellAllSlots()       → if (blockedAbove()) return false;   // 手动「立即�
 
 ```
 版本        0.1.0+mc1.21.1
-License     见 LICENSE
-仓库        项目根目录里的 git 仓库（分支 main）
+License     见 LICENSE（All Rights Reserved）
+仓库        本地：项目根目录里的 git 仓库（分支 main）
              C:\Users\30947\Documents\deepseek-harness\default-workspace\deep-space-deployer
-             【桌面副本 深空铸造 已停用，不再同步】
+            远程：https://github.com/3094730299/Deep-Space-Frontier.git（私有）
+            推送：git push origin main   （首次推送用过 --force-with-lease 清掉 GitHub 的占位 README）
+            【桌面副本 深空铸造 已停用，不再同步】
 贡献        CONTRIBUTING.md
 ```
