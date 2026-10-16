@@ -151,7 +151,8 @@ public final class LayoutEngine {
             box.y = py;
             box.w = w;
             box.h = h;
-            layoutContents(node, box, w, h, containing != null ? containing : box);
+            // 绝对定位元素的子元素看到的是它自己的高度（同理，不能看到父级那一大块）
+            layoutContents(node, box, w, h, containing != null ? containing : box, h);
             return 0f;                                  // 不占流内高度
         }
 
@@ -192,8 +193,16 @@ public final class LayoutEngine {
         box.h = outerH;
 
         // ---- 摆内容；内容比容器高时，把容器撑高（除非写了固定高度） ----
+        //
+        // ⚠️ 传给内容的"可用高度"要按【盒子自己算出来的高度】封顶，不能直接用父级给的那一大块。
+        //    踩过的坑：一行没写高度的 flex 按钮（.btns）会被父级传进来 availH=216，
+        //    于是 flex 的 align-items:stretch 把每个按钮拉到 216 高、
+        //    连行高也一起变成 216 —— 实测按钮从 18px 变 34px，整个版面被顶破。
+        //    CSS 里 auto 高度的盒子高度就是内容高度，子元素不该看到父级的剩余空间。
+        float contentAvailH = autoHeight ? outerH : availH;
         float used = layoutContents(node, box, outerW, outerH,
-                "relative".equals(st.position) || "absolute".equals(st.position) ? box : containing);
+                "relative".equals(st.position) || "absolute".equals(st.position) ? box : containing,
+                contentAvailH);
         box.contentHeight = used;
         if (autoHeight) {
             float need = used + 2f * st.borderWidth + st.padTop + st.padBottom;
@@ -210,9 +219,15 @@ public final class LayoutEngine {
         return box.usedHeight + st.marTop + st.marBottom;
     }
 
-    /** 摆这个元素的内容（文字流 + 子元素），返回内容占用的高度 */
+    /**
+     * 摆这个元素的内容（文字流 + 子元素），返回内容占用的高度。
+     *
+     * @param availHForChildren 子元素能看到的"可用高度"。
+     *        没写高度的盒子传它<b>自己算出来的高度</b>（见 layoutChild 里的说明），
+     *        写了高度的盒子传父级给的剩余空间（这样 height:100% 才有意义）。
+     */
     private float layoutContents(HtmlNode node, LayoutBox box, float outerW, float outerH,
-                                 LayoutBox containing) {
+                                 LayoutBox containing, float availHForChildren) {
         Style st = node.style;
         float cx = box.contentX(st);
         float cy = box.contentY(st);
@@ -238,7 +253,8 @@ public final class LayoutEngine {
                 y += layoutFlex(blocks, node, cx, cy, cw, ch, containing);
             } else {
                 for (HtmlNode child : blocks) {
-                    float used = layoutChild(child, cx, y, cw, ch - (y - cy), containing);
+                    float used = layoutChild(child, cx, y, cw,
+                            Math.max(1f, availHForChildren - (y - cy)), containing);
                     y += used;
                 }
             }

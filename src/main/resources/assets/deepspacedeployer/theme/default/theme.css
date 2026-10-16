@@ -1,241 +1,33 @@
 /*
-  深空铸造体 · 默认界面主题（共用样式表）
+  深空铸造体 · 界面主题【机器界面补充】—— theme.css
   ================================================================
-  十个界面（机器界面 / 资金转化 / 主题选择 ……）都 <link> 这一份。
-  想只改一套配色：把这份复制到 theme/custom/<你的主题>/theme.css 再改，
-  你自己的目录优先于 default/，不用复制那十个 html。
+  ⚠️ 这份文件是**机器界面专用**的（有物品格的那几个：商店 / 收购机 / 载具打印机 /
+     寄售市场 / 资金转化 / 通用终端）。它只放两样东西：
 
-  ⚠️ 这是个【子集渲染器】，不是浏览器。支持的写法见
-     docs/开发文档/界面主题系统.md。超出范围的属性会被静默忽略（不会报错、不会崩）。
+        ① 原生槽位占位（物品格由原版画，主题只留位置）
+        ② 主题选择菜单的样式
 
-  和浏览器不一样的一条：width/height 是【边框盒】（含 padding 和 border），
-  所以 width:100% 加上 padding 不会溢出。
+     其它一切（配色、字号、标题条、按钮、列表……）都在【共用底层】base.css 里 ——
+     每个 html 都是先 <link> base.css 再 <link> 这一份，所以这里可以覆盖底层。
+
+  ★ 想自己写主题：不用复制这两份，直接引用模组自带的那份就行：
+
+        <link rel="stylesheet" href="/default/base.css">    <!-- 底层 -->
+        <link rel="stylesheet" href="/default/theme.css">   <!-- 机器界面补充 -->
+        <link rel="stylesheet" href="我的覆盖.css">           <!-- 只写你要改的 -->
+
+     （/ 开头 = 从 theme/ 根开始找；你自己的目录优先。详见开发文档。）
 */
 
-html, body {
-  margin: 0;
-  padding: 0;
-  background: #0B0D12;
-  color: #E8F4FF;
-  font-size: 9;
-}
-
-/* ---------- 窗口 ---------- */
-/* ⚠️ 版面预算（改任何尺寸前先看这段）：
-     机器界面画布 300 高，但 y=216 以下是原版背包（原版画的物品格）——
-     所以上面这些块加起来必须 ≤216：
-         标题条 16 + 信息栏 24 + 槽位行 40 + 按钮行 24 + 列表 56 + 间距 ≈ 200
-     列表高度见下面 .list 那几档。改完必须打 gradlew checkThemes ——
-     它会报"⚠压在背包上"（内容底边超过 216 就会压住背包格，真发生过好几回）。 */
-.win {
-  width: 100%;
-  padding: 5;
-}
-
-/* ---------- 标题条 ---------- */
-.bar {
-  display: flex;
-  align-items: center;
-  height: 16;
-  padding: 0 5;
-  background: #171A22;
-  border: 1;
-  border-color: #2A2F3D;
-  border-radius: 3;
-  width: 100%;
-  overflow: hidden;      /* 标题太长时裁掉，不让它换行压到下面的信息栏 */
-}
-
-.title {
-  color: #54C8FF;
-  font-size: 10;
-  height: 10;   /* 一行；放不下截断加省略号，不折行顶破标题条 */
-}
-
-.chip {
-  margin-left: 5;
-  padding: 0 4;
-  background: #1E3A2A;
-  color: #7CE38B;
-  border-radius: 3;
-}
-
-.chip.off {
-  background: #3A2222;
-  color: #FF7A7A;
-}
-
-.chip.warn {
-  background: #3A3022;
-  color: #FFD166;
-}
-
-/* ---------- 通行提示 / 警告 ---------- */
-/* ⚠️ 这些提示块写成 width:100%（独占一行），不要塞进 flex 行里 ——
-   在 flex 行里它们会被当成一列竖着排，把整行撑高。 */
-.warn {
-  margin-top: 4;
-  padding: 2 6;
-  background: #3A2222;
-  color: #FF7A7A;
-  border-radius: 3;
-  width: 100%;
-}
-
-.hint {
-  margin-top: 4;
-  color: #98A2B3;
-  width: 100%;
-}
-
-.note {
-  margin-top: 3;
-  color: #6E7891;
-  width: 100%;
-}
-
-/* ---------- 两栏信息 ---------- */
-.info {
-  display: flex;
-  margin-top: 5;
-  gap: 6;
-}
-
-.col {
-  width: 50%;
-  padding: 2 6;
-  background: #171A22;
-  border: 1;
-  border-color: #232838;
-  border-radius: 3;
-}
-
-.k {
-  color: #98A2B3;
-}
-
-.v {
-  margin-bottom: 3;
-  font-size: 10;
-  height: 11;   /* 一行；放不下截断（主题作者不用自己数字宽） */
-}
-
-.gold { color: #FFD479; }
-.good { color: #7CE38B; }
-.dim  { color: #98A2B3; }
-.bad  { color: #FF7A7A; }
-.accent { color: #54C8FF; }
-
-/* ---------- 按钮 ---------- */
-.btns {
-  display: flex;
-  margin-top: 4;
-  gap: 4;
-}
-
-.btn {
-  padding: 3 6;
-  background: #223047;
-  color: #E8F4FF;
-  border: 1;
-  border-color: #35507A;
-  border-radius: 3;
-  text-align: center;
-}
-
-.btn.ghost {
-  background: #1B1E28;
-  border-color: #2A2F3D;
-  color: #98A2B3;
-}
-
-.btn.warn {
-  background: #3A2222;
-  border-color: #6A3030;
-  color: #FFB4B4;
-}
-
-.btn.on {
-  background: #1E3A2A;
-  border-color: #2E5A3E;
-  color: #7CE38B;
-}
-
-/* ---------- 列表 ---------- */
-.list {
-  margin-top: 5;
-  padding: 3 4;
-  background: #14161F;
-  border: 1;
-  border-color: #2A2F3D;
-  border-radius: 3;
-  overflow: scroll;
-}
-
-/*
-  列表高度：四档。
-  ⚠️ 判据是【列表的底边 ≤ 216】（机器界面 y=216 以下是原版背包）——
-     "内容被裁掉"不等于"不压背包"：列表只要画到那儿，就盖在背包格上了。
-     实测起点：载具打印机 y≈112、收购机 y≈147、商店/市场 y≈151。
-*/
-.list.tall { height: 150; }
-.list.mid  { height: 48; }      /* 商店 / 市场 */
-.list.core { height: 50; }      /* 载具打印机：2 行蓝图 */
-.list.short{ height: 36; }      /* 收购价 / 挂单 / 图纸 */
-
-.listhead {
-  color: #54C8FF;
-  padding: 1 2;
-}
-
-.row {
-  display: flex;
-  align-items: center;
-  padding: 1;
-  border-radius: 2;
-}
-
-.row.alt {
-  background: #191C26;
-}
-
-.row.locked {
-  background: #241A1A;
-}
-
-.row.sel {
-  background: #1B2A1E;
-}
-
-.row .name {
-  width: 68%;
-}
-
-.row .price {
-  width: 32%;
-  color: #FFD479;
-  text-align: right;
-}
-
-.row .tag {
-  margin-left: 4;
-  color: #98A2B3;
-}
-
-.empty {
-  padding: 6 2;
-  color: #6E7891;
-}
-
-/* ---------- 原生槽位占位（物品格由原版画，主题只留位置） ----------
-   ⚠️ 这些占位格用【绝对定位】，一层一层钉在槽位行的左上角：
+/* ---------- 原生槽位占位 ----------
+   ⚠️ 用【绝对定位】把占位格钉在槽位行的左上角：
      原版物品格的位置是写死的（菜单里给的坐标），主题没必要让它们参与文档流 ——
-     参与流的话，"卡槽 + 3×3 投料格 + 一行按钮"会把槽位行撑得老高，直接溢出。
-   标记元素的左上角 = 原版格子该摆的位置。 */
+     参与流的话，"卡槽 + 3×3 投料格 + 一行按钮"会把槽位行撑得老高、直接溢出。
+   标记元素的左上角 = 原版格子该摆的位置，所以这里的 left/top 就是格子的间距。 */
 .slotgrid {
   position: relative;
   height: 40;
-  margin-top: 5;
+  margin-top: 4;
   width: 100%;
 }
 
@@ -254,23 +46,25 @@ html, body {
   position: absolute;
   left: 22;
   top: 0;
-  width: 56;
-  height: 56;
+  width: 38;
+  height: 38;
   background: #0C0C12;
   border: 1;
   border-color: #2A2F3D;
 }
 
+/* 槽位行里的说明文字：放在槽位格右边，不额外占高度 */
 .slotgrid .hint {
   position: absolute;
-  left: 0;
-  top: 22;
-  width: 100%;
+  left: 66;
+  top: 2;
+  width: 200;
   margin-top: 0;
 }
 
 /* 玩家背包（3×9 + 快捷栏 = 162×76），绝对定位在最底部。
-   ⚠️ bottom:8 → 在 270 高的窗口里正好落在 y=186（原版菜单把背包固定在那儿）。 */
+   bottom:8 → 在 300 高的窗口里正好落在 y=216（原版菜单把背包固定在那儿）。
+   ⚠️ 机器界面画布 300、可用高度 216，就是这条撑出来的：见各 html 的 data-viewport。 */
 .player {
   position: absolute;
   bottom: 8;
@@ -280,19 +74,6 @@ html, body {
   background: #0C0C12;
   border: 1;
   border-color: #2A2F3D;
-}
-
-/* 绝对定位的通用写法：相对"最近的 relative/absolute 祖先"，没有就相对整个主题画布 */
-.absolute {
-  position: absolute;
-}
-
-.bottom {
-  bottom: 6;
-}
-
-.right {
-  right: 6;
 }
 
 /* ---------- 主题选择菜单 ---------- */
