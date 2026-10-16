@@ -2,7 +2,12 @@
 """
 深空铸造体 —— 贴图与模型生成器
 ================================
-    python tools/gen_textures.py
+    python tools/gen_textures.py                      # 生成【缺失的】文件（已存在的一律不动）
+    python tools/gen_textures.py buyer_threshold_mid  # ★ 只处理这一个物品
+    python tools/gen_textures.py buyer_threshold      # 只处理这一家公司的那台机器
+    python tools/gen_textures.py bank_card            # 只处理这张物品贴图
+    python tools/gen_textures.py --list               # 只列出会涉及哪些物品，不写文件
+    python tools/gen_textures.py --force              # 允许覆盖已存在的文件（慎用）
 
 生成 4 种功能方块 × 6 家公司 × 3 个等级（共 72 种外观，含点亮版 144 张贴图）：
 
@@ -12,11 +17,20 @@
   assets/deepspacedeployer/textures/item/*.png                            银行卡 + 6 家票据
   deepspacedeployer_logo.png                                              模组图标
 
-⚠️ 这个脚本会覆盖上面的文件（物品贴图除外，它们也是这里生成的）。
+## ★ 隔离规则（老板 2026-10-15 要求："每个物品单独做一个隔离"）
+
+1. **默认不覆盖任何已存在的文件** —— 只补缺失的。
+   所以你手改过的任何一张图 / 一个模型，跑这个脚本都**不会被碰**；
+   想重新生成必须显式加 `--force`。
+2. **可以只处理一个物品**（位置参数），其余物品一个字节都不读写。
+3. **手绘定稿永不覆盖**：`art/手绘定稿/` 里出现过的文件名，
+   连 `--force` 都跳过（要更新手绘图请手动覆盖）。
+4. 跑完会**按物品列出**"写了什么 / 跳过了什么"，方便一眼确认波及范围。
 """
 import json
 import os
 import random
+import sys
 
 from PIL import Image, ImageDraw
 
@@ -236,104 +250,181 @@ def write_json(path, data):
         f.write("\n")
 
 
+# ---------------------------------------------------------------- 隔离机制
+
+HAND_DIR = os.path.join(PROJECT, "art", "手绘定稿")
+
+
+def hand_painted_names():
+    """art/手绘定稿/ 里出现过的文件名 = 永不覆盖的手绘图（连 --force 都跳过）"""
+    names = set()
+    if os.path.isdir(HAND_DIR):
+        for root, _dirs, files in os.walk(HAND_DIR):
+            for f in files:
+                names.add(f)
+    return names
+
+
+class Writer:
+    """
+    所有写盘都走这里 —— 这就是"隔离"的落点。
+
+    规则：① 默认不覆盖已存在的文件；② 手绘定稿永不覆盖；③ 每个文件都记下它属于哪个物品。
+    """
+
+    def __init__(self, force=False, dry=False):
+        self.force = force
+        self.dry = dry
+        self.protected = hand_painted_names()
+        self.written = []      # (物品, 路径)
+        self.skipped = []      # (物品, 路径) —— 已存在，默认不覆盖
+        self.blocked = []      # (物品, 路径) —— 手绘保护挡下
+
+    def _decide(self, item, path):
+        if os.path.basename(path) in self.protected:
+            self.blocked.append((item, path))
+            return False
+        if os.path.exists(path) and not self.force:
+            self.skipped.append((item, path))
+            return False
+        if self.dry:
+            self.written.append((item, path))     # --list：只登记，不写
+            return False
+        return True
+
+    def png(self, item, path, factory):
+        """factory 传可调用对象（lambda）→ 被跳过时连画都不画，省时间"""
+        if not self._decide(item, path):
+            return
+        img = factory() if callable(factory) else factory
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        img.save(path)
+        self.written.append((item, path))
+
+    def json(self, item, path, data):
+        if self._decide(item, path):
+            write_json(path, data)
+            self.written.append((item, path))
+
+    def report(self, title):
+        by_item = {}
+        for item, path in self.written:
+            by_item.setdefault(item, []).append(path)
+        print()
+        print("%s：写入 %d 个物品 / %d 个文件" % (title, len(by_item), len(self.written)))
+        for item in sorted(by_item):
+            print("   %-30s %d 个文件" % (item, len(by_item[item])))
+        if self.skipped:
+            print("   跳过（已存在，默认不覆盖）：%d 个文件" % len(self.skipped))
+        if self.blocked:
+            names = sorted({os.path.basename(p) for _i, p in self.blocked})
+            print("   手绘保护（永不覆盖）：%s" % "、".join(names))
+        if not self.written and not self.skipped and not self.blocked:
+            print("   （没有匹配的物品 —— 检查一下你写的名字？）")
+
+
 def main():
+    args = sys.argv[1:]
+    force = "--force" in args
+    dry = "--list" in args
+    only = [a for a in args if not a.startswith("--")]
+
+    def selected(*keys):
+        """这个物品要不要处理：没写名字 = 全都要；写了 = 命中任意一个即可"""
+        return (not only) or any(f in keys for f in only)
+
     block_tex_dir = os.path.join(ASSETS, "textures", "block")
     item_tex_dir = os.path.join(ASSETS, "textures", "item")
-    os.makedirs(block_tex_dir, exist_ok=True)
-    os.makedirs(item_tex_dir, exist_ok=True)
+    w = Writer(force=force, dry=dry)
 
-    textures = 0
-    models = 0
+    if only:
+        print("只处理：%s" % "、".join(only))
+    elif dry:
+        print("--list：只看会涉及哪些物品，不写任何文件")
+    else:
+        print("生成【缺失的】文件（已存在的一律不动；要覆盖请加 --force）")
 
     for machine, motif_name in MACHINES:
         variants = {}
         for company_id, color in COMPANIES:
             for tier_id, tier_rank in TIERS:
                 base_name = f"{machine}_{company_id}_{tier_id}"
+                # 这个变体要不要生成
+                do_this = selected(machine, f"{machine}_{company_id}", base_name)
                 for lit in (False, True):
                     suffix = "_lit" if lit else ""
                     texture_name = base_name + suffix
-                    block_texture(machine, motif_name, color, tier_rank, lit).save(
-                        os.path.join(block_tex_dir, texture_name + ".png"))
-                    textures += 1
-                    write_json(os.path.join(ASSETS, "models", "block", texture_name + ".json"), {
-                        "parent": "minecraft:block/cube_all",
-                        "textures": {"all": f"{MODID}:block/{texture_name}"},
-                    })
-                    models += 1
-                variants[f"company={company_id},tier={tier_id},lit=false"] = {
-                    "model": f"{MODID}:block/{base_name}"}
-                variants[f"company={company_id},tier={tier_id},lit=true"] = {
-                    "model": f"{MODID}:block/{base_name}_lit"}
+                    if do_this:
+                        w.png(base_name,
+                              os.path.join(block_tex_dir, texture_name + ".png"),
+                              lambda m=machine, n=motif_name, c=color, r=tier_rank, l=lit:
+                              block_texture(m, n, c, r, l))
+                        w.json(base_name,
+                               os.path.join(ASSETS, "models", "block", texture_name + ".json"), {
+                                   "parent": "minecraft:block/cube_all",
+                                   "textures": {"all": f"{MODID}:block/{texture_name}"},
+                               })
+                    # ⚠️ 方块状态必须【始终】填满所有变体（它引用全部 18 种），
+                    #    所以这个字典在筛选之外照样组装。
+                    variants[f"company={company_id},tier={tier_id},lit=false"] = {
+                        "model": f"{MODID}:block/{base_name}"}
+                    variants[f"company={company_id},tier={tier_id},lit=true"] = {
+                        "model": f"{MODID}:block/{base_name}_lit"}
 
-        write_json(os.path.join(ASSETS, "blockstates", machine + ".json"), {"variants": variants})
+        if selected(machine):
+            w.json(machine, os.path.join(ASSETS, "blockstates", machine + ".json"),
+                   {"variants": variants})
+            # 物品默认显示"阈限实验集团 / 低级"那一版
+            w.json(machine, os.path.join(ASSETS, "models", "item", machine + ".json"), {
+                "parent": f"{MODID}:block/{machine}_threshold_low",
+            })
 
-        # 物品默认显示"阈限实验集团 / 低级"那一版
-        write_json(os.path.join(ASSETS, "models", "item", machine + ".json"), {
-            "parent": f"{MODID}:block/{machine}_threshold_low",
-        })
+    # ---------------- 物品贴图 ----------------
+    # ⚠️ 银行卡 / 蓝图凭证 / 等级升级套件现在是**手绘定稿图**：
+    #    art/手绘定稿/ 下出现过同名文件 → Writer 会自动跳过，连 --force 都不覆盖。
+    def item_png(name, factory):
+        if selected(name):
+            w.png(name, os.path.join(item_tex_dir, name + ".png"), factory)
 
-    # 物品贴图
-    # ⚠️ 下面这三张（银行卡 / 蓝图凭证 / 等级升级套件）现在用的是**手绘定稿图**
-    #    （老板放在 桌面\正在开发的模组\模组贴图\定图 里，已装进工程并备份到 art/hand-picked/）。
-    #    生成脚本**不要**再覆盖它们，否则重跑一次就把手绘图盖回程序生成的版本了。
-    HAND_PICKED = {"bank_card.png", "blueprint_voucher.png", "tier_upgrade_kit.png"}
-    skipped = []
+    def item_json(name, texture):
+        if selected(name):
+            w.json(name, os.path.join(ASSETS, "models", "item", name + ".json"), {
+                "parent": "minecraft:item/generated",
+                "textures": {"layer0": f"{MODID}:item/{texture}"},
+            })
 
-    def save_item_texture(img, filename):
-        """写物品贴图；手绘定稿的那几张跳过（模型 JSON 还是要写）"""
-        if filename in HAND_PICKED:
-            skipped.append(filename)
-            return
-        img.save(os.path.join(item_tex_dir, filename))
+    item_png("bank_card", item_texture_card)
+    item_json("bank_card", "bank_card")
 
-    save_item_texture(item_texture_card(), "bank_card.png")
-    write_json(os.path.join(ASSETS, "models", "item", "bank_card.json"), {
-        "parent": "minecraft:item/generated",
-        "textures": {"layer0": f"{MODID}:item/bank_card"},
-    })
     for i, (cid, color) in enumerate(COMPANIES):
         name = f"{cid}_scrip"
-        save_item_texture(item_texture_scrip(color, seed=1000 + i), name + ".png")
-        write_json(os.path.join(ASSETS, "models", "item", name + ".json"), {
-            "parent": "minecraft:item/generated",
-            "textures": {"layer0": f"{MODID}:item/{name}"},
-        })
+        item_png(name, lambda c=color, s=1000 + i: item_texture_scrip(c, seed=s))
+        item_json(name, name)
 
-    # 蓝图凭证
-    save_item_texture(item_texture_voucher(), "blueprint_voucher.png")
-    write_json(os.path.join(ASSETS, "models", "item", "blueprint_voucher.json"), {
-        "parent": "minecraft:item/generated",
-        "textures": {"layer0": f"{MODID}:item/blueprint_voucher"},
-    })
+    item_png("blueprint_voucher", item_texture_voucher)
+    item_json("blueprint_voucher", "blueprint_voucher")
 
-    # 公司授权铭牌（六家各一张，颜色不同）
     for cid, color in COMPANIES:
         name = f"{cid}_license"
-        save_item_texture(item_texture_license(color), name + ".png")
-        write_json(os.path.join(ASSETS, "models", "item", name + ".json"), {
-            "parent": "minecraft:item/generated",
-            "textures": {"layer0": f"{MODID}:item/{name}"},
-        })
+        item_png(name, lambda c=color: item_texture_license(c))
+        item_json(name, name)
 
-    # 等级升级套件
-    save_item_texture(item_texture_tier_kit(), "tier_upgrade_kit.png")
-    write_json(os.path.join(ASSETS, "models", "item", "tier_upgrade_kit.json"), {
-        "parent": "minecraft:item/generated",
-        "textures": {"layer0": f"{MODID}:item/tier_upgrade_kit"},
-    })
+    item_png("tier_upgrade_kit", item_texture_tier_kit)
+    item_json("tier_upgrade_kit", "tier_upgrade_kit")
 
-    if skipped:
-        print("  （跳过手绘定稿贴图，未覆盖）", "、".join(sorted(skipped)))
+    if selected("logo", "deepspacedeployer_logo"):
+        w.png("logo", os.path.join(RES, "deepspacedeployer_logo.png"), logo)
 
-    logo().save(os.path.join(RES, "deepspacedeployer_logo.png"))
-
-    print("生成完毕：")
-    print("  方块贴图", textures, "张（%d 机器 × %d 公司 × %d 等级 × 2）"
-          % (len(MACHINES), len(COMPANIES), len(TIERS)))
-    print("  方块模型", models, "个")
-    print("  物品贴图", len(COMPANIES) + 1, "张（手绘定稿的三张不覆盖）")
+    w.report("贴图与模型")
+    print()
+    print("全量规模：%d 机器 × %d 公司 × %d 等级 × 2 = %d 张方块贴图"
+          % (len(MACHINES), len(COMPANIES), len(TIERS),
+             len(MACHINES) * len(COMPANIES) * len(TIERS) * 2))
+    if not force and not dry:
+        print("提示：想重新生成某一张，直接点名即可，例如："
+              "python tools\\gen_textures.py buyer_threshold_mid --force")
 
 
 if __name__ == "__main__":
     main()
+

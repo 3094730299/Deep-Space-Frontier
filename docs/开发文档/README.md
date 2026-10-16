@@ -40,7 +40,7 @@ python tools\validate.py               # 资源一致性：模型/贴图/语言/
 python tools\check_mod_ids.py          # 物品 id 在整合包里是否真实存在
 python tools\check_gecko_textures.py   # 贴图尺寸 vs geo 声明（黑紫问题）
 python tools\check_gecko_animations.py # 动画关键帧规则（"模型在但一动不动"）
-python tools\verify_readme_claims.py   # 交接文档里的技术断言是否还成立（46 条）
+python tools\verify_readme_claims.py   # 交接文档里的技术断言是否还成立（49 条）
 python tools\install.py                # 安全装机（SHA256 + 逐条目校验）
 ```
 

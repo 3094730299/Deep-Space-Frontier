@@ -108,6 +108,18 @@ def main():
          and "BLOCKED_ABOVE_CACHE_TICKS" in be),
     ]
 
+    # 资源隔离（老板 2026-10-15："每个物品单独做一个隔离"）
+    gt = read(ROOT, "tools", "gen_textures.py")
+    checks += [
+        ("贴图生成器默认不覆盖已存在文件（改一个物品不会波及其他）",
+         "class Writer" in gt and "if os.path.exists(path) and not self.force:" in gt
+         and '"--force"' in gt),
+        ("手绘定稿永不覆盖，且清单自动来自 art/手绘定稿/（不是硬编码）",
+         "HAND_DIR" in gt and "hand_painted_names" in gt and "self.protected" in gt),
+        ("贴图生成器支持只处理点名的物品",
+         "def selected(" in gt and '"--list"' in gt),
+    ]
+
     lt = os.path.join(D, "loot_table", "blocks", "printer_part.json")
     checks.append(("结构件掉落表为空（只掉控制器）",
                    os.path.exists(lt) and json.load(io.open(lt, encoding="utf-8"))["pools"] == []))
