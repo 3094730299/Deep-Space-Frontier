@@ -299,12 +299,12 @@ html, body {
 }
 
 .theme .tname {
-  width: 55%;
+  width: 42%;
   font-size: 10;
 }
 
 .theme .tmeta {
-  width: 45%;
+  width: 30%;
   color: #6E7891;
   text-align: right;
 }
