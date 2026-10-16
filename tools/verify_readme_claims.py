@@ -181,6 +181,16 @@ def main():
         checks.append(("发布包 release/*.zip 里装的就是当前 build/libs 的 jar（不是旧包）",
                        _payload == _built))
 
+    # 装机脚本：版本号一升就不能失效
+    # （2026-10-16 真踩过：0.1.0 写死在路径里，版本升到 0.1.1 后这个脚本就"找不到构建产物"了）
+    ins = read(ROOT, "tools", "install.py")
+    checks += [
+        ("装机脚本不写死版本号（glob 找 build/libs 里最新的 jar）",
+         "def find_jar()" in ins and "SRC = find_jar()" in ins),
+        ("装机会先清掉 mods 里其它版本的本模组 jar（同 modid 两份会让游戏起不来）",
+         'JAR_PREFIX + "*.jar"' in ins and "清理旧版本" in ins),
+    ]
+
     lt = os.path.join(D, "loot_table", "blocks", "printer_part.json")
     checks.append(("结构件掉落表为空（只掉控制器）",
                    os.path.exists(lt) and json.load(io.open(lt, encoding="utf-8"))["pools"] == []))
