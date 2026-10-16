@@ -81,6 +81,11 @@ def main():
         ("商店：只在 TERMINAL 上注册控制器，且只对星联那套模型生效",
          "if (kind() == MachineKind.TERMINAL) {" in be
          and "MachineGeoModel.usesGeo(be)" in sa),
+        # 2026-10-16 实测踩到：不推时间轴的话动画永远停在第 0 帧，
+        # 状态机日志一切正常但画面一动不动（「展开」第 0 帧正好是闭合姿势）
+        ("商店动画会推进 GeckoLib 时间轴（不推就永远停在第 0 帧）",
+         "public void advanceAnimClockOnly()" in be
+         and "be.advanceAnimClockOnly();" in sa),
     ]
 
     ps = read(J, "multiblock", "PrinterStructure.java")

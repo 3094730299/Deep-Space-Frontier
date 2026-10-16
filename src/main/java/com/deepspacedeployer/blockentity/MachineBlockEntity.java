@@ -362,6 +362,30 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
                 && shape.min(Direction.Axis.Z) <= 0.0D && shape.max(Direction.Axis.Z) >= 1.0D;
     }
 
+    /**
+     * <b>只推进 GeckoLib 的动画时间轴</b>（不管相位机）。
+     *
+     * <p>⚠️ 这个方法是给<b>商店那套展开/闭合动画</b>用的。
+     * GeckoLib 的动画进度来自 {@link #getTick}，而它返回的是 {@code animAgeTicks} ——
+     * 这个字段原先只有 {@link #clientAnimTick()}（收购投送机专用）在更新。
+     * 商店如果不推它，时间轴恒为 0 ⇒ <b>动画永远停在第 0 帧</b>：
+     * 状态机日志一切正常（那套用墙上时钟计时），但画面上一点不动 ——
+     * 而且「展开」的第 0 帧正好就是闭合姿势，看起来就像"根本没播"。
+     * （2026-10-16 实测踩到过。）</p>
+     *
+     * <p>时间原点在第一次调用时定下来，之后按真实经过的毫秒换算成 tick（每 50ms 一 tick）。</p>
+     */
+    public void advanceAnimClockOnly() {
+        if (level == null || !level.isClientSide) {
+            return;
+        }
+        long nowNs = System.nanoTime();
+        if (animOriginNs == 0L) {
+            animOriginNs = nowNs;
+        }
+        animAgeTicks = (nowNs - animOriginNs) / 50_000_000.0D;
+    }
+
     public ItemStack card() {
         return items.get(SLOT_CARD);
     }

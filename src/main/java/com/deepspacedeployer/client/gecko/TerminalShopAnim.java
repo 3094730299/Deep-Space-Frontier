@@ -104,6 +104,13 @@ public final class TerminalShopAnim {
         if (!MachineGeoModel.usesGeo(be)) {
             return;
         }
+
+        // ★ 必须先把 GeckoLib 的时间轴推起来！
+        //   否则动画永远停在第 0 帧 —— 状态机日志一切正常，画面上一点不动
+        //   （「展开」的第 0 帧正好是闭合姿势，看起来就像"根本没播"）。
+        //   见 MachineBlockEntity.advanceAnimClockOnly 的说明。
+        be.advanceAnimClockOnly();
+
         long now = System.nanoTime();
         if (now - lastNs < 1_000_000L) {
             return;                                  // 同一帧被调多次只算一次
