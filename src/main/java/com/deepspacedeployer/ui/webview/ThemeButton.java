@@ -6,7 +6,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
-import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.resources.ResourceLocation;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -25,8 +25,11 @@ import org.lwjgl.glfw.GLFW;
  *   <tr><td><b>右键长按拖拽</b></td><td>把按钮拖到任意位置（松手即记住，写进配置文件）</td></tr>
  * </table>
  *
- * <p>形状是<b>圆形</b>（用几层矩形近似画出来，渲染器只有矩形原语）；图标暂时用占位文字
- * "主题" —— 以后换成真正的图标时，只要改 {@link #drawIcon}。</p>
+ * <p>形状是<b>圆形</b>（用几层矩形近似画出来，渲染器只有矩形原语），外面一圈<b>深蓝描边</b>；
+ * 图标是老板给的像素图，处理成 48×48 的透明贴图放在
+ * {@code assets/deepspacedeployer/textures/gui/theme_button.png}（见
+ * {@code tools/process_theme_icon.py}：它会抠掉原图里"画进图里的浅蓝棋盘格"背景）。
+ * 想换图标就换那张 48×48 的 png，代码不用动。</p>
  *
  * <p>位置存在配置里（{@code ui.theme_button_x/y}）。存的是"相对当前界面尺寸的百分比"？
  * 不是 —— 直接存屏幕坐标，越界时会被拉回可视范围（见 {@link #clampTo}），
@@ -36,6 +39,16 @@ public class ThemeButton extends AbstractWidget {
 
     /** 圆的外接正方形边长 */
     public static final int SIZE = 20;
+
+    /** 图标贴图（48×48 的像素图，按 24×24 画出来；放在 textures/gui/ 下） */
+    private static final ResourceLocation ICON =
+            ResourceLocation.fromNamespaceAndPath("deepspacedeployer", "textures/gui/theme_button.png");
+
+    /** 图标画多大（比按钮略大一点，让圆环只露一圈边） */
+    private static final int ICON_SIZE = 24;
+
+    /** 深蓝描边（老板 2026-10-17 要求"加个深蓝描边"） */
+    private static final int BORDER = 0xFF14215E;
 
     /** 拖拽状态 */
     private boolean dragging;
@@ -169,24 +182,17 @@ public class ThemeButton extends AbstractWidget {
         int cy = getY() + SIZE / 2;
         int radius = SIZE / 2;
 
-        // 圆底：外圈深色描边 + 内圈填充（悬停时变亮）
-        drawCircle(graphics, cx, cy, radius, 0xFF0B0D12);
-        drawCircle(graphics, cx, cy, radius - 1,
-                hover ? 0xFF2E4A6E : 0xFF223047);
-        // 中心一点高光，看起来像颗按钮
-        graphics.fill(cx - 2, cy - radius + 3, cx + 2, cy - radius + 4,
-                hover ? 0xFF7FC8FF : 0xFF3B5A80);
+        // 圆底：深色填充（悬停时变亮一点）
+        drawCircle(graphics, cx, cy, radius, hover ? 0xFF16233A : 0xFF0B0D12);
+        // ★ 深蓝描边：画一个"实心深蓝圆 + 中间再盖一层圆底"→ 露出来的就是一圈环。
+        //    ⚠️ 别用半透明白/黑去"擦"里面：那只是混合，会在圆里留下脏色（踩过）。
+        drawCircle(graphics, cx, cy, radius, BORDER);
+        drawCircle(graphics, cx, cy, radius - 2, hover ? 0xFF16233A : 0xFF0B0D12);
 
-        // 占位图标：一个"主题"字（换成真图标时改 drawIcon）
-        drawIcon(graphics, cx, cy, hover);
-    }
-
-    /** 图标（现在是一行占位文字；以后换 png 图标就改这里） */
-    private void drawIcon(GuiGraphics graphics, int cx, int cy, boolean hover) {
-        Component label = Component.translatable("gui.deepspacedeployer.theme_button_short");
-        int w = Minecraft.getInstance().font.width(label);
-        graphics.drawString(Minecraft.getInstance().font, label,
-                cx - w / 2, cy - 4, hover ? 0xFFE8F4FF : 0xFFCFE3F7, false);
+        // ★ 图标：贴图里已经抠掉背景、是圆的，直接盖在圆底上
+        int half = ICON_SIZE / 2;
+        graphics.blit(ICON, cx - half, cy - half, 0f, 0f, ICON_SIZE, ICON_SIZE,
+                ICON_SIZE, ICON_SIZE);
     }
 
     /**

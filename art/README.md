@@ -11,8 +11,34 @@
 | `建模计划\` | **老板的 Blockbench 建模源文件（.bbmodel）+ 导出中间件** —— 见下节 | 重新导入模型时用（`tools\import_*.py` 的源） |
 | `模组贴图\` | 老板的**贴图源文件**（含"定图/预备"各版本） | 换图 / 出定稿时用 |
 | `载具计划\` | 老板设计的**载具蓝图**（`.nbt`，星联动力基础小车 / 露营车）| 载具打印机用；也作云端备份 |
+| `模组图标\` | **模组图标原图 + 处理产物**（老板 2026-10-17 给的那张） | `tools\process_theme_icon.py` 的源；见下节 |
 
 ---
+
+## 模组图标（`art\模组图标\`）
+
+老板给的原图有个坑：**背景是"画进图里的浅蓝棋盘格"**（PNG 没有 alpha 通道），
+直接当图标用会是一块浅蓝色方块，所以要先抠掉。
+
+```powershell
+# 只看测量（不写文件）：抠掉多少像素、内容包围盒多大
+python tools\process_theme_icon.py "art\模组图标\原图-631x629.png" --report
+
+# 生成三个产物
+python tools\process_theme_icon.py "art\模组图标\原图-631x629.png" --out "art\模组图标"
+```
+
+| 产物 | 用途 | 放到哪 |
+|---|---|---|
+| `theme_icon_transparent.png`（601×460） | 全尺寸透明版（存档 / 发布页大图） | 不用拷（`docs\logo-大图.png` 是它） |
+| `deepspacedeployer_logo.png`（128×128） | **模组图标**（模组列表里那个） | `src\main\resources\` 根目录（`neoforge.mods.toml` 的 `logoFile` 指的就是它） |
+| `theme_button.png`（48×48） | **背包界面那颗圆形主题按钮的图标** | `src\main\resources\assets\deepspacedeployer\textures\gui\` |
+
+> ⚠️ 按钮贴图必须在 `textures/gui/` 下（界面贴图的规范位置；`block/` 是方块、`item/` 是物品）。
+> 想换按钮图标就换那张 48×48 的 png，Java 代码不用动。
+> 抠背景的判据只有一条"蓝通道比红通道高 60 以上"（背景 `B-R` 是 74~127，物体灰/白/橙约等于 0），
+> 阈值都在脚本顶部，换图时按 `--report` 调。
+
 
 ## ★ 源文件备份（2026-10-16 加入）
 
