@@ -118,6 +118,8 @@
   "msg.deepspacedeployer.physics_failed": "物理化跳过/失败：%s",
   "gui.deepspacedeployer.editor_button": "价目表编辑器",
   "gui.deepspacedeployer.theme_button": "界面主题",
+  "gui.deepspacedeployer.theme_button_short": "主题",
+  "gui.deepspacedeployer.theme_button_hint": "左键点击打开主题选择；右键长按拖拽可以挪位置",
   "gui.deepspacedeployer.theme_title": "界面主题",
   "gui.deepspacedeployer.theme_current": "当前主题：%s",
   "gui.deepspacedeployer.theme_use": "用这套",

@@ -24,14 +24,19 @@ def _find_jar():
     """
     找 build/libs 里那个模组 jar。
 
-    ⚠️ 以前这里把版本号写死在路径里（deepspacedeployer-0.1.0+mc1.21.1.jar），
-    结果一提版本号这个脚本就报"构建产物不存在" —— 是脚本的问题，不是代码的问题。
-    现在按 glob 找：谁在 build/libs 里就用谁（sources / javadoc 不算）。
+    ⚠️ 两个坑都在这里踩过：
+      ① 以前把版本号写死在路径里（deepspacedeployer-0.1.0+mc1.21.1.jar），
+         结果一提版本号这个脚本就报"构建产物不存在" —— 是脚本的问题，不是代码的问题；
+      ② 现在按 glob 找，但 build/libs 里可能同时留着旧版本的 jar
+         （比如刚提版本号、还没 clean），所以要按【修改时间】取最新的那个，
+         否则会拿旧 jar 去跟新发布包比，报出假的"发布包是旧包"。
     """
     import glob as _g
     cands = [p for p in _g.glob(os.path.join(ROOT, "build", "libs", "*.jar"))
              if "sources" not in os.path.basename(p) and "javadoc" not in os.path.basename(p)]
-    return sorted(cands)[0] if cands else os.path.join(ROOT, "build", "libs", "(没构建过)")
+    if not cands:
+        return os.path.join(ROOT, "build", "libs", "(没构建过)")
+    return max(cands, key=os.path.getmtime)
 
 
 JAR = _find_jar()
@@ -170,10 +175,12 @@ def main():
     #   ② jar 名不能写死版本号（一提版本就找不到）→ 统一按 glob 找。
     _zips = sorted(_glob.glob(os.path.join(ROOT, "release", "*.zip")),
                    key=os.path.getmtime)
+    # jar 也要取【最新】的那个：刚提版本号时 build/libs 里会同时留着旧 jar
     _jars = [j for j in _glob.glob(os.path.join(ROOT, "build", "libs", "*.jar"))
              if "sources" not in os.path.basename(j)]
     if _zips and _jars:
-        with open(_jars[0], "rb") as _fh:
+        _jars.sort(key=os.path.getmtime)
+        with open(_jars[-1], "rb") as _fh:
             _built = _fh.read()
         with _zipfile.ZipFile(_zips[-1]) as _z:
             _inner = [n for n in _z.namelist() if n.startswith("mods/") and n.endswith(".jar")]

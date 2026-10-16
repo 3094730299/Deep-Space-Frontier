@@ -126,6 +126,21 @@ public final class Config {
                     "主题写坏了导致界面打不开时，把它改成 false 就能先进游戏")
             .define("ui.theme_enabled", true);
 
+    /**
+     * 「界面主题」按钮（背包界面里那颗圆形按钮）的位置。
+     *
+     * <p>老板 2026-10-17：右键长按可以把它拖到任意位置，松手就记在这里，
+     * 下次进游戏还在原地。换分辨率时会被自动拉回可视范围（见
+     * {@code ThemeButton.clampTo}）。</p>
+     */
+    public static final ModConfigSpec.IntValue THEME_BUTTON_X = BUILDER
+            .comment("「界面主题」按钮的 X 坐标（游戏里右键长按拖拽会自动写入）")
+            .defineInRange("ui.theme_button_x", 6, -10000, 10000);
+
+    public static final ModConfigSpec.IntValue THEME_BUTTON_Y = BUILDER
+            .comment("「界面主题」按钮的 Y 坐标（游戏里右键长按拖拽会自动写入）")
+            .defineInRange("ui.theme_button_y", 6, -10000, 10000);
+
     /** SPEC 必须在所有配置项之后（下面这行必须在最后） */
     public static final ModConfigSpec SPEC = BUILDER.build();
 

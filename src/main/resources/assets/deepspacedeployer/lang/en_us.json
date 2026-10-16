@@ -118,6 +118,8 @@
   "msg.deepspacedeployer.physics_failed": "Physics assembly skipped/failed: %s",
   "gui.deepspacedeployer.editor_button": "Price Editor",
   "gui.deepspacedeployer.theme_button": "UI Theme",
+  "gui.deepspacedeployer.theme_button_short": "UI",
+  "gui.deepspacedeployer.theme_button_hint": "Left-click to open the theme picker; hold right-click to drag it around",
   "gui.deepspacedeployer.theme_title": "UI Theme",
   "gui.deepspacedeployer.theme_current": "Current theme: %s",
   "gui.deepspacedeployer.theme_use": "Use this",
