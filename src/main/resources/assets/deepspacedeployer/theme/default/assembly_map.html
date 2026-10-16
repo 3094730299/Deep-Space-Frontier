@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<!--
+  投放点选择（俯视图点地图） —— assembly_map.html
+  ================================================================
+  中间那块地图是【运行时生成的贴图】（把机器周围的地形采样成一张图），
+  不是主题里的 png —— 主题只负责留出位置，用 data-map 标记：
+
+    <div data-map="俯视图"></div>
+
+  这块 div 的【宽和高】就是地图贴图的像素尺寸，所以别写 %（要写死的像素）。
+  默认主题给的是 192×192（格数半径 48 时每格 2 像素）。
+
+  数据键：{{半径}} {{选中X}} {{选中Z}} {{已选}} data-if="图就绪"
+  动作：  confirm（确认投放点）/ center（回到机器位置）/ close
+  原生占位：无（这个界面没有物品格）
+-->
+<html>
+<head>
+  <title>选择结构投放点</title>
+  <!-- 共用底层：配色 / 标题条 / 按钮 / 列表……（模组自带，见 base.css 的说明） -->
+  <link rel="stylesheet" href="/default/base.css">
+  <!-- 本界面自己的覆盖：机器界面补充（槽位占位 + 主题菜单），或者你自己的样式 -->
+  <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+  <div class="win">
+
+    <div class="bar">
+      <div class="title">选择投放点</div>
+      <div class="chip off" data-if="!图就绪">地图生成中…</div>
+      <div class="chip" data-if="已选">已选 X {{选中X}} Z {{选中Z}}</div>
+    </div>
+
+    <div class="hint">点地图选落点（半径 {{半径}} 格）；蓝框 = 机器，金框 = 落点。高度会自动贴合地形。</div>
+
+    <div data-map="俯视图" class="list" style="width:192;height:192;padding:0;margin-top:5"></div>
+
+    <div class="btns">
+      <div class="btn" data-action="confirm">确认投放点</div>
+      <div class="btn ghost" data-action="center">回到机器位置</div>
+      <div class="btn ghost" data-action="close">关闭</div>
+    </div>
+
+    <div class="note">落点离机器太远会被拒绝（服务端校验 96 格）</div>
+
+  </div>
+</body>
+</html>

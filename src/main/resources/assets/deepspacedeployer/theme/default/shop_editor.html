@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<!--
+  价目表编辑器（只有 OP 能进） —— shop_editor.html
+  ================================================================
+  打开方式：ESC 菜单左侧的「价目表编辑器」按钮。
+
+  数据键：{{当前公司}} {{当前表}} {{表名}} {{提示}}
+  公司列表：公司[]（{{代号}} {{名称}} {{是当前}}）
+  条目列表：条目[]（{{物品}} {{价格}} {{等级}}）
+  动作：  pick_company（配 data-index）/ switch_list / set_price（配 data-index）
+          remove（配 data-index）/ add_buy / add_sell / save / close
+  原生占位：data-input="价格"（价格输入框）
+-->
+<html>
+<head>
+  <title>价目表编辑器</title>
+  <!-- 共用底层：配色 / 标题条 / 按钮 / 列表……（模组自带，见 base.css 的说明） -->
+  <link rel="stylesheet" href="/default/base.css">
+  <!-- 本界面自己的覆盖：机器界面补充（槽位占位 + 主题菜单），或者你自己的样式 -->
+  <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+  <div class="win">
+
+    <div class="bar">
+      <div class="title">价目表编辑器（管理员）</div>
+      <div class="chip">{{当前公司}} · {{表名}}</div>
+    </div>
+
+    <div class="btns">
+      <div class="btn" data-repeat="公司" data-action="pick_company" data-index="{{行号}}">{{名称}}</div>
+    </div>
+
+    <div class="btns">
+      <div class="btn" data-action="switch_list">切换：公司出售 / 公司收购</div>
+      <div class="btn ghost" data-action="add_buy">加入商品（手里拿的物品）</div>
+      <div class="btn ghost" data-action="add_sell">加入收购（手里拿的物品）</div>
+    </div>
+
+    <div data-input="价格" class="btn ghost" style="margin-top:4">价格</div>
+
+    <div class="list tall">
+      <div class="row" data-repeat="条目">
+        <div class="name">{{物品}}<span class="tag">{{等级}}</span></div>
+        <div class="price">{{价格}}</div>
+        <div class="btn" data-action="set_price" data-index="{{行号}}">确定</div>
+        <div class="btn ghost" data-action="remove" data-index="{{行号}}">删除</div>
+      </div>
+      <div class="empty" data-if="!条目数量">这张表是空的：手里拿着物品，点「加入商品 / 加入收购」</div>
+    </div>
+
+    <div class="btns">
+      <div class="btn" data-action="save">保存</div>
+      <div class="btn ghost" data-action="close">关闭</div>
+    </div>
+
+    <div class="note">保存会写进世界数据包并重新加载（整合包越大越慢，会卡一下）</div>
+
+  </div>
+</body>
+</html>

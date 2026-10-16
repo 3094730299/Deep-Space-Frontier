@@ -1,0 +1,239 @@
+/*
+  深空铸造体 · 界面主题【共用底层】—— base.css
+  ================================================================
+  ★ 这份文件的用途：给【所有界面】提供一套统一的长相（配色、字号、标题条、按钮、
+    列表、信息栏……）。十个界面的 html 都先 <link> 它，再 <link> 各自的 theme.css。
+
+  ★ 想自己写主题？**不用把这几百行复制过去**，直接引用这份就行：
+
+        <link rel="stylesheet" href="/default/base.css">   <!-- 模组自带的底层 -->
+        <link rel="stylesheet" href="我的覆盖.css">          <!-- 只写你要改的 -->
+
+    规则（见 docs/开发文档/自定义主题开发文档.md）：
+      · 以 / 开头 = 从 theme/ 根开始找 → /default/xxx 就是"模组自带的那份"；
+      · 你自己的目录优先：同名文件放你目录里就会盖掉 default 的；
+      · **约定：这份 base.css 的类名和结构不会删**（可以加、可以改数值），
+        所以引用它是安全的 —— 模组更新默认主题时你会一起拿到新样式。
+
+  ⚠️ 这是个【子集渲染器】，不是浏览器。支持的写法见
+     docs/开发文档/界面主题系统.md。超出范围的属性会被静默忽略（不会报错、不会崩）。
+
+  和浏览器不一样的两条：
+    · width/height 是【边框盒】（含 padding 和 border）→ width:100% 加 padding 不会溢出；
+    · 写了 height 的盒子里，文字放不下会【截断加省略号】，不会折行把版面顶下去。
+
+  ⚠️ 版面预算：机器界面画布 300 高，但 y=216 以下是原版画的玩家背包 ——
+     所以上面那些块加起来必须 ≤216。列表高度见下面 .list 那几档，
+     改完必须打 gradlew checkThemes（它会报"⚠压在背包上"）。
+*/
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #0B0D12;
+  color: #E8F4FF;
+  font-size: 9;
+}
+
+/* ---------- 窗口 ---------- */
+.win {
+  width: 100%;
+  padding: 5;
+}
+
+/* ---------- 标题条 ---------- */
+.bar {
+  display: flex;
+  align-items: center;
+  height: 16;
+  padding: 0 5;
+  background: #171A22;
+  border: 1;
+  border-color: #2A2F3D;
+  border-radius: 3;
+  width: 100%;
+  overflow: hidden;      /* 标题太长时裁掉，不让它换行压到下面的信息栏 */
+}
+
+.title {
+  color: #54C8FF;
+  font-size: 10;
+  height: 10;            /* 一行；放不下会被截断加省略号，不会折行顶破标题条 */
+}
+
+.chip {
+  margin-left: 5;
+  padding: 0 4;
+  background: #1E3A2A;
+  color: #7CE38B;
+  border-radius: 3;
+}
+
+.chip.off {
+  background: #3A2222;
+  color: #FF7A7A;
+}
+
+.chip.warn {
+  background: #3A3022;
+  color: #FFD166;
+}
+
+/* ---------- 提示 / 警告 ----------
+   ⚠️ 这些提示块写成 width:100%（独占一行），不要塞进 flex 行里 ——
+      在 flex 行里它们会被当成一列竖着排，把整行撑高。 */
+.warn {
+  margin-top: 4;
+  padding: 2 6;
+  background: #3A2222;
+  color: #FF7A7A;
+  border-radius: 3;
+  width: 100%;
+}
+
+.hint {
+  margin-top: 4;
+  color: #98A2B3;
+  width: 100%;
+}
+
+.note {
+  margin-top: 3;
+  color: #6E7891;
+  width: 100%;
+}
+
+/* ---------- 两栏信息 ---------- */
+.info {
+  display: flex;
+  margin-top: 5;
+  gap: 6;
+}
+
+.col {
+  width: 50%;
+  padding: 2 6;
+  background: #171A22;
+  border: 1;
+  border-color: #232838;
+  border-radius: 3;
+  height: 20;            /* 一行信息；定高才能让"放不下就截断"的兜底生效 */
+}
+
+.k {
+  color: #98A2B3;
+}
+
+.v {
+  margin-bottom: 3;
+  font-size: 10;
+  height: 11;            /* 一行；放不下会被截断（主题作者不用自己数字宽） */
+}
+
+.gold { color: #FFD479; }
+.good { color: #7CE38B; }
+.dim  { color: #98A2B3; }
+.bad  { color: #FF7A7A; }
+.accent { color: #54C8FF; }
+
+/* ---------- 按钮 ----------
+   ⚠️ align-items:flex-start 不能省：flex 默认 stretch，会把同一行里
+      最矮的按钮拉到和最高的那个一样高（实测把 18px 的按钮拉成 34px，
+      整个按钮行多花 16px，直接顶破版面预算）。 */
+.btns {
+  display: flex;
+  align-items: flex-start;
+  margin-top: 4;
+  gap: 4;
+}
+
+.btn {
+  padding: 3 6;
+  background: #223047;
+  color: #E8F4FF;
+  border: 1;
+  border-color: #35507A;
+  border-radius: 3;
+  text-align: center;
+}
+
+.btn.ghost {
+  background: #1B1E28;
+  border-color: #2A2F3D;
+  color: #98A2B3;
+}
+
+.btn.warn {
+  background: #3A2222;
+  border-color: #6A3030;
+  color: #FFB4B4;
+}
+
+.btn.on {
+  background: #1E3A2A;
+  border-color: #2E5A3E;
+  color: #7CE38B;
+}
+
+/* ---------- 列表 ---------- */
+.list {
+  margin-top: 5;
+  padding: 3 4;
+  background: #14161F;
+  border: 1;
+  border-color: #2A2F3D;
+  border-radius: 3;
+  overflow: scroll;
+}
+
+/*
+  列表高度：四档。
+  ⚠️ 判据是【列表的底边 ≤ 216】（机器界面 y=216 以下是原版背包）——
+     "内容被裁掉"不等于"不压背包"：列表只要画到那儿，就盖在背包格上了。
+     实测起点：载具打印机 y≈112、收购机 y≈147、商店/市场 y≈151。
+*/
+.list.tall { height: 150; }
+.list.mid  { height: 37; }      /* 商店 / 市场 */
+.list.core { height: 39; }      /* 载具打印机：2 行蓝图 */
+.list.short{ height: 36; }      /* 收购价 / 挂单 / 图纸 */
+
+.listhead {
+  color: #54C8FF;
+  padding: 1 2;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  padding: 1;
+  border-radius: 2;
+}
+
+.row.alt    { background: #191C26; }
+.row.locked { background: #241A1A; }
+.row.sel    { background: #1B2A1E; }
+
+.row .name {
+  width: 68%;
+}
+
+.row .price {
+  width: 32%;
+  color: #FFD479;
+  text-align: right;
+}
+
+.row .tag {
+  margin-left: 4;
+  color: #98A2B3;
+}
+
+.empty {
+  padding: 6 2;
+  color: #6E7891;
+}
+
+/* ---------- 定位工具 ---------- */
+.absolute { position: absolute; }
+.bottom   { bottom: 6; }
+.right    { right: 6; }

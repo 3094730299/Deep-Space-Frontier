@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<!--
+  银行卡绑定 —— card_bind.html
+  ================================================================
+  打开方式：手持银行卡右键（主手/副手都可以）。
+
+  数据键：{{卡主}} {{卡名}} {{是副卡}} data-if="有卡主" data-if="!有卡主"
+  动作：  bind（绑定）/ rename（改名）/ unbind（解除绑定）/ close
+  原生占位：data-input="玩家名" data-input="卡名"（原版输入框）
+-->
+<html>
+<head>
+  <title>绑定银行卡账户</title>
+  <!-- 共用底层：配色 / 标题条 / 按钮 / 列表……（模组自带，见 base.css 的说明） -->
+  <link rel="stylesheet" href="/default/base.css">
+  <!-- 本界面自己的覆盖：机器界面补充（槽位占位 + 主题菜单），或者你自己的样式 -->
+  <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+  <div class="win">
+
+    <div class="bar">
+      <div class="title">绑定银行卡账户</div>
+      <div class="chip" data-if="是副卡">副卡</div>
+    </div>
+
+    <div class="info">
+      <div class="col">
+        <div class="k">卡主</div>
+        <div class="v gold" data-if="有卡主">{{卡主}}</div>
+        <div class="v bad" data-if="!有卡主">未绑定</div>
+        <div class="k">卡名</div>
+        <div class="v">{{卡名}}</div>
+      </div>
+    </div>
+
+    <div class="hint">填玩家名或 UUID：绑定后这张卡消费的是该玩家的钱</div>
+    <div data-input="玩家名" class="btn ghost" style="margin-top:4">玩家名或 UUID</div>
+
+    <div class="btns">
+      <div class="btn" data-action="bind">绑定</div>
+      <div class="btn ghost" data-action="unbind">解除绑定</div>
+      <div class="btn ghost" data-action="close">关闭</div>
+    </div>
+
+    <div class="hint">卡名（可选）：多人时区分多张卡</div>
+    <div data-input="卡名" class="btn ghost" style="margin-top:4">卡名</div>
+    <div class="btns">
+      <div class="btn ghost" data-action="rename">重命名</div>
+    </div>
+
+    <div class="note" data-if="是副卡">副卡：余额与主卡不通用，只能靠转账进出（不能取现）</div>
+
+  </div>
+</body>
+</html>

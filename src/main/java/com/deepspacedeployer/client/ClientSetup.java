@@ -3,11 +3,13 @@ package com.deepspacedeployer.client;
 import com.deepspacedeployer.Company;
 import com.deepspacedeployer.net.ShopEditPayload;
 import com.deepspacedeployer.registry.ModMenus;
+import com.deepspacedeployer.ui.webview.WebViewManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.network.chat.Component;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.common.NeoForge;
@@ -25,6 +27,12 @@ public final class ClientSetup {
         modEventBus.addListener(ClientSetup::onRegisterMachineRenderer);
         modEventBus.addListener(ClientSetup::onRegisterMenuScreens);
         NeoForge.EVENT_BUS.addListener(ClientSetup::onScreenInit);
+        NeoForge.EVENT_BUS.addListener(ClientSetup::onClientTick);
+
+        // ★ 界面主题（内置 WebView）：把 jar 里内置的默认主题释放到磁盘 + 记住当前主题名。
+        //   ⚠️ 以前【没有任何地方】调 ThemeManager.ensureDefaultTheme()，
+        //      所以 theme/default/ 一直没落到磁盘上、玩家根本看不到这个目录（旧的待办第 5 条）。
+        WebViewManager.bootstrap();
     }
 
 
@@ -72,12 +80,27 @@ public final class ClientSetup {
     }
 
 
-    /** ESC（暂停）菜单左侧加一个"价目表编辑器"按钮，只有 OP 能看见 */
+    /**
+     * ESC（暂停）菜单左侧加两个按钮：
+     *
+     * <ul>
+     *   <li><b>界面主题</b>（所有人可见）—— 打开主题选择菜单（读主题里的 choice.html）；</li>
+     *   <li><b>价目表编辑器</b>（只有 OP 可见）—— 改价目表。</li>
+     * </ul>
+     */
     private static void onScreenInit(ScreenEvent.Init.Post event) {
         if (!(event.getScreen() instanceof PauseScreen)) {
             return;
         }
         Minecraft minecraft = Minecraft.getInstance();
+
+        // ① 界面主题：所有玩家都能用（这是玩家自定义界面的入口）
+        event.addListener(Button.builder(Component.translatable("gui.deepspacedeployer.theme_button"),
+                        b -> minecraft.setScreen(
+                                new com.deepspacedeployer.ui.webview.ThemeChoiceScreen()))
+                .bounds(4, 64, 120, 20).build());
+
+        // ② 价目表编辑器：只有 OP
         if (minecraft.player == null || !minecraft.player.hasPermissions(2)) {
             return;
         }
@@ -85,6 +108,16 @@ public final class ClientSetup {
             PacketDistributor.sendToServer(new ShopEditPayload(Company.VALUES[0].id(), 0, 0, 0, 0));
             minecraft.setScreen(new ShopEditorScreen());
         }).bounds(4, 40, 120, 20).build());
+    }
+
+    /**
+     * 客户端每 tick：看看主题是不是被换掉了。
+     *
+     * <p>这里只负责"发现 + 记日志"；真正让当前界面换皮，由各界面自己查
+     * {@code WebViewScreen.themeChanged()}（避免这里持有界面引用导致内存泄漏）。</p>
+     */
+    private static void onClientTick(ClientTickEvent.Post event) {
+        WebViewManager.pollThemeChange();
     }
 
     private ClientSetup() {

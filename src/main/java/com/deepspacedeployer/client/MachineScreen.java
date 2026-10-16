@@ -8,6 +8,10 @@ import com.deepspacedeployer.economy.CardData;
 import com.deepspacedeployer.factory.BlueprintInfo;
 import com.deepspacedeployer.menu.MachineMenu;
 import com.deepspacedeployer.shop.TradeEntry;
+import com.deepspacedeployer.ui.webview.ThemeData;
+import com.deepspacedeployer.ui.webview.WebScreenId;
+import com.deepspacedeployer.ui.webview.WebViewManager;
+import com.deepspacedeployer.ui.webview.WebViewScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -25,6 +29,7 @@ import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -32,10 +37,25 @@ import java.util.Map;
  * 四种功能方块共用的界面。
  *
  * <ul>
- *   <li><b>工厂终端</b>：账户信息 + 商品列表（每页 3 条，可翻页购买）</li>
+ *   <li><b>工厂终端</b>：账户信息 + 商品列表（可翻页购买）</li>
  *   <li><b>收购站</b>：账户信息 + 3×3 投料格 + 本公司收购价</li>
  *   <li><b>工厂核心</b>：两页 —— 蓝图列表（选蓝图）/ 材料清单（投料 + 开始组装 + 进度条）</li>
- *   <li><b>焊接台</b>：两个按钮（逻辑后续版本接入）</li>
+ *   <li><b>寄售市场</b>：逛市场 / 我要卖</li>
+ * </ul>
+ *
+ * <h2>界面主题（内置 WebView）怎么接进来的</h2>
+ *
+ * <p>老板 2026-10-16 的要求：这些界面的外观要能由玩家用 HTML+CSS 自己写。
+ * 做法是<b>不动原来的原生界面</b>，而是在它上面叠一层主题：</p>
+ *
+ * <ul>
+ *   <li>{@link #webview} 加载主题里对应的 html（四个方块四个文件，见 {@link WebScreenId}）；</li>
+ *   <li>主题能用 → {@code render()} 里正常画完原生界面之后，把主题盖上去；</li>
+ *   <li>主题<b>不能</b>用（文件缺了 / 写坏了 / 配置关了）→ {@link WebViewScreen#visible()} 为 false，
+ *       一切照旧走原生界面 —— <b>绝不能因为主题坏了打不开界面</b>；</li>
+ *   <li>点击：主题先处理（{@code data-action}），没命中才交给原生控件；</li>
+ *   <li>数据变化：{@link #syncTheme} 里比对"上次喂给主题的快照"，变了才重新绑定
+ *       （主题是静态快照，不是活动绑定）。</li>
  * </ul>
  */
 public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
@@ -94,6 +114,12 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
     private Button autoSellButton;
     private boolean lastAutoSell;
 
+    // ---------------- 界面主题 ----------------
+    /** 主题宿主：四个方块共用这个类，但读的 html 不一样（按 kind 挑） */
+    private WebViewScreen webview;
+    /** 上一次喂给主题的数据快照（变了才重新绑定，免得每帧重解析 HTML） */
+    private String themeSnapshot = "";
+
     private static String labelFor(boolean autoSell) {
         return autoSell
                 ? "gui.deepspacedeployer.buyer_auto_on_label"
@@ -103,13 +129,423 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
     public MachineScreen(MachineMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         this.imageWidth = 288;
-        // 所有界面统一高度；玩家背包在菜单里固定在 y=186
-        this.imageHeight = 270;
+        // 界面高度：
+        //   ★ 2026-10-16 从 270 加到 300 —— 一个窗口同时要装"原版背包（固定在最下面 76px）"
+        //     和"主题画的上半部分"。270 高时上面只剩 186px，主题的标题条+信息栏+槽位行+
+        //     按钮行+列表塞不下（会压到背包上、最后一行被裁）。加到 300 后上面有 216px，
+        //     默认主题正好排得下（见 theme.default 的 theme.css 里"版面预算"那段注释）。
+        //   ⚠️ 主题里的 .player 用 bottom:8 定位，所以改这里【不用】同步改主题。
+        this.imageHeight = 300;
         // 不画"物品栏"那行字：终端底部的翻页按钮要用那块地方
         this.inventoryLabelY = -1000;
     }
 
-    /** 金额输入框已经搬到「资金转化界面」（TransferScreen），这里不需要了 */
+    /** 这个方块种类对应主题里的哪个 html */
+    private WebScreenId screenId() {
+        return switch (this.menu.kind()) {
+            case TERMINAL -> WebScreenId.FACTORY_TERMINAL;
+            case BUYER -> WebScreenId.BUYER;
+            case CORE -> WebScreenId.FACTORY_CORE;
+            case MARKET -> WebScreenId.MARKET;
+        };
+    }
+
+    // ---------------------------------------------------------------- 主题：装配
+
+    private void setupTheme() {
+        if (this.webview == null) {
+            this.webview = new WebViewScreen(screenId());
+            this.webview.setActionSink(this::onThemeAction);
+        }
+        this.webview.setEnabled(WebViewManager.enabled());
+        this.webview.size(this.imageWidth, this.imageHeight);
+        this.webview.at(this.leftPos, this.topPos);
+        this.themeSnapshot = "";
+        syncTheme();
+    }
+
+    /**
+     * 数据变了才重新绑定主题。
+     *
+     * <p>快照用字符串拼（够用且便宜）：内容一样就跳过，避免每帧重解析一遍 HTML。</p>
+     */
+    private void syncTheme() {
+        if (this.webview == null || !this.webview.enabled()) {
+            return;
+        }
+        if (this.webview.themeChanged()) {
+            this.themeSnapshot = "";          // 主题换了 → 强制重绑
+        }
+        String snapshot = themeSignature();
+        if (snapshot.equals(this.themeSnapshot) && this.webview.visible()) {
+            return;
+        }
+        this.themeSnapshot = snapshot;
+        this.webview.reload(this::buildThemeData);
+    }
+
+    /** 快照：把所有会显示出来的数据拼成一行（变了就重新绑定主题） */
+    private String themeSignature() {
+        StringBuilder sb = new StringBuilder(64);
+        sb.append(this.menu.kind()).append('|')
+                .append(this.menu.online()).append(this.menu.hasAccount()).append('|')
+                .append(this.menu.localBalance()).append('|')
+                .append(this.menu.tierRank()).append(this.menu.reputation()).append('|')
+                .append(this.menu.autoSell()).append(this.menu.blockedAbove()).append('|')
+                .append(this.menu.hasAssemblyTarget()).append('|')
+                .append(this.menu.creative()).append('|')
+                .append(this.corePage).append(this.marketPage).append(this.marketBarter)
+                .append(this.marketVehicle).append(this.payCompany).append('|')
+                .append(this.scroll).append('|')
+                .append(buyOffers().size()).append(sellOffers().size())
+                .append(blueprints().size()).append(materialRows().size())
+                .append(marketListings().size());
+        // 余额/进度这类数字直接进快照（变了要让主题跟着变）
+        for (int i = 0; i < MachineMenu.DATA_COUNT; i++) {
+            sb.append(',').append(this.menu.dataValue(i));
+        }
+        return sb.toString();
+    }
+
+    // ---------------------------------------------------------------- 主题：数据
+
+    /** 拼一份喂给主题的数据（键名约定见 docs/开发文档/界面清单.md） */
+    private ThemeData buildThemeData() {
+        MachineKind kind = this.menu.kind();
+        ThemeData d = new ThemeData();
+        ItemStack card = this.menu.getSlot(0).getItem();
+        Company company = company();
+        boolean companyBound = kind.isCompanyBound();
+
+        d.put("公司", companyBound ? company.displayName().getString() : "中立设施");
+        d.put("账户", CardData.accountName(card));
+        d.put("余额", this.menu.localBalance());
+        d.put("卡余额", CardData.getBalance(card, company));
+        d.put("等级", Tier.byIndex(this.menu.tierRank()).displayName().getString());
+        d.put("声望", this.menu.reputation());
+        d.put("在线", this.menu.online());
+        d.put("被挡", this.menu.blockedAbove());
+        d.put("创意模式", this.menu.creative());
+        d.put("有公司", companyBound);
+
+        switch (kind) {
+            case TERMINAL -> {
+                d.put("页", this.scroll + 1);
+                d.put("总页", Math.max(1, (buyOffers().size() + LIST_ROWS - 1) / LIST_ROWS));
+                d.list("商品", shopRows(buyOffers()));
+            }
+            case BUYER -> {
+                d.put("自动收购", this.menu.autoSell() ? "开" : "关");
+                d.list("收购价", sellRows());
+            }
+            case CORE -> {
+                d.put("蓝图页", this.corePage == 0);
+                BlueprintInfo selected = selectedBlueprint();
+                d.put("已选蓝图", selected == null ? "未选" : selected.name());
+                d.put("组装费", "按机器上方那家公司的价格结算");
+                d.put("投放点", this.menu.hasAssemblyTarget() ? "已选" : "默认（机器正面）");
+                d.list("蓝图", blueprintRows());
+                d.list("材料", materialRows());
+            }
+            case MARKET -> {
+                d.put("市场页", this.marketPage == 0);
+                d.put("挂单数量", marketListings().size());
+                d.put("是载具", this.marketVehicle);
+                d.put("以物易物", this.marketBarter);
+                d.put("收款方式", this.marketBarter ? "物品" : "余额");
+                d.put("收款公司", Company.VALUES[Math.floorMod(this.payCompany, Company.VALUES.length)]
+                        .displayName().getString());
+                d.list("挂单", marketRows());
+                d.list("图纸", blueprintRows());
+            }
+        }
+        return d;
+    }
+
+    private List<Map<String, ?>> shopRows(List<TradeEntry> offers) {
+        List<Map<String, ?>> rows = new ArrayList<>();
+        for (int i = 0; i < offers.size(); i++) {
+            TradeEntry e = offers.get(i);
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("名称", itemName(e.itemId()).getString());
+            row.put("单价", String.valueOf(e.price()));
+            boolean locked = !isUnlocked(e);
+            row.put("锁定", locked);
+            row.put("锁定原因", locked ? lockReason(e) : "");
+            row.put("下标", i);
+            rows.add(row);
+        }
+        return rows;
+    }
+
+    /** 这一条商品为什么被锁（等级不够 / 声望不够） */
+    private String lockReason(TradeEntry e) {
+        Tier tier = Tier.byIndex(this.menu.tierRank());
+        if (e.tier().rank() > this.menu.tierRank()) {
+            return Component.translatable("gui.deepspacedeployer.lock_tier",
+                    e.tier().displayName()).getString();
+        }
+        if (e.reputation() > this.menu.reputation()) {
+            return Component.translatable("gui.deepspacedeployer.lock_rep",
+                    e.reputation()).getString();
+        }
+        return Component.translatable(tier.displayName().getString()).getString();
+    }
+
+    /** 收购价 = 价目表价格 × 等级倍率（低级 0.8 / 中级 1.0 / 高级 1.2） */
+    private static double tierMultiplier(int tierRank) {
+        return switch (tierRank) {
+            case 0 -> 0.8D;
+            case 2 -> 1.2D;
+            default -> 1.0D;
+        };
+    }
+
+    private List<Map<String, ?>> sellRows() {
+        List<Map<String, ?>> rows = new ArrayList<>();
+        List<TradeEntry> offers = sellOffers();
+        double mul = tierMultiplier(this.menu.tierRank());
+        for (TradeEntry e : offers) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("名称", itemName(e.itemId()).getString());
+            row.put("单价", String.valueOf(Math.round(e.price() * mul)));
+            rows.add(row);
+        }
+        return rows;
+    }
+
+    private List<Map<String, ?>> blueprintRows() {
+        List<Map<String, ?>> rows = new ArrayList<>();
+        List<BlueprintInfo> list = blueprints();
+        BlueprintInfo selected = selectedBlueprint();
+        for (int i = 0; i < list.size(); i++) {
+            BlueprintInfo bp = list.get(i);
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("名称", bp.name());
+            row.put("尺寸", bp.sizeText());
+            row.put("方块数", bp.totalBlocks());
+            row.put("已选", selected != null && selected.name().equals(bp.name()));
+            row.put("下标", i);
+            rows.add(row);
+        }
+        return rows;
+    }
+
+    private List<Map<String, ?>> materialRows() {
+        List<Map<String, ?>> rows = new ArrayList<>();
+        BlueprintInfo bp = selectedBlueprint();
+        if (bp == null) {
+            return rows;
+        }
+        int index = 0;
+        for (Map.Entry<String, Integer> e : bp.materials().entrySet()) {
+            int need = e.getValue();
+            int have = countInInput(e.getKey());
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("名称", itemName(e.getKey()).getString());
+            row.put("需要", need);
+            row.put("已有", have);
+            row.put("够", have >= need);
+            row.put("下标", index++);
+            rows.add(row);
+        }
+        return rows;
+    }
+
+    /** 3×3 投料格里现在有多少个这种物品（物品 id → 数量） */
+    private int countInInput(String itemId) {
+        Item want = itemName2Item(itemId);
+        if (want == null || want == Items.AIR) {
+            return 0;
+        }
+        int n = 0;
+        for (int i = MachineBlockEntity.SLOT_INPUT_START;
+             i < MachineBlockEntity.SLOT_INPUT_START + MachineBlockEntity.INPUT_SLOTS; i++) {
+            if (i < this.menu.slots.size()) {
+                ItemStack st = this.menu.getSlot(i).getItem();
+                if (!st.isEmpty() && st.getItem() == want) {
+                    n += st.getCount();
+                }
+            }
+        }
+        return n;
+    }
+
+    private static Item itemName2Item(String itemId) {
+        ResourceLocation id = ResourceLocation.tryParse(itemId);
+        return id == null ? Items.AIR : BuiltInRegistries.ITEM.get(id);
+    }
+
+    private List<Map<String, ?>> marketRows() {
+        List<Map<String, ?>> rows = new ArrayList<>();
+        var player = Minecraft.getInstance().player;
+        for (var listing : marketListings()) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("物品", listing.title());
+            row.put("数量", listing.kind() == com.deepspacedeployer.market.Listing.Kind.VEHICLE
+                    ? 1 : listing.item().getCount());
+            row.put("价格", listing.isBarter()
+                    ? "⇄ " + listing.barterCount()
+                    : String.valueOf(listing.price()));
+            row.put("货币", listing.isBarter()
+                    ? listing.barter().getHoverName().getString()
+                    : (listing.company() == null ? "" : listing.company().cnName()));
+            row.put("卖家", listing.sellerName());
+            row.put("我的", player != null && listing.seller() != null
+                    && listing.seller().equals(player.getUUID()));
+            row.put("下标", rows.size());
+            rows.add(row);
+        }
+        return rows;
+    }
+
+    // ---------------------------------------------------------------- 主题：动作
+
+    /**
+     * 主题里的按钮点下来了。
+     *
+     * <p>动作名约定（和 {@code theme/default/*.html} 里写的对齐）：
+     * {@code buy:下标}、{@code pick:下标}、{@code cancel:下标}、{@code pick_blueprint:下标}、
+     * {@code use:主题名}；不带参数的走 {@link #handleNamedAction}。</p>
+     */
+    private boolean onThemeAction(String action, com.deepspacedeployer.ui.theme.HtmlNode source) {
+        if (action == null) {
+            return false;
+        }
+        int colon = action.indexOf(':');
+        String name = colon < 0 ? action : action.substring(0, colon);
+        String argText = colon < 0 ? "" : action.substring(colon + 1).trim();
+        int arg;
+        try {
+            arg = argText.isEmpty() ? -1 : Integer.parseInt(argText);
+        } catch (NumberFormatException e) {
+            arg = -1;
+        }
+
+        switch (name) {
+            case "buy" -> {
+                if (arg < 0) {
+                    return false;
+                }
+                if (this.menu.kind() == MachineKind.MARKET) {
+                    // 市场：「买」是一张挂单，走市场网络包（带挂单 id），不是菜单按钮通道
+                    int index = this.scroll + arg;
+                    List<com.deepspacedeployer.market.Listing> listings = marketListings();
+                    if (index >= listings.size()) {
+                        return false;
+                    }
+                    sendMarket(com.deepspacedeployer.net.MarketPayload.ACT_BUY,
+                            listings.get(index).id(), 0, false, -1, 0L);
+                    return true;
+                }
+                sendAction(MachineMenu.ACTION_BUY_BASE + this.scroll + arg);
+                return true;
+            }
+            case "pick" -> {
+                if (arg >= 0) {
+                    sendAction(MachineMenu.ACTION_BLUEPRINT_BASE + this.scroll + arg);
+                    return true;
+                }
+                return false;
+            }
+            case "cancel" -> {
+                // 市场：撤自己的挂单（同一张挂单 id，动作换成撤单）
+                int index = this.scroll + arg;
+                List<com.deepspacedeployer.market.Listing> listings = marketListings();
+                if (arg < 0 || index >= listings.size()) {
+                    return false;
+                }
+                sendMarket(com.deepspacedeployer.net.MarketPayload.ACT_CANCEL,
+                        listings.get(index).id(), 0, false, -1, 0L);
+                return true;
+            }
+            case "pick_blueprint" -> {
+                if (arg >= 0) {
+                    sendAction(MachineMenu.ACTION_BLUEPRINT_BASE + arg);
+                    return true;
+                }
+                return false;
+            }
+            case "page_prev" -> {
+                shiftScroll(-1);
+                return true;
+            }
+            case "page_next" -> {
+                shiftScroll(1);
+                return true;
+            }
+            case "switch_page" -> {
+                if (this.menu.kind() == MachineKind.CORE) {
+                    switchCorePage();
+                } else if (this.menu.kind() == MachineKind.MARKET) {
+                    this.marketPage = this.marketPage == 0 ? 1 : 0;
+                    this.scroll = 0;
+                    rebuildWidgets();
+                }
+                return true;
+            }
+            case "toggle_autosell" -> {
+                sendAction(MachineMenu.ACTION_UI_BASE);
+                return true;
+            }
+            case "sell_now" -> {
+                sendAction(MachineMenu.ACTION_UI_BASE + 2);
+                return true;
+            }
+            case "assemble" -> {
+                sendAction(MachineMenu.ACTION_ASSEMBLE);
+                return true;
+            }
+            case "open_transfer" -> {
+                sendAction(MachineMenu.ACTION_OPEN_TRANSFER);
+                return true;
+            }
+            case "pick_target" -> {
+                openAssemblyMap();
+                return true;
+            }
+            case "sell_item" -> {
+                this.marketVehicle = false;
+                rebuildWidgets();
+                return true;
+            }
+            case "sell_vehicle" -> {
+                this.marketVehicle = true;
+                rebuildWidgets();
+                return true;
+            }
+            case "toggle_barter" -> {
+                this.marketBarter = !this.marketBarter;
+                rebuildWidgets();
+                return true;
+            }
+            case "pick_company" -> {
+                this.payCompany = (this.payCompany + 1) % Company.VALUES.length;
+                rebuildWidgets();
+                return true;
+            }
+            case "post" -> {
+                sendAction(MachineMenu.ACTION_UI_BASE + 3);
+                return true;
+            }
+            default -> {
+                return false;
+            }
+        }
+    }
+
+    /** 列表滚动一格（主题的「上一页/下一页」按钮，以及滚轮共用） */
+    private void shiftScroll(int delta) {
+        int max = maxScroll();
+        if (max <= 0) {
+            return;
+        }
+        int next = Math.max(0, Math.min(max, this.scroll + delta));
+        if (next != this.scroll) {
+            this.scroll = next;
+            rebuildWidgets();
+        }
+    }
 
     @Override
     protected void init() {
@@ -300,6 +736,62 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
                 }
             }
         }
+
+        // ★ 原生控件建完了，最后装配界面主题：
+        //   主题能用 → 它的绘制会盖在原生界面上面；主题不能用 → 什么都不发生。
+        setupTheme();
+    }
+
+    // ---------------------------------------------------------------- 主题：接入渲染与输入
+
+    /**
+     * 画界面：原生画完，主题再盖上去。
+     *
+     * <p>顺序很重要：主题的框体和文字要盖住原生界面那些"老样式"的底板与标签，
+     * 而<b>物品格</b>（背包、卡槽、投料格）仍然由原版画在下面 —— 所以主题里
+     * 用 {@code data-slot} 标记位置，就能和这些格子对上。</p>
+     */
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        syncTheme();
+        super.render(graphics, mouseX, mouseY, partialTick);
+        if (this.webview != null && this.webview.visible()) {
+            this.webview.render(graphics, mouseX, mouseY, partialTick);
+        }
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        // 主题先处理（data-action）；没命中才轮到原生控件 —— 这样主题里画的按钮
+        // 才不会被原生按钮"抢"走点击。
+        if (this.webview != null && this.webview.mouseClicked(mouseX, mouseY, button)) {
+            syncTheme();
+            return true;
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        // 主题里的可滚动容器（overflow:scroll）先吃掉滚轮
+        if (this.webview != null && this.webview.mouseScrolled(mouseX, mouseY, scrollY)) {
+            return true;
+        }
+        // 搜索框在鼠标底下时不抢滚轮（EditBox 自己要用）
+        if (this.blueprintFilter != null && this.blueprintFilter.isMouseOver(mouseX, mouseY)) {
+            return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        }
+        int max = maxScroll();
+        if (max <= 0) {
+            return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        }
+        int next = Math.max(0, Math.min(max, this.scroll - (int) Math.signum(scrollY)));
+        if (next != this.scroll) {
+            this.scroll = next;
+            rebuildWidgets();
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
     /** 材料页一共几行（当前蓝图要的材料种数） */
@@ -418,25 +910,6 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
 
     /** 列表滚动位置（滚轮控制，替代翻页） */
     private int scroll = 0;
-
-    @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        // 搜索框在鼠标底下时不抢滚轮（EditBox 自己要用）
-        if (this.blueprintFilter != null && this.blueprintFilter.isMouseOver(mouseX, mouseY)) {
-            return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
-        }
-        int max = maxScroll();
-        if (max <= 0) {
-            return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
-        }
-        int next = Math.max(0, Math.min(max, this.scroll - (int) Math.signum(scrollY)));
-        if (next != this.scroll) {
-            this.scroll = next;
-            rebuildWidgets();
-            return true;
-        }
-        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
-    }
 
     /** 当前列表最多能滚多少行 */
     private int maxScroll() {

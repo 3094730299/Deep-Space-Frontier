@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<!--
+  界面主题选择菜单 —— choice.html
+  ================================================================
+  打开方式：ESC 菜单左侧的「界面主题」按钮。
+  这一份是"每套主题自带一份"的：你自己的主题里也可以放一个 choice.html，
+  以后打开主题菜单就长成你的样子（缺了就用 default 的这一份）。
+
+  数据键：{{当前主题}} {{主题数量}} {{默认主题}}
+  列表：  主题[]（{{名字}} {{名称}} {{作者}} {{版本}} {{介绍}} {{是当前}} {{内置}}）
+  动作：  use（配 data-index → 用第几套）/ open_folder / close / reload
+-->
+<html>
+<head>
+  <title>界面主题</title>
+  <!-- 共用底层：配色 / 标题条 / 按钮 / 列表……（模组自带，见 base.css 的说明） -->
+  <link rel="stylesheet" href="/default/base.css">
+  <!-- 本界面自己的覆盖：机器界面补充（槽位占位 + 主题菜单），或者你自己的样式 -->
+  <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+  <div class="win">
+
+    <div class="bar">
+      <div class="title">界面主题</div>
+      <div class="chip">当前：{{当前主题}}</div>
+    </div>
+
+    <div class="hint">点一套主题立刻换上（写进配置文件，下次启动还是它）</div>
+
+    <div class="list tall">
+      <div class="theme" data-repeat="主题">
+        <div class="tname">{{名称}}<span class="chip" data-if="是当前">使用中</span></div>
+        <div class="tmeta">{{作者}} {{版本}}</div>
+        <div class="btn" data-action="use" data-index="{{行号}}">用这套</div>
+      </div>
+      <div class="empty" data-if="!主题数量">没有找到任何主题（theme/default/ 是不是被删了？）</div>
+    </div>
+
+    <div class="btns">
+      <div class="btn ghost" data-action="open_folder">打开主题文件夹</div>
+      <div class="btn ghost" data-action="reload">重新扫描</div>
+      <div class="btn ghost" data-action="close">关闭</div>
+    </div>
+
+    <div class="note">自定义主题放在：&lt;版本文件夹&gt;/deepspacedeployer/theme/custom/&lt;主题名&gt;/</div>
+
+  </div>
+</body>
+</html>

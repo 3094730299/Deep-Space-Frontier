@@ -43,6 +43,18 @@ public final class HtmlNode {
     /** 布局结果（由 LayoutEngine 填） */
     public LayoutBox box;
 
+    /**
+     * 这个元素的<b>可用内容高度</b>（由 LayoutEngine 填；没写 height 的填 {@link Float#MAX_VALUE}）。
+     *
+     * <p>文字折行时要用它判断"还能放几行"，放不下就截断加省略号 ——
+     * 不然写了 {@code height: 16} 的标题条会被两行文字撑破、压到下面的元素上
+     * （真发生过：信息栏的"账户 / 余额"折成两行，把整个版面顶下去 10px）。</p>
+     */
+    public float textBoxHeight = Float.MAX_VALUE;
+
+    /** 截断时补的省略号（中文主题里就是"…"） */
+    public static final String ELLIPSIS = "…";
+
     public static HtmlNode element(String tag) {
         HtmlNode n = new HtmlNode();
         n.kind = Kind.ELEMENT;

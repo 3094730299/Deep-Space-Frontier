@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<!--
+  载具打印机（蓝图 + 材料 + 组装） —— factory_core.html
+  ================================================================
+  数据键：{{公司}} {{账户}} {{余额}} {{卡余额}} {{等级}} {{声望}}
+          data-if="蓝图页"（true = 蓝图页，false = 材料页）data-if="创意模式"
+          {{已选蓝图}} {{组装费}} {{投放点}}
+  蓝图列表：蓝图[]（{{名称}} {{尺寸}} {{方块数}}）
+  材料列表：材料[]（{{名称}} {{需要}} {{已有}} {{够}}）
+  动作：  pick（配 data-index）/ assemble / pick_target / reload_blueprints
+          switch_page / open_transfer
+  原生占位：data-slot="card" data-slot="input9" data-slot="clipboard" data-slot="player"
+
+  ⚠️ 版面预算：画布 288×270，玩家背包占最下面 76px（y=186 起）。
+-->
+<html>
+<head>
+  <title>载具打印机</title>
+  <!-- 共用底层：配色 / 标题条 / 按钮 / 列表……（模组自带，见 base.css 的说明） -->
+  <link rel="stylesheet" href="/default/base.css">
+  <!-- 本界面自己的覆盖：机器界面补充（槽位占位 + 主题菜单），或者你自己的样式 -->
+  <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+  <!-- data-viewport = 这个界面"真正能用的高度"：y=216 以下是原版画的玩家背包，主题不占。
+       声明之后，文字截断和 overflow 滚动都按 216 算（见 LayoutEngine.layout）。 -->
+  <div class="win" data-viewport="216">
+
+    <div class="bar">
+      <div class="title">{{公司}}</div>
+      <div class="chip" data-if="在线">已开机</div>
+      <div class="chip off" data-if="!在线">未插卡</div>
+      <div class="chip warn" data-if="创意模式">材料无限</div>
+    </div>
+
+    <div class="info">
+      <div class="col">
+        <div class="v gold">账户 {{账户}} · {{余额}}</div>
+      </div>
+      <div class="col">
+        <div class="v accent">蓝图 {{已选蓝图}}</div>
+      </div>
+    </div>
+
+    <div class="slotgrid">
+      <div data-slot="card" class="slot"></div>
+      <div data-slot="clipboard" class="slot" style="left:22"></div>
+      <div data-slot="input9" class="slots9" style="left:44"></div>
+      <div class="hint" data-if="蓝图页">卡槽 · 剪贴板 · 投料格</div>
+    </div>
+
+    <div class="btns">
+      <div class="btn" data-if="蓝图页" data-action="switch_page">材料页</div>
+      <div class="btn" data-if="!蓝图页" data-action="switch_page">蓝图页</div>
+      <div class="btn" data-action="assemble">一键组装</div>
+      <div class="btn ghost" data-action="pick_target">投放点</div>
+      <div class="btn ghost" data-action="reload_blueprints">重读图纸</div>
+    </div>
+
+    
+
+    <!-- ---------- 蓝图页 ---------- -->
+    <div data-if="蓝图页" style="height:54">
+      <div class="list core">
+        <div class="row" data-repeat="蓝图">
+          <div class="name">{{名称}}<span class="tag">{{尺寸}}</span></div>
+          <div class="btn" data-action="pick" data-index="{{行号}}">选</div>
+        </div>
+        <div class="empty" data-if="!蓝图数量">blueprints/ 里还没有 .nbt 图纸</div>
+      </div>
+    </div>
+
+    <!-- ---------- 材料页 ---------- -->
+    <div data-if="!蓝图页" style="height:54">
+      <div class="list core">
+        <div class="row" data-repeat="材料">
+          <div class="name">{{名称}}</div>
+          <div class="price">{{已有}} / {{需要}}</div>
+          <div class="tag" data-if="够">✓</div>
+        </div>
+        <div class="empty" data-if="!材料数量">还没选蓝图，先去蓝图页选一份</div>
+      </div>
+    </div>
+
+    <div data-slot="player" class="player absolute"></div>
+
+  </div>
+</body>
+</html>

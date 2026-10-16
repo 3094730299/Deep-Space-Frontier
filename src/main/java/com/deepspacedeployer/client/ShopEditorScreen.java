@@ -4,6 +4,10 @@ import com.deepspacedeployer.Company;
 import com.deepspacedeployer.Tier;
 import com.deepspacedeployer.net.ShopEditPayload;
 import com.deepspacedeployer.shop.TradeEntry;
+import com.deepspacedeployer.ui.webview.ThemeData;
+import com.deepspacedeployer.ui.webview.WebScreenId;
+import com.deepspacedeployer.ui.webview.WebViewManager;
+import com.deepspacedeployer.ui.webview.WebViewScreen;
 import net.minecraft.client.gui.GuiGraphics;
 import com.deepspacedeployer.editor.ShopEditor;
 import net.minecraft.client.gui.components.Button;
@@ -17,7 +21,10 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.network.PacketDistributor;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 价目表编辑器界面（只有 OP 能从 ESC 菜单左侧的按钮进来）。
@@ -53,6 +60,10 @@ public class ShopEditorScreen extends Screen {
 
     private int leftPos;
     private int topPos;
+
+    /** 界面主题宿主 */
+    private final WebViewScreen webview = new WebViewScreen(WebScreenId.SHOP_EDITOR);
+    private String themeSnapshot = "";
 
     public ShopEditorScreen() {
         super(Component.translatable("gui.deepspacedeployer.editor_title"));
@@ -151,15 +162,186 @@ public class ShopEditorScreen extends Screen {
         addRenderableWidget(Button.builder(Component.translatable("gui.deepspacedeployer.editor_close"),
                         b -> this.onClose())
                 .bounds(x + 296, bottom, 40, 18).build());
+
+        // ★ 界面主题：原生控件建完之后装配
+        this.webview.setEnabled(WebViewManager.enabled());
+        this.webview.size(WebScreenId.SHOP_EDITOR.width(), WebScreenId.SHOP_EDITOR.height());
+        this.webview.at(this.leftPos, this.topPos);
+        this.webview.setActionSink(this::onThemeAction);
+        this.themeSnapshot = "";
+        syncTheme();
     }
 
-    /** 把输入框里的数字发给服务端设价 */
+    // ---------------------------------------------------------------- 界面主题
+
+    private void syncTheme() {
+        if (!this.webview.enabled()) {
+            return;
+        }
+        if (this.webview.themeChanged()) {
+            this.themeSnapshot = "";
+        }
+        String snapshot = this.company.id() + "|" + this.listKind + "|" + this.page
+                + "|" + entries().size() + "|" + ClientShopCache.version();
+        if (snapshot.equals(this.themeSnapshot) && this.webview.visible()) {
+            return;
+        }
+        this.themeSnapshot = snapshot;
+        this.webview.reload(this::buildThemeData);
+    }
+
+    /** 喂给 shop_editor.html 的数据 */
+    private ThemeData buildThemeData() {
+        ThemeData d = new ThemeData();
+        d.put("当前公司", this.company.id());
+        d.put("当前公司名", this.company.cnName());
+        d.put("表名", this.listKind == 1 ? "公司收购" : "公司出售");
+
+        // 六家公司：铺成两行、每行 3 个（一行 6 个会被画到画布外面 —— 真发生过）
+        List<Map<String, ?>> row1 = new ArrayList<>();
+        List<Map<String, ?>> row2 = new ArrayList<>();
+        for (int i = 0; i < Company.COUNT; i++) {
+            Company c = Company.VALUES[i];
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("代号", c.id());
+            row.put("名称", c.cnName());
+            row.put("是当前", c == this.company);
+            (i < 3 ? row1 : row2).add(row);
+        }
+        d.list("公司行1", row1);
+        d.list("公司行2", row2);
+
+        List<Map<String, ?>> rows = new ArrayList<>();
+        List<TradeEntry> list = entries();
+        int start = this.page * ROWS;
+        for (int row = 0; row < ROWS; row++) {
+            int index = start + row;
+            if (index >= list.size()) {
+                break;
+            }
+            TradeEntry e = list.get(index);
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("物品", itemLabel(e.itemId()));
+            r.put("价格", e.price());
+            r.put("等级", e.tier() == null ? "" : e.tier().name().toLowerCase(java.util.Locale.ROOT));
+            r.put("下标", index);
+            rows.add(r);
+        }
+        d.list("条目", rows);
+        return d;
+    }
+
+    private static String itemLabel(String itemId) {
+        ResourceLocation id = ResourceLocation.tryParse(itemId);
+        Item item = id == null ? Items.AIR : BuiltInRegistries.ITEM.get(id);
+        return item == Items.AIR ? itemId : item.getDescription().getString();
+    }
+
+    /** shop_editor.html 的动作 */
+    private boolean onThemeAction(String action, com.deepspacedeployer.ui.theme.HtmlNode source) {
+        if (action == null) {
+            return false;
+        }
+        int colon = action.indexOf(':');
+        String name = colon < 0 ? action : action.substring(0, colon);
+        String arg = colon < 0 ? "" : action.substring(colon + 1).trim();
+        switch (name) {
+            case "pick_company" -> {
+                // 参数是公司代号（如 "skimmer"）；也兼容"第几家公司"的数字写法
+                Company target = companyByArg(arg);
+                if (target == null) {
+                    return false;
+                }
+                switchCompany(target);
+                syncTheme();
+                return true;
+            }
+            case "switch_list" -> {
+                switchList(this.listKind == 0 ? 1 : 0);
+                syncTheme();
+                return true;
+            }
+            case "add_buy" -> {
+                // ⚠️ 服务端按 payload 里的 listKind 决定"加进买表还是卖表"，
+                //    不是按 index 区分（以前这里传了 1 当 index，语义是错的）。
+                this.listKind = 0;
+                edit(ShopEditor.ACTION_ADD_HELD, 0, DEFAULT_BUY_PRICE);
+                return true;
+            }
+            case "add_sell" -> {
+                this.listKind = 1;
+                edit(ShopEditor.ACTION_ADD_HELD, 0, DEFAULT_SELL_PRICE);
+                return true;
+            }
+            case "tier" -> {
+                int index = parseInt(arg, -1);
+                if (index < 0) {
+                    return false;
+                }
+                edit(ShopEditor.ACTION_TIER, index, 0);
+                return true;
+            }
+            case "set_price" -> {
+                int index = parseInt(arg, -1);
+                if (index < 0) {
+                    return false;
+                }
+                // 主题上只有一个"价格"输入位（data-input="价格"），所以取第一个框的值
+                applyPrice(index, this.priceBoxes.isEmpty() ? null : this.priceBoxes.get(0));
+                return true;
+            }
+            case "remove" -> {
+                int index = parseInt(arg, -1);
+                if (index < 0) {
+                    return false;
+                }
+                edit(ShopEditor.ACTION_REMOVE, index, 0);
+                return true;
+            }
+            case "save" -> {
+                edit(ShopEditor.ACTION_SAVE, 0, 0);
+                return true;
+            }
+            case "close" -> {
+                this.onClose();
+                return true;
+            }
+            default -> {
+                return false;
+            }
+        }
+    }
+
+    /** 动作参数 → 公司：先当代号找，再当序号找 */
+    private static Company companyByArg(String arg) {
+        if (arg == null || arg.isBlank()) {
+            return null;
+        }
+        for (Company c : Company.VALUES) {
+            if (c.id().equalsIgnoreCase(arg)) {
+                return c;
+            }
+        }
+        int index = parseInt(arg, -1);
+        return index >= 0 && index < Company.COUNT ? Company.VALUES[index] : null;
+    }
+
+    private static int parseInt(String s, int fallback) {
+        try {
+            return Integer.parseInt(s);
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
+    }
+
+    /** 把输入框里的数字发给服务端设价（box 为 null 说明主题上没摆输入框 → 用行内原价） */
     private void applyPrice(int index, EditBox box) {
         int price;
         try {
-            price = Math.max(1, Integer.parseInt(box.getValue().trim()));
+            price = Math.max(1, Integer.parseInt(box == null ? "" : box.getValue().trim()));
         } catch (NumberFormatException e) {
-            price = 1;
+            List<TradeEntry> list = entries();
+            price = index >= 0 && index < list.size() ? list.get(index).price() : 1;
         }
         edit(ShopEditor.ACTION_SET_PRICE, index, price);
     }
@@ -275,6 +457,18 @@ public class ShopEditorScreen extends Screen {
                 this.leftPos + 6, this.topPos + PANEL_H - 18, DIM, false);
 
         super.render(graphics, mouseX, mouseY, partialTick);
+        // 主题盖在最上面（没主题就什么都不画）
+        this.webview.render(graphics, mouseX, mouseY, partialTick);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        // 主题的按钮优先（它们画在原生控件上面）
+        if (this.webview.mouseClicked(mouseX, mouseY, button)) {
+            syncTheme();
+            return true;
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     /** 按像素宽度截断文字（超长加省略号），避免文字画出面板 */

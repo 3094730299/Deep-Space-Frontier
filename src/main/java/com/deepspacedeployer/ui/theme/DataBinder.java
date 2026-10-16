@@ -1,6 +1,7 @@
 package com.deepspacedeployer.ui.theme;
 
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * <b>数据绑定</b>：主题里不允许写 JS，所以"动起来"靠这两样：
@@ -35,8 +36,57 @@ public final class DataBinder {
             return;
         }
         Data src = data == null ? Data.EMPTY : data;
+        // 列表计数还要能被"数量"这个名字取到（见 withCountAliases 的说明）——必须先算
+        src = withCountAliases(root, src);
         expandRepeats(root, src);
         bindPlain(root, src);
+    }
+
+    /**
+     * 给<b>列表计数</b>加一个短名字，让主题里能写 {@code data-if="!商品数量"}。
+     *
+     * <p>背景：计数存在带点的键里（{@code 商品.count}，见 {@link #expandRepeats} 与
+     * {@code ThemeData#list}）。{@code data-if} 只认单个键名、不会拼字符串，
+     * 所以主题作者没法用"商品 + .count"拼出来。以前只有两种选择：
+     * 让 Java 侧额外 put 一个 {@code 商品数量}，或者主题里写不了这个条件 ——
+     * 前者每个界面都要记得补、漏一个就出 bug（真发生过：8 个界面里的
+     * {@code data-if="!商品数量"} 全都取不到值 → <b>列表非空时空状态提示照样显示</b>，
+     * 把内容往下顶、最后一行被背包盖住）。</p>
+     *
+     * <p>现在统一在这里映射：扫一遍文档里所有 {@code data-repeat="X"}，
+     * 就顺手提供 {@code X数量} → {@code X.count}。主题作者写
+     * {@code data-if="!商品数量"}，Java 侧一个额外的键都不用 put。</p>
+     */
+    private static Data withCountAliases(HtmlNode root, Data base) {
+        List<String> names = new ArrayList<>();
+        root.walk(n -> {
+            if (!n.isElement()) {
+                return;
+            }
+            String key = n.attr("data-repeat");
+            if (key != null && !key.isBlank()) {
+                String k = key.trim();
+                if (!names.contains(k)) {
+                    names.add(k);
+                }
+            }
+        });
+        if (names.isEmpty()) {
+            return base;
+        }
+        return key -> {
+            // ① 短名字：商品数量 → 商品.count
+            for (String n : names) {
+                if ((n + "数量").equals(key)) {
+                    String v = base.get(n + ".count");
+                    if (v != null) {
+                        return v;
+                    }
+                }
+            }
+            // ② 也允许直接写 商品.count（主题作者两种写法都能用）
+            return base.get(key);
+        };
     }
 
     /** 展开 {@code data-repeat="items"}：把模板元素复制成 N 份 */
@@ -56,8 +106,9 @@ public final class DataBinder {
             for (int i = 0; i < count; i++) {
                 HtmlNode clone = child.copy();
                 clone.attrs.remove("data-repeat");
-                // 行内取 {{名字}} 时自动带上 items.3. 前缀；取全局键（没有前缀）仍然可用
-                bind(clone, new ScopedData(data, key.trim() + "." + i + "."));
+                // 行内取 {{名字}} 时自动带上 列表名.i. 前缀；取全局键（没有前缀）仍然可用。
+                // 另外给每一行一个 {{行号}}：列表里的按钮靠它知道"点的是第几条"。
+                bind(clone, new ScopedData(data, key.trim() + "." + i + ".", Integer.toString(i)));
                 node.add(clone);
             }
         }
@@ -68,6 +119,15 @@ public final class DataBinder {
             if (n.isText()) {
                 n.text = substitute(n.text, src);
                 return;
+            }
+            // 属性里的 {{占位符}} 也要替换：列表行会写成
+            //   data-action="buy" data-index="{{行号}}"
+            // 点击时界面就能知道"点的是第几条"（动作名保持静态，方便排查日志）。
+            for (java.util.Map.Entry<String, String> e : n.attrs.entrySet()) {
+                String v = e.getValue();
+                if (v != null && v.indexOf("{{") >= 0 && !"data-repeat".equals(e.getKey())) {
+                    e.setValue(substitute(v, src));
+                }
             }
             String cond = n.attr("data-if");
             if (cond != null && !cond.isBlank()) {
@@ -87,10 +147,16 @@ public final class DataBinder {
     /**
      * 带前缀的数据视图：{@code get("名字")} 先找 {@code items.3.名字}，
      * 找不到再找全局的 {@code 名字} —— 这样列表行里既能用行内数据也能用全局数据。
+     *
+     * <p>{@code rowIndex} 是这一行的序号，暴露成 {@code 行号}：
+     * 列表里的按钮靠它知道"点的是第几条"（写成 {@code data-action="buy" data-index="{{行号}}"}）。</p>
      */
-    private record ScopedData(Data base, String prefix) implements Data {
+    private record ScopedData(Data base, String prefix, String rowIndex) implements Data {
         @Override
         public String get(String key) {
+            if ("行号".equals(key)) {
+                return rowIndex;
+            }
             String v = base.get(prefix + key);
             return v != null ? v : base.get(key);
         }

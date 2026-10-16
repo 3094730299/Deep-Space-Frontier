@@ -60,6 +60,30 @@ public final class PreviewCanvas implements Canvas {
                 RenderingHints.VALUE_TEXT_ANTIALIAS_OFF);
     }
 
+    /**
+     * <b>造一个画布</b>（给离线工具和自检用）。
+     *
+     * <p>构造器是私有的（只希望从这个类的 main 进来），但"把主题渲染成 PNG"这件事
+     * 现在有两个入口：命令行 {@code main}，以及 Gradle 任务跑的工具类。
+     * 与其把构造器放开，不如给一个意图明确的工厂方法。</p>
+     *
+     * @param g       Java2D 画布
+     * @param fontName 画字用的系统字体名（比如 "Microsoft YaHei"）
+     */
+    public static PreviewCanvas of(Graphics2D g, String fontName, int canvasW, int canvasH) {
+        return new PreviewCanvas(g, fontName, canvasW, canvasH);
+    }
+
+    /** 挑一个能显示中文的系统字体（挑不到就交给 Java2D 默认） */
+    public static String pickCjkFont() {
+        for (String name : new String[]{"Microsoft YaHei", "SimHei", "Noto Sans CJK SC", "SansSerif"}) {
+            if (fontExists(name)) {
+                return name;
+            }
+        }
+        return Font.SANS_SERIF;
+    }
+
     // ---------------------------------------------------------------- Canvas 实现
 
     @Override
@@ -243,7 +267,7 @@ public final class PreviewCanvas implements Canvas {
         g.setColor(new Color(0x101014));
         g.fillRect(0, 0, width, height);
 
-        PreviewCanvas canvas = new PreviewCanvas(g, pickFont(), width, height);
+        PreviewCanvas canvas = PreviewCanvas.of(g, pickCjkFont(), width, height);
         LayoutEngine engine = new LayoutEngine(canvas);
         float contentH = engine.layout(doc.root, width, height);
         new ThemeRenderer(src, canvas).render(doc.root);
@@ -259,15 +283,6 @@ public final class PreviewCanvas implements Canvas {
         }
         System.out.println("  注：布局用原版字宽规则算（半角 6px / 全角 9px），"
                 + "笔画由系统字体绘制，和游戏内字形略有差别");
-    }
-
-    private static String pickFont() {
-        for (String name : new String[]{"Microsoft YaHei", "SimHei", "Noto Sans CJK SC", "SansSerif"}) {
-            if (fontExists(name)) {
-                return name;
-            }
-        }
-        return Font.SANS_SERIF;
     }
 
     private static boolean fontExists(String name) {

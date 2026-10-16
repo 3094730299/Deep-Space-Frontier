@@ -24,6 +24,9 @@ tools/_model_textures/
 tools/_*.png
 tools/_collision_boxes.txt
 
+# 本地构建日志 / 临时解包（排查问题时产生的，不入库）
+.dsh-build-logs/
+
 # 打包产物
 # ★ 2026-10-16 改动：老板要求"打包好的模组也能从 GitHub 直接下载"，
 #   所以 release/*.zip **改为入库**（原来这里是忽略的）。

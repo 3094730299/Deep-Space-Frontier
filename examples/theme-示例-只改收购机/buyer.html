@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<!--
+  示例主题：只改收购投送机 —— buyer.html
+  ================================================================
+  这个文件演示老板要的"各界面独立、但共用底层"：
+
+      · 它只影响【收购投送机】一个界面（其余界面还用模组默认主题的那份 html）；
+      · 它不复制任何底层样式，直接引用模组自带的 /default/base.css + /default/theme.css；
+      · 它只写"我要改的那几行"（下面 <style> 里那三条）。
+
+  想用到游戏里：
+    1. 把整个 示例-只改收购机/ 文件夹复制到
+         <版本文件夹>/deepspacedeployer/theme/custom/示例-只改收购机/
+    2. 进游戏 ESC →「界面主题」→ 选它（或改 config 里的 ui.theme）
+    3. 不用重启：关掉界面重开就生效
+
+  改完想先看效果（不用开游戏）：
+      gradlew renderThemes -Ptheme="<上面那个路径>"
+      → build/theme-preview/buyer.png
+-->
+<html>
+<head>
+  <title>收购投送机（示例主题）</title>
+
+  <!-- ① 模组自带的共用底层：配色 / 标题条 / 按钮 / 列表…… -->
+  <link rel="stylesheet" href="/default/base.css">
+  <!-- ② 模组自带的机器界面补充：原生槽位占位（物品格位置）+ 主题菜单样式 -->
+  <link rel="stylesheet" href="/default/theme.css">
+
+  <!-- ③ 只写你要改的 —— 下面三条就把整套界面换成了"暖色工业风" -->
+  <style>
+    html, body { background: #16120E; color: #F3E9DC; }
+    .bar       { background: #2A211A; border-color: #4A3A2A; }
+    .title     { color: #FFB454; }
+    .btn       { background: #3A2A1A; border-color: #6A4A2A; }
+    .list      { background: #1E1813; border-color: #4A3A2A; }
+  </style>
+</head>
+<body>
+  <div class="win" data-viewport="216">
+
+    <div class="bar">
+      <div class="title">{{公司}}</div>
+      <div class="chip" data-if="在线">已开机</div>
+      <div class="chip off" data-if="!在线">未插卡</div>
+    </div>
+
+    <div class="warn" data-if="被挡">⚠ 上方被整格方块挡住，这台机器不工作</div>
+
+    <div class="info">
+      <div class="col">
+        <div class="v gold">账户 {{账户}} · {{余额}}</div>
+      </div>
+      <div class="col">
+        <div class="v accent">{{等级}} · 声望 {{声望}} · 卡上 {{卡余额}}</div>
+      </div>
+    </div>
+
+    <div class="slotgrid">
+      <div data-slot="card" class="slot"></div>
+      <div data-slot="input9" class="slots9" style="left:22"></div>
+      <div class="hint">卡槽 · 3×3 投料格</div>
+    </div>
+
+    <div class="btns">
+      <div class="btn" data-action="toggle_autosell">自动：{{自动收购}}</div>
+      <div class="btn" data-action="sell_now">立即收购</div>
+      <div class="btn ghost" data-action="open_transfer">资金转化</div>
+    </div>
+
+    <div class="list short">
+      <div class="row" data-repeat="收购价">
+        <div class="name">{{名称}}</div>
+        <div class="price">{{单价}}</div>
+      </div>
+      <div class="empty" data-if="!收购价数量">这张收购清单是空的</div>
+    </div>
+
+    <div data-slot="player" class="player absolute"></div>
+
+  </div>
+</body>
+</html>

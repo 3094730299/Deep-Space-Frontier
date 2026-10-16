@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<!--
+  资金转化 —— transfer.html
+  ================================================================
+  老板原话：两张银行卡 + 金额输入 + 所有和钱有关的操作都挪到这里。
+
+  数据键：{{公司}} {{卡A主}} {{卡A余额}} {{卡B主}} {{卡B余额}}
+  动作：  amount_down / amount_up / card_to_card / to_card / from_card
+          send / exchange / balance / back
+  原生占位：data-slot="card_a" data-slot="card_b" data-slot="player"
+            data-input="金额" data-input="目标"（输入框由原版画，主题只留位置）
+
+  ⚠️ 版面预算：画布 288×300，背包占 y=216 以下 → 上面 216px 要装下所有东西。
+     所以按钮排成"一行放几个"，四行并成三行。
+-->
+<html>
+<head>
+  <title>资金转化</title>
+  <!-- 共用底层：配色 / 标题条 / 按钮 / 列表……（模组自带，见 base.css 的说明） -->
+  <link rel="stylesheet" href="/default/base.css">
+  <!-- 本界面自己的覆盖：机器界面补充（槽位占位 + 主题菜单），或者你自己的样式 -->
+  <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+  <!-- data-viewport = 这个界面"真正能用的高度"：y=216 以下是原版画的玩家背包，主题不占。
+       声明之后，文字截断和 overflow 滚动都按 216 算（见 LayoutEngine.layout）。 -->
+  <div class="win" data-viewport="216">
+
+    <div class="bar">
+      <div class="title">{{公司}} · 资金转化</div>
+      <div class="btn ghost" data-action="back">← 返回商店</div>
+    </div>
+
+    <div class="info">
+      <div class="col">
+        <div class="v gold">卡1 {{卡A主}} · {{卡A余额}}</div>
+      </div>
+      <div class="col">
+        <div class="v gold">卡2 {{卡B主}} · {{卡B余额}}</div>
+      </div>
+    </div>
+
+    <div class="slotgrid">
+      <div data-slot="card_a" class="slot"></div>
+      <div data-slot="card_b" class="slot" style="left:22"></div>
+      <div class="hint">右键卡槽可把背包里的卡拿上来</div>
+    </div>
+
+    <div class="btns">
+      <div class="btn" data-action="amount_down">− 100</div>
+      <div data-input="金额" class="btn ghost">金额</div>
+      <div class="btn" data-action="amount_up">+ 100</div>
+      <div class="btn" data-action="card_to_card">卡1 → 卡2</div>
+    </div>
+
+    <div class="btns">
+      <div class="btn" data-action="to_card">存进卡内</div>
+      <div class="btn" data-action="from_card">卡转余额</div>
+      <div class="btn ghost" data-action="exchange">跨公司兑换</div>
+      <div class="btn ghost" data-action="balance">查余额</div>
+    </div>
+
+    <div class="btns">
+      <div data-input="目标" class="btn ghost">对方玩家名</div>
+      <div class="btn" data-action="send">转账</div>
+    </div>
+
+    <div data-slot="player" class="player absolute"></div>
+
+  </div>
+</body>
+</html>

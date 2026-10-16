@@ -114,6 +114,19 @@ public final class Config {
                     "找不到就自动回退到 default（不会报错）")
             .define("ui.theme", "default");
 
+    /**
+     * 界面主题总开关。
+     *
+     * <p>关掉 = 所有界面都用原来的原生界面，主题文件完全不读
+     * （排查"到底是主题的问题还是模组的问题"时很有用）。</p>
+     */
+    public static final ModConfigSpec.BooleanValue UI_THEME_ENABLED = BUILDER
+            .comment("要不要用 HTML 主题画界面",
+                    "true = 用主题（默认）；false = 全部界面用原生界面",
+                    "主题写坏了导致界面打不开时，把它改成 false 就能先进游戏")
+            .define("ui.theme_enabled", true);
+
+    /** SPEC 必须在所有配置项之后（下面这行必须在最后） */
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     private Config() {

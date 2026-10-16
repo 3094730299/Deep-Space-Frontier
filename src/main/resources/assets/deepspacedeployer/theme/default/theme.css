@@ -1,142 +1,109 @@
 /*
-  深空铸造体 · 默认主题样式表
-  ----------------------------------------------------------------
-  改这里就能改界面长相。想长期保留请复制到 theme/custom/<名字>/ 再改
-  （default 目录在模组更新时会被覆盖）。
+  深空铸造体 · 界面主题【机器界面补充】—— theme.css
+  ================================================================
+  ⚠️ 这份文件是**机器界面专用**的（有物品格的那几个：商店 / 收购机 / 载具打印机 /
+     寄售市场 / 资金转化 / 通用终端）。它只放两样东西：
+
+        ① 原生槽位占位（物品格由原版画，主题只留位置）
+        ② 主题选择菜单的样式
+
+     其它一切（配色、字号、标题条、按钮、列表……）都在【共用底层】base.css 里 ——
+     每个 html 都是先 <link> base.css 再 <link> 这一份，所以这里可以覆盖底层。
+
+  ★ 想自己写主题：不用复制这两份，直接引用模组自带的那份就行：
+
+        <link rel="stylesheet" href="/default/base.css">    <!-- 底层 -->
+        <link rel="stylesheet" href="/default/theme.css">   <!-- 机器界面补充 -->
+        <link rel="stylesheet" href="我的覆盖.css">           <!-- 只写你要改的 -->
+
+     （/ 开头 = 从 theme/ 根开始找；你自己的目录优先。详见开发文档。）
 */
 
-html, body {
-  margin: 0;
-  padding: 0;
-  background: #101014;
-  color: #E8F4FF;
-  font-size: 9;
-}
-
-.win {
+/* ---------- 原生槽位占位 ----------
+   ⚠️ 用【绝对定位】把占位格钉在槽位行的左上角：
+     原版物品格的位置是写死的（菜单里给的坐标），主题没必要让它们参与文档流 ——
+     参与流的话，"卡槽 + 3×3 投料格 + 一行按钮"会把槽位行撑得老高、直接溢出。
+   标记元素的左上角 = 原版格子该摆的位置，所以这里的 left/top 就是格子的间距。 */
+.slotgrid {
+  position: relative;
+  height: 40;
+  margin-top: 3;
   width: 100%;
-  padding: 6;
 }
 
-/* ---------- 顶部标题条 ---------- */
-.bar {
+.slot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 18;
+  height: 18;
+  background: #0C0C12;
+  border: 1;
+  border-color: #2A2F3D;
+}
+
+.slots9 {
+  position: absolute;
+  left: 22;
+  top: 0;
+  width: 38;
+  height: 38;
+  background: #0C0C12;
+  border: 1;
+  border-color: #2A2F3D;
+}
+
+/* 槽位行里的说明文字：放在槽位格右边，不额外占高度 */
+.slotgrid .hint {
+  position: absolute;
+  left: 66;
+  top: 2;
+  width: 200;
+  margin-top: 0;
+}
+
+/* 玩家背包（3×9 + 快捷栏 = 162×76），绝对定位在最底部。
+   bottom:8 → 在 300 高的窗口里正好落在 y=216（原版菜单把背包固定在那儿）。
+   ⚠️ 机器界面画布 300、可用高度 216，就是这条撑出来的：见各 html 的 data-viewport。 */
+.player {
+  position: absolute;
+  bottom: 8;
+  left: 0;
+  width: 162;
+  height: 76;
+  background: #0C0C12;
+  border: 1;
+  border-color: #2A2F3D;
+}
+
+/* ---------- 主题选择菜单 ---------- */
+.theme {
   display: flex;
   align-items: center;
-  height: 16;
-  padding: 0 6;
-  background: #171A22;
-  border: 1px;
-  border-color: #2A2F3D;
-  border-radius: 3;
-}
-
-.title {
-  color: #54C8FF;
-  font-size: 10;
-}
-
-.chip {
-  margin-left: 6;
-  padding: 0 4;
-  background: #1E3A2A;
-  color: #7CE38B;
-  border-radius: 3;
-}
-
-.chip.off {
-  background: #3A2222;
-  color: #FF7A7A;
-}
-
-/* ---------- 警告行（顶上被挡时才出现） ---------- */
-.warn {
-  margin-top: 4;
-  padding: 2 6;
-  background: #3A2222;
-  color: #FF7A7A;
-  border-radius: 3;
-}
-
-/* ---------- 两栏信息 ---------- */
-.info {
-  display: flex;
-  margin-top: 6;
-  gap: 8;
-}
-
-.col {
-  width: 48%;
   padding: 4 6;
+  margin-top: 3;
   background: #171A22;
+  border: 1;
+  border-color: #232838;
   border-radius: 3;
 }
 
-.k {
-  color: #98A2B3;
-}
-
-.v {
-  margin-bottom: 4;
+.theme .tname {
+  width: 42%;
   font-size: 10;
 }
 
-.gold {
-  color: #FFD479;
-}
-
-/* ---------- 按钮行 ---------- */
-.btns {
-  display: flex;
-  margin-top: 6;
-  gap: 4;
-}
-
-.btn {
-  padding: 3 6;
-  background: #223047;
-  color: #E8F4FF;
-  border: 1px;
-  border-color: #35507A;
-  border-radius: 3;
-  text-align: center;
-}
-
-.btn.ghost {
-  background: #1B1E28;
-  border-color: #2A2F3D;
-  color: #98A2B3;
-}
-
-/* ---------- 收购清单（可滚动） ---------- */
-.list {
-  margin-top: 6;
-  height: 74;
-  padding: 0 4;
-  background: #14161F;
-  border: 1px;
-  border-color: #2A2F3D;
-  border-radius: 3;
-  overflow: scroll;
-}
-
-.listhead {
-  color: #54C8FF;
-  padding: 3 2;
-}
-
-.row {
-  display: flex;
-  align-items: center;
-  height: 13;
-  padding: 0 2;
-}
-
-.row .name {
-  width: 70%;
-}
-
-.row .price {
+.theme .tmeta {
   width: 30%;
-  color: #FFD479;
+  color: #6E7891;
   text-align: right;
+}
+
+.theme.on {
+  background: #1B2A1E;
+  border-color: #2E5A3E;
+}
+
+.theme.on .tname {
+  color: #7CE38B;
 }

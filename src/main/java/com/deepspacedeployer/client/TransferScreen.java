@@ -5,6 +5,10 @@ import com.deepspacedeployer.economy.CardData;
 import com.deepspacedeployer.menu.MachineMenu;
 import com.deepspacedeployer.menu.TransferMenu;
 import com.deepspacedeployer.net.TransferPayload;
+import com.deepspacedeployer.ui.webview.ThemeData;
+import com.deepspacedeployer.ui.webview.WebScreenId;
+import com.deepspacedeployer.ui.webview.WebViewManager;
+import com.deepspacedeployer.ui.webview.WebViewScreen;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -41,6 +45,10 @@ public class TransferScreen extends AbstractContainerScreen<TransferMenu> {
     private EditBox toCardBox;
     /** 转账目标（玩家名 / UUID） */
     private EditBox targetBox;
+
+    /** 界面主题宿主 */
+    private final WebViewScreen webview = new WebViewScreen(WebScreenId.TRANSFER);
+    private String themeSnapshot = "";
 
     public TransferScreen(TransferMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -115,6 +123,111 @@ public class TransferScreen extends AbstractContainerScreen<TransferMenu> {
         addRenderableWidget(Button.builder(Component.translatable("gui.deepspacedeployer.balance_button"),
                         b -> send(TransferPayload.ACT_REPORT, 0L))
                 .bounds(x + 100, y + 172, 88, 18).build());
+
+        // ★ 界面主题：原生输入框/按钮建完之后装配
+        this.webview.setEnabled(WebViewManager.enabled());
+        this.webview.size(WebScreenId.TRANSFER.width(), WebScreenId.TRANSFER.height());
+        this.webview.at(this.leftPos, this.topPos);
+        this.webview.setActionSink(this::onThemeAction);
+        this.themeSnapshot = "";
+        syncTheme();
+    }
+
+    // ---------------------------------------------------------------- 界面主题
+
+    /** 数据变了才重新绑定主题（快照比对） */
+    private void syncTheme() {
+        if (!this.webview.enabled()) {
+            return;
+        }
+        if (this.webview.themeChanged()) {
+            this.themeSnapshot = "";
+        }
+        String snapshot = themeSignature();
+        if (snapshot.equals(this.themeSnapshot) && this.webview.visible()) {
+            return;
+        }
+        this.themeSnapshot = snapshot;
+        this.webview.reload(this::buildThemeData);
+    }
+
+    private String themeSignature() {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < TransferMenu.CARD_SLOTS; i++) {
+            ItemStack card = this.menu.card(i);
+            sb.append(CardData.accountName(card)).append(':')
+                    .append(CardData.getBalance(card, Company.VALUES[i % Company.VALUES.length]))
+                    .append('|');
+        }
+        // 输入框内容也算进快照（金额变了主题上的数字要跟着变）
+        sb.append('|').append(this.amountBox == null ? "" : this.amountBox.getValue());
+        sb.append('|').append(this.toCardBox == null ? "" : this.toCardBox.getValue());
+        return sb.toString();
+    }
+
+    /** 喂给 transfer.html 的数据 */
+    private ThemeData buildThemeData() {
+        ThemeData d = new ThemeData();
+        ItemStack cardA = this.menu.card(0);
+        ItemStack cardB = this.menu.card(1);
+        d.put("卡A主", CardData.hasAccount(cardA) ? CardData.accountName(cardA) : "未绑定");
+        d.put("卡B主", CardData.hasAccount(cardB) ? CardData.accountName(cardB) : "未绑定");
+        d.put("卡A余额", CardData.getBalance(cardA, Company.VALUES[0]));
+        d.put("卡B余额", CardData.getBalance(cardB, Company.VALUES[1 % Company.VALUES.length]));
+        d.put("金额", this.amountBox == null ? "100" : this.amountBox.getValue());
+        d.put("有卡A", !cardA.isEmpty());
+        d.put("有卡B", !cardB.isEmpty());
+        return d;
+    }
+
+    /** transfer.html 的动作：amount_up / amount_down / card_to_card / to_card / from_card / send / exchange / balance / back */
+    private boolean onThemeAction(String action, com.deepspacedeployer.ui.theme.HtmlNode source) {
+        if (action == null) {
+            return false;
+        }
+        switch (action) {
+            case "amount_up" -> {
+                bumpAmount(100L);
+                syncTheme();
+                return true;
+            }
+            case "amount_down" -> {
+                bumpAmount(-100L);
+                syncTheme();
+                return true;
+            }
+            case "card_to_card" -> {
+                send(TransferPayload.ACT_CARD_TO_CARD, amount());
+                return true;
+            }
+            case "to_card" -> {
+                send(TransferPayload.ACT_TO_CARD, 0, toCardAmount());
+                return true;
+            }
+            case "from_card" -> {
+                send(TransferPayload.ACT_FROM_CARD, amount());
+                return true;
+            }
+            case "send" -> {
+                send(TransferPayload.ACT_TRANSFER, 0, amount(), targetName());
+                return true;
+            }
+            case "exchange" -> {
+                send(TransferPayload.ACT_EXCHANGE, 0L);
+                return true;
+            }
+            case "balance" -> {
+                send(TransferPayload.ACT_REPORT, 0L);
+                return true;
+            }
+            case "back" -> {
+                send(TransferPayload.ACT_BACK, 0L);
+                return true;
+            }
+            default -> {
+                return false;
+            }
+        }
     }
 
     /** 「存入卡内」用的金额（那个专用输入框） */
@@ -180,6 +293,11 @@ public class TransferScreen extends AbstractContainerScreen<TransferMenu> {
      */
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        // 主题先处理（data-action）；没命中才轮到原生控件 —— 否则主题画的按钮点不动
+        if (this.webview.mouseClicked(mouseX, mouseY, button)) {
+            syncTheme();
+            return true;
+        }
         if (button == 1) {
             int hovered = hoveredCardSlot(mouseX, mouseY);
             if (hovered >= 0
@@ -272,6 +390,7 @@ public class TransferScreen extends AbstractContainerScreen<TransferMenu> {
     /** 画界面（只补标题与提示；面板在 renderBg，控件与卡槽物品由 super.render 画） */
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        syncTheme();
         super.render(graphics, mouseX, mouseY, partialTick);
 
         int x = this.leftPos;
@@ -283,6 +402,9 @@ public class TransferScreen extends AbstractContainerScreen<TransferMenu> {
         graphics.drawString(this.font, fit(Component.translatable(
                 "gui.deepspacedeployer.transfer_hint").getString(), 262, "· "),
                 x + 8, y + 194, TEXT_DIM, false);
+
+        // 主题盖在最上面（没主题就什么都不画）
+        this.webview.render(graphics, mouseX, mouseY, partialTick);
     }
 
     /** 按像素宽度截断文字（超长加省略号），避免文字超出界面 */
