@@ -21,17 +21,23 @@ html, body {
 }
 
 /* ---------- 窗口 ---------- */
+/* ⚠️ 版面预算（改任何尺寸前先看这段）：
+     机器界面画布 300 高，但 y=216 以下是原版背包（原版画的物品格）——
+     所以上面这些块加起来必须 ≤216：
+         标题条 16 + 信息栏 24 + 槽位行 40 + 按钮行 24 + 列表 56 + 间距 ≈ 200
+     列表高度见下面 .list 那几档。改完必须打 gradlew checkThemes ——
+     它会报"⚠压在背包上"（内容底边超过 216 就会压住背包格，真发生过好几回）。 */
 .win {
   width: 100%;
-  padding: 6;
+  padding: 5;
 }
 
 /* ---------- 标题条 ---------- */
 .bar {
   display: flex;
   align-items: center;
-  height: 18;
-  padding: 0 6;
+  height: 16;
+  padding: 0 5;
   background: #171A22;
   border: 1;
   border-color: #2A2F3D;
@@ -43,6 +49,7 @@ html, body {
 .title {
   color: #54C8FF;
   font-size: 10;
+  height: 10;   /* 一行；放不下截断加省略号，不折行顶破标题条 */
 }
 
 .chip {
@@ -96,7 +103,7 @@ html, body {
 
 .col {
   width: 50%;
-  padding: 4 6;
+  padding: 2 6;
   background: #171A22;
   border: 1;
   border-color: #232838;
@@ -110,6 +117,7 @@ html, body {
 .v {
   margin-bottom: 3;
   font-size: 10;
+  height: 11;   /* 一行；放不下截断（主题作者不用自己数字宽） */
 }
 
 .gold { color: #FFD479; }
@@ -121,12 +129,12 @@ html, body {
 /* ---------- 按钮 ---------- */
 .btns {
   display: flex;
-  margin-top: 5;
+  margin-top: 4;
   gap: 4;
 }
 
 .btn {
-  padding: 4 6;
+  padding: 3 6;
   background: #223047;
   color: #E8F4FF;
   border: 1;
@@ -165,24 +173,25 @@ html, body {
 }
 
 /*
-  列表高度：三档。
-  ⚠️ 这几个数字是"版面预算"的一部分：机器界面画布 270 高，玩家背包固定占最下面 76px
-     （y=186 起），所以上面的内容（标题条 + 信息栏 + 槽位行 + 按钮行 + 列表）
-     必须压在 186px 以内。改大这里就会溢出 —— 改完打 gradlew checkThemes 验一下。
+  列表高度：四档。
+  ⚠️ 判据是【列表的底边 ≤ 216】（机器界面 y=216 以下是原版背包）——
+     "内容被裁掉"不等于"不压背包"：列表只要画到那儿，就盖在背包格上了。
+     实测起点：载具打印机 y≈112、收购机 y≈147、商店/市场 y≈151。
 */
 .list.tall { height: 150; }
-.list.mid  { height: 72; }
-.list.short{ height: 56; }
+.list.mid  { height: 48; }      /* 商店 / 市场 */
+.list.core { height: 50; }      /* 载具打印机：2 行蓝图 */
+.list.short{ height: 36; }      /* 收购价 / 挂单 / 图纸 */
 
 .listhead {
   color: #54C8FF;
-  padding: 2 2;
+  padding: 1 2;
 }
 
 .row {
   display: flex;
   align-items: center;
-  padding: 2;
+  padding: 1;
   border-radius: 2;
 }
 

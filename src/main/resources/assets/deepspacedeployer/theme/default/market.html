@@ -19,7 +19,9 @@
   <link rel="stylesheet" href="theme.css">
 </head>
 <body>
-  <div class="win">
+  <!-- data-viewport = 这个界面"真正能用的高度"：y=216 以下是原版画的玩家背包，主题不占。
+       声明之后，文字截断和 overflow 滚动都按 216 算（见 LayoutEngine.layout）。 -->
+  <div class="win" data-viewport="216">
 
     <div class="bar">
       <div class="title">寄售市场</div>
@@ -31,12 +33,10 @@
 
     <div class="info">
       <div class="col">
-        <div class="k">账户 / 余额</div>
-        <div class="v gold">{{账户}} · {{余额}}</div>
+        <div class="v gold">账户 {{账户}} · {{余额}}</div>
       </div>
       <div class="col">
-        <div class="k">卡上 / 挂单</div>
-        <div class="v accent">{{卡余额}} · {{挂单数量}} 条</div>
+        <div class="v accent">卡上 {{卡余额}} · 挂单 {{挂单数量}}</div>
       </div>
     </div>
 
@@ -45,7 +45,7 @@
       <div data-slot="market_sell" class="slot" style="margin-left:4"></div>
       <div data-slot="market_barter" class="slot" style="margin-left:4"></div>
       <div data-slot="market_collect" class="slot" style="margin-left:4"></div>
-      <div class="hint" style="margin-top:0;margin-left:6">卡槽 · 待售 · 需求 · 取货</div>
+      <div class="hint">卡槽 · 待售 · 需求 · 取货</div>
     </div>
 
     <div class="btns">
@@ -68,10 +68,10 @@
 
     <!-- ---------- 我要卖 ---------- -->
     <div data-if="!市场页">
-      <div class="btns" style="margin-top:4">
+      <div class="btns">
         <div class="btn" data-action="sell_item">挂物品</div>
         <div class="btn ghost" data-action="sell_vehicle">挂载具</div>
-        <div class="btn" data-action="toggle_barter">收：{{收款方式}}</div>
+        <div class="btn" data-action="toggle_barter">收{{收款方式}}</div>
         <div class="btn" data-action="post">挂上去</div>
       </div>
 

@@ -19,10 +19,12 @@
   <link rel="stylesheet" href="theme.css">
 </head>
 <body>
-  <div class="win">
+  <!-- data-viewport = 这个界面"真正能用的高度"：y=216 以下是原版画的玩家背包，主题不占。
+       声明之后，文字截断和 overflow 滚动都按 216 算（见 LayoutEngine.layout）。 -->
+  <div class="win" data-viewport="216">
 
     <div class="bar">
-      <div class="title">{{公司}} · 载具打印机</div>
+      <div class="title">{{公司}}</div>
       <div class="chip" data-if="在线">已开机</div>
       <div class="chip off" data-if="!在线">未插卡</div>
       <div class="chip warn" data-if="创意模式">材料无限</div>
@@ -30,20 +32,18 @@
 
     <div class="info">
       <div class="col">
-        <div class="k">账户 / 余额</div>
-        <div class="v gold">{{账户}} · {{余额}}</div>
+        <div class="v gold">账户 {{账户}} · {{余额}}</div>
       </div>
       <div class="col">
-        <div class="k">蓝图 / 组装费</div>
-        <div class="v accent">{{已选蓝图}} · {{组装费}}</div>
+        <div class="v accent">蓝图 {{已选蓝图}}</div>
       </div>
     </div>
 
     <div class="slotgrid">
       <div data-slot="card" class="slot"></div>
-      <div data-slot="clipboard" class="slot" style="margin-left:4"></div>
+      <div data-slot="clipboard" class="slot" style="left:22"></div>
       <div data-slot="input9" class="slots9" style="left:44"></div>
-      <div class="hint" style="left:104;top:4;width:110">卡槽 · 剪贴板 · 投料格</div>
+      <div class="hint" data-if="蓝图页">卡槽 · 剪贴板 · 投料格</div>
     </div>
 
     <div class="btns">
@@ -54,11 +54,11 @@
       <div class="btn ghost" data-action="reload_blueprints">重读图纸</div>
     </div>
 
-    <div class="hint">组装费 {{组装费}} · 投放点：{{投放点}}</div>
+    
 
     <!-- ---------- 蓝图页 ---------- -->
     <div data-if="蓝图页">
-      <div class="list short">
+      <div class="list core">
         <div class="row" data-repeat="蓝图">
           <div class="name">{{名称}}<span class="tag">{{尺寸}}</span></div>
           <div class="btn" data-action="pick" data-index="{{行号}}">选</div>
@@ -69,7 +69,7 @@
 
     <!-- ---------- 材料页 ---------- -->
     <div data-if="!蓝图页">
-      <div class="list short">
+      <div class="list core">
         <div class="row" data-repeat="材料">
           <div class="name">{{名称}}</div>
           <div class="price">{{已有}} / {{需要}}</div>

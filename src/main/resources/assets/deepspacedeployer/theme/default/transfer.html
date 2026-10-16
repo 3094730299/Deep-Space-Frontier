@@ -19,7 +19,9 @@
   <link rel="stylesheet" href="theme.css">
 </head>
 <body>
-  <div class="win">
+  <!-- data-viewport = 这个界面"真正能用的高度"：y=216 以下是原版画的玩家背包，主题不占。
+       声明之后，文字截断和 overflow 滚动都按 216 算（见 LayoutEngine.layout）。 -->
+  <div class="win" data-viewport="216">
 
     <div class="bar">
       <div class="title">{{公司}} · 资金转化</div>
@@ -28,19 +30,17 @@
 
     <div class="info">
       <div class="col">
-        <div class="k">卡1（转出）{{卡A主}}</div>
-        <div class="v gold">{{卡A余额}}</div>
+        <div class="v gold">卡1 {{卡A主}} · {{卡A余额}}</div>
       </div>
       <div class="col">
-        <div class="k">卡2（转入）{{卡B主}}</div>
-        <div class="v gold">{{卡B余额}}</div>
+        <div class="v gold">卡2 {{卡B主}} · {{卡B余额}}</div>
       </div>
     </div>
 
     <div class="slotgrid">
       <div data-slot="card_a" class="slot"></div>
       <div data-slot="card_b" class="slot" style="left:22"></div>
-      <div class="hint" style="left:48;top:4;width:220">卡槽可以右键把背包里的卡拿上来</div>
+      <div class="hint">右键卡槽可把背包里的卡拿上来</div>
     </div>
 
     <div class="btns">

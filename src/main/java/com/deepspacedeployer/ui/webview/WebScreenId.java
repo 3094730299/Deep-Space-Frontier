@@ -28,7 +28,7 @@ public enum WebScreenId {
     /** 银行卡绑定 */
     CARD_BIND("card_bind.html", "银行卡绑定", 260, 300),
     /** 通用终端（装饰机） */
-    UNIVERSAL_TERMINAL("universal_terminal.html", "通用终端", 268, 270),
+    UNIVERSAL_TERMINAL("universal_terminal.html", "通用终端", 268, 300),
     /** 价目表编辑器（OP） */
     SHOP_EDITOR("shop_editor.html", "价目表编辑器", 340, 340),
     /** 主题选择菜单（每套主题自带一份，缺了用 default 的） */

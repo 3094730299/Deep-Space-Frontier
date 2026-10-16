@@ -1,6 +1,7 @@
 package com.deepspacedeployer.tools;
 
 import com.deepspacedeployer.ui.theme.Canvas;
+import com.deepspacedeployer.ui.theme.HtmlNode;
 import com.deepspacedeployer.ui.theme.LayoutEngine;
 import com.deepspacedeployer.ui.theme.PreviewCanvas;
 import com.deepspacedeployer.ui.theme.ThemeDocument;
@@ -165,6 +166,15 @@ public final class ThemePreview {
                     d.put("公司." + i + ".代号", cs[i][0]);
                     d.put("公司." + i + ".名称", cs[i][1]);
                 }
+                // 默认主题把六家公司铺成"每行 3 个"（一行 6 个会被画到画布外）
+                for (int row = 0; row < 2; row++) {
+                    d.put("公司行" + (row + 1) + ".count", "3");
+                    for (int col = 0; col < 3; col++) {
+                        int i = row * 3 + col;
+                        d.put("公司行" + (row + 1) + "." + col + ".代号", cs[i][0]);
+                        d.put("公司行" + (row + 1) + "." + col + ".名称", cs[i][1]);
+                    }
+                }
                 d.put("条目.count", "3");
                 d.put("条目.0.物品", "aeronautics:andesite_propeller");
                 d.put("条目.0.价格", "190");
@@ -259,6 +269,25 @@ public final class ThemePreview {
         new LayoutEngine(canvas).layout(doc.root, w, h);
 
         System.out.println("=== " + file + " 布局分解（画布 " + w + "x" + h + "）===");
+        System.out.println("  流内底边（不含绝对定位）= " + Math.round(flowContentHeight(doc))
+                + "，画布可用（背包以上）= "
+                + Math.round(hasMarker(doc, "player") ? h - PLAYER_SLOT_RESERVE : h));
+        // 把"底边最大的几个元素"打出来 —— 排查溢出时直接看它们
+        List<HtmlNode> all = new ArrayList<>();
+        doc.root.walk(n -> {
+            if (n.isElement() && n.box != null && n.box.visible && n.style != null
+                    && !"absolute".equals(n.style.position)) {
+                all.add(n);
+            }
+        });
+        all.sort((a, b) -> Float.compare(b.box.y + b.box.usedHeight, a.box.y + a.box.usedHeight));
+        System.out.println("  底边最大的 5 个流内元素：");
+        for (int i = 0; i < Math.min(5, all.size()); i++) {
+            HtmlNode n = all.get(i);
+            System.out.printf("    %-28s y=%-5s h=%-5s 底边=%s%n", n.brief(),
+                    Math.round(n.box.y), Math.round(n.box.usedHeight),
+                    Math.round(n.box.y + n.box.usedHeight));
+        }
         doc.root.walk(n -> {
             if (!n.isElement() || n.box == null) {
                 return;
@@ -311,7 +340,24 @@ public final class ThemePreview {
                 }
                 Canvas canvas = measuringCanvas(id.width(), renderHeight(id));
                 LayoutEngine engine = new LayoutEngine(canvas);
-                float contentH = engine.layout(doc.root, id.width(), renderHeight(id));
+                engine.layout(doc.root, id.width(), renderHeight(id));
+
+                // ★ 机器界面要按"背包以上"再判一次。
+                //
+                // 为什么不能只看"内容高 ≤ 画布高"：LayoutEngine 拿到的是整个视口（300），
+                // 它不知道 y=216 以下被原版背包占着、主题内容不该伸进去。
+                // 于是"刚好压在背包上"的内容会被判为通过 —— 蓝图列表第 2 行就是这样漏过去的
+                // （真发生过：文字被背包占位切平在 y=217，是审查工具逐像素比对才发现的）。
+                boolean hasPlayerSlots = hasMarker(doc, "player");
+                // 主题可以自己声明可用高度（data-viewport="216"）——
+                // 声明了就信它（LayoutEngine 也按它排版），没声明才按"减掉背包"估。
+                float declared = declaredViewport(doc);
+                float usableH = declared > 0f
+                        ? declared
+                        : (hasPlayerSlots ? renderHeight(id) - PLAYER_SLOT_RESERVE : renderHeight(id));
+                float flowH = flowContentHeight(doc);
+                boolean overflowViewport = flowH > usableH + 0.5f;
+                boolean overlapPlayer = hasPlayerSlots && declared <= 0f && flowH > usableH + 0.5f;
 
                 List<String> actions = new ArrayList<>();
                 List<String> slots = new ArrayList<>();
@@ -331,8 +377,12 @@ public final class ThemePreview {
                 ok++;
                 lines.add("  ✓ " + pad(id.file()) + "元素 " + doc.elementCount()
                         + " 规则 " + doc.rules.size()
-                        + " 内容高 " + Math.round(contentH) + "/" + renderHeight(id)
-                        + (contentH > renderHeight(id) + 0.5f ? " ⚠溢出" : "")
+                        + " 内容高 " + Math.round(flowH)
+                        + (hasPlayerSlots
+                        ? " / 可用 " + Math.round(usableH) + "（画布 " + renderHeight(id) + "，背包占 76）"
+                        : " / 画布 " + renderHeight(id))
+                        + (overflowViewport ? " ⚠超出画布" : "")
+                        + (overlapPlayer ? " ⚠压在背包上" : "")
                         + "\n      动作 " + actions
                         + "\n      占位 " + slots);
                 for (String w : doc.warnings) {
@@ -355,6 +405,85 @@ public final class ThemePreview {
             sb.append(' ');
         }
         return sb.toString();
+    }
+
+    /** 机器界面底部给原版背包留的像素（背包 76 + 底边距 8，见主题里 `.player` 的 bottom:8） */
+    private static final float PLAYER_SLOT_RESERVE = 84f;
+
+    /**
+     * 流内内容的真实底边（绝对定位的元素不算）。
+     *
+     * <p>为什么要单独算：{@code LayoutEngine.layout()} 返回的是"底边，且至少等于视口高度"，
+     * 所以它永远 ≥ 画布高，拿它判断"有没有排在背包上"是判断不出来的。
+     * 这里自己遍历一遍布局结果，取流内元素 {@code y + usedHeight} 的最大值。</p>
+     */
+    private static float flowContentHeight(ThemeDocument doc) {
+        float[] maxBottom = {0f};
+        flowBottom(doc.root, maxBottom);
+        return maxBottom[0];
+    }
+
+    /**
+     * 递归求"流内底边"。
+     *
+     * <p>⚠️ 遇到 {@code overflow:hidden/scroll} 的元素就<b>不再往里看</b>：
+     * 它里面的内容被裁掉了，不会把后面的东西往下推，所以它自己的底边才是流内的真实底边。
+     * （不这么写的话，列表里那几行会被算进去 —— 明明是别的元素把它们盖住了，
+     * 却报"内容压在背包上"，那就是假警报。）</p>
+     */
+    private static void flowBottom(HtmlNode node, float[] maxBottom) {
+        boolean clipped = false;
+        for (HtmlNode child : node.children) {
+            if (!child.isElement() || child.box == null || !child.box.visible
+                    || child.style == null) {
+                continue;
+            }
+            if ("absolute".equals(child.style.position)) {
+                continue;                       // 绝对定位不占流
+            }
+            boolean childClipped = "hidden".equals(child.style.overflow)
+                    || "scroll".equals(child.style.overflow);
+            if (!childClipped) {
+                maxBottom[0] = Math.max(maxBottom[0], child.box.y + child.box.usedHeight);
+            }
+            flowBottom(child, maxBottom);
+        }
+    }
+
+    /** 主题声明的可用高度（根 div 上的 {@code data-viewport}）；没声明返回 0 */
+    private static float declaredViewport(ThemeDocument doc) {
+        float[] found = {0f};
+        doc.root.walk(n -> {
+            if (found[0] > 0f || !n.isElement()) {
+                return;
+            }
+            String raw = n.attr("data-viewport");
+            if (raw == null || raw.isBlank()) {
+                return;
+            }
+            try {
+                float v = Float.parseFloat(raw.trim().replace("px", ""));
+                if (v > 0f) {
+                    found[0] = v;
+                }
+            } catch (NumberFormatException ignored) {
+                // 写错了当没写 —— 和 LayoutEngine 的处理保持一致
+            }
+        });
+        return found[0];
+    }
+
+    /** 主题里有没有某个 {@code data-slot} / {@code data-input} 标记 */
+    private static boolean hasMarker(ThemeDocument doc, String name) {        boolean[] found = {false};
+        doc.root.walk(n -> {
+            if (!n.isElement() || found[0]) {
+                return;
+            }
+            if (name.equals(n.attr("data-slot")) || name.equals(n.attr("data-input"))) {
+                found[0] = true;
+            }
+        });
+        return found[0];
     }
 
     /**

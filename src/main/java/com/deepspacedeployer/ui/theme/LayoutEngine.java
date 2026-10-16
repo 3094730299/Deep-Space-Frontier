@@ -45,6 +45,11 @@ public final class LayoutEngine {
         if (root == null) {
             return 0f;
         }
+        // ★ 主题可以声明"可用高度比画布小"：根元素上写 data-viewport="216"
+        //   场景：界面底部有一块被别的东西占住（比如原版画的玩家背包），
+        //   主题只负责上面那部分。声明之后，文字截断、overflow 的滚动范围都按 216 算，
+        //   主题作者不必自己算"还剩多少像素"，也不会出现"内容被背包盖住"。
+        float flowLimit = declaredViewportHeight(root, viewportH);
         float y = 0f;
         // "流内内容的真实底边"：绝对定位的元素不参与流，所以不能拿它们的 y 当底边
         float flowBottom = 0f;
@@ -53,18 +58,47 @@ public final class LayoutEngine {
                 continue;
             }
             float before = y;
-            y += layoutChild(child, 0f, y, viewportW, viewportH - y, null);
+            y += layoutChild(child, 0f, y, viewportW, flowLimit - y, null);
             if (child.box != null && child.box.visible && !"absolute".equals(
                     child.style == null ? "static" : child.style.position)) {
                 flowBottom = Math.max(flowBottom, before + child.box.usedHeight);
             }
         }
-        // 返回值 = 流内内容的底边，且至少等于视口高度。
+        // 返回值 = 流内内容的底边，且至少等于可用高度。
         //
-        // ⚠️ 不要直接返回 y：一个 bottom:8 的绝对定位背包占位，坐标在视口内（y=186），
-        //    但顺序排到它时 y 已经 290 了 —— 那样会报出 337 这种假溢出，
-        //    把真正的排版问题淹掉（排查时吃过这个亏，见 docs 里的排查记录）。
-        return Math.max(flowBottom, viewportH);
+        // ⚠️ 不要直接返回 y：一个 bottom:8 的绝对定位背包占位，坐标在视口内，
+        //    但顺序排到它时 y 可能已经超出 —— 那样会报出假溢出，
+        //    把真正的排版问题淹掉（排查时吃过这个亏）。
+        return Math.max(flowBottom, flowLimit);
+    }
+
+    /**
+     * 根元素上 {@code data-viewport="216"} 声明的可用高度。
+     *
+     * <p>返回画布高度（没声明时）。只认第一个能解析成正数的值，写错了就当没写。</p>
+     */
+    private static float declaredViewportHeight(HtmlNode root, float fallback) {
+        if (root == null) {
+            return fallback;
+        }
+        for (HtmlNode child : root.children) {
+            if (!child.isElement()) {
+                continue;
+            }
+            String raw = child.attr("data-viewport");
+            if (raw == null || raw.isBlank()) {
+                continue;
+            }
+            try {
+                float v = Float.parseFloat(raw.trim().replace("px", ""));
+                if (v > 0f) {
+                    return v;
+                }
+            } catch (NumberFormatException ignored) {
+                // 写错了就当没写，不要因为一个属性让整个界面加载失败
+            }
+        }
+        return fallback;
     }
 
     // ---------------------------------------------------------------- 单个元素
@@ -146,6 +180,11 @@ public final class LayoutEngine {
         } else {
             outerH = st.height.resolve(availH);
         }
+
+        // 写死高度时，文字最多能放几行（放着让 LayoutEngine 截断，见 layoutText）
+        node.textBoxHeight = autoHeight
+                ? Float.MAX_VALUE
+                : Math.max(0f, outerH - 2f * st.borderWidth - st.padTop - st.padBottom);
 
         box.x = x + st.marLeft;
         box.y = startY;
@@ -258,6 +297,12 @@ public final class LayoutEngine {
             for (String piece : splitForWrap(run.text)) {
                 float pw = canvas.textWidth(piece, size, run.bold);
                 if (lineW > 0f && lineW + pw > maxW) {
+                    // 写死高度的盒子：这一行已经超出可用高度 → 不再另起一行，
+                    // 直接在当前行截断（见 LayoutEngine 的"文字截断"说明）
+                    if (lineTop + 2f * lineH > y + owner.textBoxHeight + 0.5f) {
+                        truncateLine(box, lineRuns, lineW, x, lineTop, maxW, ownerStyle, lineH);
+                        return lineTop + lineH - y;
+                    }
                     flushLine(box, lineRuns, lineW, x, lineTop, maxW, ownerStyle, lineH);
                     lineRuns = new ArrayList<>();
                     lineW = 0f;
@@ -276,6 +321,55 @@ public final class LayoutEngine {
             lineTop += lineH;
         }
         return lineTop - y;
+    }
+
+    /**
+     * 在当前行<b>截断</b>：把这一行的文字缩到"还能放下省略号"为止。
+     *
+     * <p>给写了高度的盒子兜底（标题条、信息栏、列表行……）。不截断的话，
+     * 一行放不下的文字会自己折到第二行、顶破盒子并压到下面的元素上 ——
+     * 主题作者只是想写个短标签，结果整个版面被顶下去。</p>
+     */
+    private void truncateLine(LayoutBox box, List<LayoutBox.TextRun> runs, float lineW,
+                              float x, float lineTop, float maxW, Style st, float lineH) {
+        float ellipsisW = canvas.textWidth(HtmlNode.ELLIPSIS, st.fontSize, false);
+        float budget = Math.max(0f, maxW - ellipsisW);
+        List<LayoutBox.TextRun> kept = new ArrayList<>();
+        float width = 0f;
+        outer:
+        for (LayoutBox.TextRun r : runs) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < r.text.length(); i++) {
+                float cw = canvas.textWidth(String.valueOf(r.text.charAt(i)), st.fontSize, r.bold);
+                if (width + cw > budget) {
+                    if (sb.length() > 0) {
+                        LayoutBox.TextRun part = new LayoutBox.TextRun();
+                        part.text = sb.toString();
+                        part.color = r.color;
+                        part.bold = r.bold;
+                        kept.add(part);
+                        width += canvas.textWidth(part.text, st.fontSize, r.bold);
+                    }
+                    break outer;
+                }
+                sb.append(r.text.charAt(i));
+                width += cw;
+            }
+            LayoutBox.TextRun part = new LayoutBox.TextRun();
+            part.text = sb.toString();
+            part.color = r.color;
+            part.bold = r.bold;
+            kept.add(part);
+        }
+        // 去掉末尾空白，再补省略号
+        if (!kept.isEmpty()) {
+            LayoutBox.TextRun last = kept.get(kept.size() - 1);
+            last.text = last.text.stripTrailing();
+        }
+        LayoutBox.TextRun ell = new LayoutBox.TextRun();
+        ell.text = HtmlNode.ELLIPSIS;
+        kept.add(ell);
+        flushLine(box, kept, width, x, lineTop, maxW, st, lineH);
     }
 
     private void flushLine(LayoutBox box, List<LayoutBox.TextRun> runs, float lineW,
