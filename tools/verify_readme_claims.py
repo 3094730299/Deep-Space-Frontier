@@ -31,10 +31,29 @@ def _find_jar():
     import glob as _g
     cands = [p for p in _g.glob(os.path.join(ROOT, "build", "libs", "*.jar"))
              if "sources" not in os.path.basename(p) and "javadoc" not in os.path.basename(p)]
-    return sorted(cands)[0] if cands else os.path.join(ROOT, "build", "libs", "(没构建过)")
+    if not cands:
+        return os.path.join(ROOT, "build", "libs", "(没构建过)")
+    # 按【修改时间】取最新的：刚提版本号时 build/libs 里会同时留着旧 jar
+    return max(cands, key=os.path.getmtime)
 
 
 JAR = _find_jar()
+
+
+def _git(*args):
+    """
+    跑一条 git 命令并返回输出（失败/没有 git 返回空串）。
+
+    用途：校验"某些文件确实没被提交进去"（比如 release/ 里的发布包）。
+    故意不抛异常 —— 不在仓库里时让调用方按"取不到"处理。
+    """
+    import subprocess
+    try:
+        out = subprocess.run(["git", "-C", ROOT] + list(args),
+                             capture_output=True, text=True, timeout=30)
+        return out.stdout if out.returncode == 0 else ""
+    except Exception:
+        return ""
 
 
 def read(*parts):
@@ -160,26 +179,19 @@ def main():
          "def selected(" in gt and '"--list"' in gt),
     ]
 
-    # 发布包不能是"新代码配旧包"（2026-10-16 真发生过：zip 是 4 天前的，
-    # 里面装的 jar 没有商店模型/贴图修复。两边都存在时才校验，空仓库不算错）
-    import glob as _glob
-    import zipfile as _zipfile
-    # ⚠️ 两个坑（都踩过）：
-    #   ① glob 不保证顺序，release/ 里留着旧版本的包时会拿到旧包 → 断言假红。
-    #      所以显式按修改时间取【最新】的那个。
-    #   ② jar 名不能写死版本号（一提版本就找不到）→ 统一按 glob 找。
-    _zips = sorted(_glob.glob(os.path.join(ROOT, "release", "*.zip")),
-                   key=os.path.getmtime)
-    _jars = [j for j in _glob.glob(os.path.join(ROOT, "build", "libs", "*.jar"))
-             if "sources" not in os.path.basename(j)]
-    if _zips and _jars:
-        with open(_jars[0], "rb") as _fh:
-            _built = _fh.read()
-        with _zipfile.ZipFile(_zips[-1]) as _z:
-            _inner = [n for n in _z.namelist() if n.startswith("mods/") and n.endswith(".jar")]
-            _payload = _z.read(_inner[0]) if _inner else b""
-        checks.append(("发布包 release/*.zip 里装的就是当前 build/libs 的 jar（不是旧包）",
-                       _payload == _built))
+    # 发布包**不再入库**（2026-10-17 改的）
+    #
+    # 历史：0.1.1 时为了让"GitHub 上直接下载"把 release/*.zip 入了库，
+    # 结果下一版删旧包时，和"还留着旧包的分支"产生【删 / 改】冲突 ——
+    # zip 是每次打包都会变的二进制，Git 没法自动合（PR 上真卡住过：
+    # release/deepspacedeployer-0.1.1+mc1.21.1.zip）。
+    # 现在改成：release/ 不入库、发版产物挂 GitHub Releases。
+    #
+    # ⚠️ 这条断言是故意留的"看门狗"：以后谁手一抖 `git add -f release/xxx.zip`，
+    #    跑这个脚本就会红。
+    _tracked_release = _git("ls-files", "release").strip()
+    checks.append(("发布包 release/ 没有入库（改挂 GitHub Releases，避免二进制冲突）",
+                   not _tracked_release))
 
     # 装机脚本：版本号一升就不能失效
     # （2026-10-16 真踩过：0.1.0 写死在路径里，版本升到 0.1.1 后这个脚本就"找不到构建产物"了）

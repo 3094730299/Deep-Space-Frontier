@@ -27,12 +27,13 @@ tools/_collision_boxes.txt
 # 本地构建日志 / 临时解包（排查问题时产生的，不入库）
 .dsh-build-logs/
 
-# 打包产物
-# ★ 2026-10-16 改动：老板要求"打包好的模组也能从 GitHub 直接下载"，
-#   所以 release/*.zip **改为入库**（原来这里是忽略的）。
-#   代价：每次重新打包都会产生一个新的二进制版本（每个约 700 KB）——
-#   可接受；若哪天仓库变大得难受，再改回"只走 GitHub Release"。
-# release/*.zip
+# 打包产物：不入库（2026-10-17 改回）
+# 历史：0.1.0 忽略 → 0.1.1 改成入库（为了"GitHub 上直接下载"）→ 0.1.2 又改回忽略。
+# 为什么改回：zip 是每次打包都会变的二进制，入过一次库以后，
+#   **下一版删掉旧 zip 时，就会和"还留着旧 zip 的分支"产生【删 / 改】冲突，Git 没法自动合**
+#   （PR 上真卡住过一次：release/deepspacedeployer-0.1.1+mc1.21.1.zip）。
+# 发布包改挂 **GitHub Releases**（见 publish/发布清单.md）；本地用 tools/make_release.py 生成。
+release/*.zip
 
 # 注意：libs/ 里的 geckolib jar 是**编译必需**的（compileOnly），所以保留在仓库里。
 # 以后若放入从整合包复制来的大 jar（create / sable / aeronautics），请在这里单独排除，例如：
