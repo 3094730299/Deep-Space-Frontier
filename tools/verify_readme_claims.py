@@ -144,6 +144,22 @@ def main():
          "def selected(" in gt and '"--list"' in gt),
     ]
 
+    # 发布包不能是"新代码配旧包"（2026-10-16 真发生过：zip 是 4 天前的，
+    # 里面装的 jar 没有商店模型/贴图修复。两边都存在时才校验，空仓库不算错）
+    import glob as _glob
+    import zipfile as _zipfile
+    _zips = _glob.glob(os.path.join(ROOT, "release", "*.zip"))
+    _jars = [j for j in _glob.glob(os.path.join(ROOT, "build", "libs", "*.jar"))
+             if "sources" not in os.path.basename(j)]
+    if _zips and _jars:
+        with open(_jars[0], "rb") as _fh:
+            _built = _fh.read()
+        with _zipfile.ZipFile(_zips[0]) as _z:
+            _inner = [n for n in _z.namelist() if n.startswith("mods/") and n.endswith(".jar")]
+            _payload = _z.read(_inner[0]) if _inner else b""
+        checks.append(("发布包 release/*.zip 里装的就是当前 build/libs 的 jar（不是旧包）",
+                       _payload == _built))
+
     lt = os.path.join(D, "loot_table", "blocks", "printer_part.json")
     checks.append(("结构件掉落表为空（只掉控制器）",
                    os.path.exists(lt) and json.load(io.open(lt, encoding="utf-8"))["pools"] == []))
