@@ -57,7 +57,7 @@
     </div>
 
     <!-- ---------- 逛市场 ---------- -->
-    <div data-if="市场页">
+    <div data-if="市场页" style="height:40">
       <div class="list short">
         <div class="row" data-repeat="挂单">
           <div class="name">{{物品}}<span class="tag">×{{数量}} {{卖家}}</span></div>
@@ -70,7 +70,7 @@
     </div>
 
     <!-- ---------- 我要卖 ---------- -->
-    <div data-if="!市场页">
+    <div data-if="!市场页" style="height:66">
       <div class="btns">
         <div class="btn" data-action="sell_item">挂物品</div>
         <div class="btn ghost" data-action="sell_vehicle">挂载具</div>

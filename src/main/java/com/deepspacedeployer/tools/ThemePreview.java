@@ -288,6 +288,20 @@ public final class ThemePreview {
                     Math.round(n.box.y), Math.round(n.box.usedHeight),
                     Math.round(n.box.y + n.box.usedHeight));
         }
+        // 底边超过"背包线"的元素（机器界面才有意义）：直接点出是谁超了
+        System.out.println("  底边超过 216 的流内元素：");
+        int shown = 0;
+        for (HtmlNode n : all) {
+            float bottom = n.box.y + n.box.usedHeight;
+            if (bottom > 216.5f && shown++ < 12) {
+                System.out.printf("    %-28s y=%-5s h=%-5s 底边=%-5s 溢出=%s%n", n.brief(),
+                        Math.round(n.box.y), Math.round(n.box.usedHeight),
+                        Math.round(bottom), Math.round(bottom - 216));
+            }
+        }
+        if (shown == 0) {
+            System.out.println("    （没有）");
+        }
         doc.root.walk(n -> {
             if (!n.isElement() || n.box == null) {
                 return;
@@ -414,12 +428,37 @@ public final class ThemePreview {
      * 流内内容的真实底边（绝对定位的元素不算）。
      *
      * <p>为什么要单独算：{@code LayoutEngine.layout()} 返回的是"底边，且至少等于视口高度"，
-     * 所以它永远 ≥ 画布高，拿它判断"有没有排在背包上"是判断不出来的。
-     * 这里自己遍历一遍布局结果，取流内元素 {@code y + usedHeight} 的最大值。</p>
+     * 所以它永远 ≥ 画布高，拿它判断"有没有排在背包上"是判断不出来的。</p>
+     *
+     * <p>⚠️ 从 {@code body} 的<b>子元素</b>开始数，跳过 {@code html} / {@code body} / 根 div
+     * 这几层壳：它们的 {@code usedHeight} 就是"整棵树的总高"，自己当然等于最大值 ——
+     * 报"是它溢出了"没有意义。真正要问的是"有没有哪个内容块伸进了背包区"。</p>
      */
     private static float flowContentHeight(ThemeDocument doc) {
+        HtmlNode root = doc.root;
+        if (root == null) {
+            return 0f;
+        }
+        // 找到 <body>：它的子元素才是"页面的内容块"（html/body 这几层壳不算）
+        HtmlNode[] body = {null};
+        root.walk(n -> {
+            if (body[0] == null && n.isElement() && "body".equals(n.tag)) {
+                body[0] = n;
+            }
+        });
+        HtmlNode from = body[0] != null ? body[0] : root;
         float[] maxBottom = {0f};
-        flowBottom(doc.root, maxBottom);
+        for (HtmlNode child : from.children) {
+            if (!child.isElement() || child.box == null || !child.box.visible
+                    || child.style == null) {
+                continue;
+            }
+            if ("absolute".equals(child.style.position)) {
+                continue;                       // 绝对定位不占流（比如背包占位）
+            }
+            maxBottom[0] = Math.max(maxBottom[0], child.box.y + child.box.usedHeight);
+            flowBottom(child, maxBottom);
+        }
         return maxBottom[0];
     }
 

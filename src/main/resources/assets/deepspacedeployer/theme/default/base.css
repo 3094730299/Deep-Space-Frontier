@@ -117,6 +117,7 @@ html, body {
   border: 1;
   border-color: #232838;
   border-radius: 3;
+  height: 20;            /* 一行信息；定高才能让"放不下就截断"的兜底生效 */
 }
 
 .k {

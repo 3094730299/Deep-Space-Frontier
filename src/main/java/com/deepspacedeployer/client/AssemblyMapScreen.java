@@ -3,6 +3,10 @@ package com.deepspacedeployer.client;
 import com.deepspacedeployer.Config;
 import com.deepspacedeployer.DeepSpaceDeployer;
 import com.deepspacedeployer.net.SetAssemblyTargetPayload;
+import com.deepspacedeployer.ui.webview.ThemeData;
+import com.deepspacedeployer.ui.webview.WebScreenId;
+import com.deepspacedeployer.ui.webview.WebViewManager;
+import com.deepspacedeployer.ui.webview.WebViewScreen;
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -44,6 +48,9 @@ public class AssemblyMapScreen extends Screen {
     private boolean hasSelection;
     private boolean mapReady;
 
+    /** 界面主题宿主 */
+    private final WebViewScreen webview = new WebViewScreen(WebScreenId.ASSEMBLY_MAP);
+
     public AssemblyMapScreen(BlockPos machinePos) {
         super(Component.translatable("gui.deepspacedeployer.map_title"));
         this.machinePos = machinePos;
@@ -79,6 +86,55 @@ public class AssemblyMapScreen extends Screen {
         }).bounds(this.width / 2 - 100, this.mapTop - 34, 95, 20).build());
         addRenderableWidget(Button.builder(Component.translatable("gui.deepspacedeployer.editor_close"), b -> this.onClose())
                 .bounds(this.width / 2 + 5, this.mapTop + mapSize + 24, 95, 20).build());
+
+        // ★ 界面主题：地图贴图与原生按钮都摆好之后装配
+        this.webview.setEnabled(WebViewManager.enabled());
+        this.webview.size(WebScreenId.ASSEMBLY_MAP.width(), WebScreenId.ASSEMBLY_MAP.height());
+        this.webview.at((this.width - WebScreenId.ASSEMBLY_MAP.width()) / 2,
+                (this.height - WebScreenId.ASSEMBLY_MAP.height()) / 2);
+        this.webview.setActionSink(this::onThemeAction);
+        this.webview.reload(this::buildThemeData);
+    }
+
+    // ---------------------------------------------------------------- 界面主题
+
+    /** 喂给 assembly_map.html 的数据 */
+    private ThemeData buildThemeData() {
+        ThemeData d = new ThemeData();
+        d.put("半径", this.radius);
+        d.put("图就绪", this.mapReady);
+        d.put("已选", this.hasSelection);
+        d.put("选中X", this.selectedX);
+        d.put("选中Z", this.selectedZ);
+        d.put("格数", size());
+        return d;
+    }
+
+    /** assembly_map.html 的动作：confirm / center / close */
+    private boolean onThemeAction(String action, com.deepspacedeployer.ui.theme.HtmlNode source) {
+        if (action == null) {
+            return false;
+        }
+        switch (action) {
+            case "confirm" -> {
+                confirm();
+                return true;
+            }
+            case "center" -> {
+                this.selectedX = this.machinePos.getX();
+                this.selectedZ = this.machinePos.getZ();
+                this.hasSelection = true;
+                this.webview.refresh();
+                return true;
+            }
+            case "close" -> {
+                this.onClose();
+                return true;
+            }
+            default -> {
+                return false;
+            }
+        }
     }
 
     /** 閲囨牱鍛ㄥ洿鍦板舰锛屽仛鎴愪竴寮犺创鍥撅紙姣忎釜鏂瑰潡 1 鍍忕礌锛?*/
@@ -134,6 +190,11 @@ public class AssemblyMapScreen extends Screen {
             this.selectedX = this.machinePos.getX() - radius + Math.max(0, Math.min(size() - 1, cellX));
             this.selectedZ = this.machinePos.getZ() - radius + Math.max(0, Math.min(size() - 1, cellZ));
             this.hasSelection = true;
+            this.webview.refresh();      // 主题上显示的坐标跟着更新
+            return true;
+        }
+        // 主题的按钮（确认 / 回到机器位置 / 关闭）优先于原生按钮
+        if (this.webview.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
@@ -176,6 +237,8 @@ public class AssemblyMapScreen extends Screen {
                 this.width / 2, this.mapTop + mapSize + 8, 0xFFFFD166);
 
         super.render(graphics, mouseX, mouseY, partialTick);
+        // 主题盖在最上面（没主题就什么都不画）
+        this.webview.render(graphics, mouseX, mouseY, partialTick);
     }
 
     private void drawMarker(GuiGraphics graphics, int blockX, int blockZ, int color) {
