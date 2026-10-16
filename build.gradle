@@ -146,6 +146,10 @@ def themeDir = 'src/main/resources/assets/deepspacedeployer/theme/default'
 // 主题目录 + 中文参数：显式给 JVM 指定 UTF-8，避免 Windows 默认编码把中文搞乱
 def themeJvmArgs = ['-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8']
 
+// 想校验/出图另一套主题（比如自己写的，或者仓库里的例子）：
+//   gradlew checkThemes -Ptheme=C:/.../theme/custom/我的主题
+def chosenThemeDir = { -> (project.findProperty('theme') ?: themeDir).toString() }
+
 tasks.register('checkThemes', JavaExec) {
     group = themeTaskGroup
     description = '校验主题里每个界面（HTML 解析 / 数据绑定 / 布局），不开游戏'
@@ -154,7 +158,7 @@ tasks.register('checkThemes', JavaExec) {
     mainClass = 'com.deepspacedeployer.tools.ThemePreview'
     workingDir = projectDir
     jvmArgs = themeJvmArgs
-    args = ['--check', themeDir]
+    doFirst { args = ['--check', chosenThemeDir()] }
 }
 
 tasks.register('renderThemes', JavaExec) {
@@ -165,7 +169,7 @@ tasks.register('renderThemes', JavaExec) {
     mainClass = 'com.deepspacedeployer.tools.ThemePreview'
     workingDir = projectDir
     jvmArgs = themeJvmArgs
-    args = ['--render', themeDir, 'build/theme-preview']
+    doFirst { args = ['--render', chosenThemeDir(), 'build/theme-preview'] }
 }
 
 // 布局分解：排查"某个界面内容高得离谱"时用
@@ -179,6 +183,6 @@ tasks.register('dumpTheme', JavaExec) {
     workingDir = projectDir
     jvmArgs = themeJvmArgs
     doFirst {
-        args = ['--dump', themeDir, project.findProperty('file') ?: 'buyer.html']
+        args = ['--dump', chosenThemeDir(), project.findProperty('file') ?: 'buyer.html']
     }
 }
