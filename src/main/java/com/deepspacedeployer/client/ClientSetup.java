@@ -3,10 +3,12 @@ package com.deepspacedeployer.client;
 import com.deepspacedeployer.Company;
 import com.deepspacedeployer.net.ShopEditPayload;
 import com.deepspacedeployer.registry.ModMenus;
+import com.deepspacedeployer.ui.webview.ThemeButton;
 import com.deepspacedeployer.ui.webview.WebViewManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.PauseScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.network.chat.Component;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
@@ -81,26 +83,32 @@ public final class ClientSetup {
 
 
     /**
-     * ESC（暂停）菜单左侧加两个按钮：
+     * 往界面上加两个入口：
      *
      * <ul>
-     *   <li><b>界面主题</b>（所有人可见）—— 打开主题选择菜单（读主题里的 choice.html）；</li>
-     *   <li><b>价目表编辑器</b>（只有 OP 可见）—— 改价目表。</li>
+     *   <li><b>玩家背包</b>（按 E 打开）—— 加一颗可拖拽的圆形「界面主题」按钮
+     *       （左键点开、右键长按拖拽、位置记进配置）；</li>
+     *   <li><b>ESC 暂停菜单</b> —— 只给 OP 加「价目表编辑器」。</li>
      * </ul>
+     *
+     * <p>⚠️ 「界面主题」按钮<b>故意不放 ESC 菜单</b>（老板 2026-10-17 的要求）：
+     * 暂停菜单有自己的生命周期，在它上面开新界面会出现"不响应 / 延迟响应 /
+     * 要先点『继续游戏』才弹出来"。背包界面随时可开、不暂停游戏，稳定得多。</p>
      */
     private static void onScreenInit(ScreenEvent.Init.Post event) {
-        if (!(event.getScreen() instanceof PauseScreen)) {
+        var screen = event.getScreen();
+
+        // ① 背包界面（E）：圆形主题按钮
+        if (screen instanceof InventoryScreen inventory) {
+            addThemeButton(event, inventory);
+            return;
+        }
+
+        // ② ESC 暂停菜单：只给 OP 加价目表编辑器
+        if (!(screen instanceof PauseScreen)) {
             return;
         }
         Minecraft minecraft = Minecraft.getInstance();
-
-        // ① 界面主题：所有玩家都能用（这是玩家自定义界面的入口）
-        event.addListener(Button.builder(Component.translatable("gui.deepspacedeployer.theme_button"),
-                        b -> minecraft.setScreen(
-                                new com.deepspacedeployer.ui.webview.ThemeChoiceScreen()))
-                .bounds(4, 64, 120, 20).build());
-
-        // ② 价目表编辑器：只有 OP
         if (minecraft.player == null || !minecraft.player.hasPermissions(2)) {
             return;
         }
@@ -108,6 +116,17 @@ public final class ClientSetup {
             PacketDistributor.sendToServer(new ShopEditPayload(Company.VALUES[0].id(), 0, 0, 0, 0));
             minecraft.setScreen(new ShopEditorScreen());
         }).bounds(4, 40, 120, 20).build());
+    }
+
+    /** 把圆形主题按钮摆到背包界面上（位置从配置里读） */
+    private static void addThemeButton(ScreenEvent.Init.Post event, InventoryScreen screen) {
+        int fallbackX = 6;
+        int fallbackY = 6;
+        int[] pos = ThemeButton.loadPosition(fallbackX, fallbackY);
+        ThemeButton button = new ThemeButton(pos[0], pos[1]);
+        // 换分辨率后按钮可能跑到可视范围外 → 每次初始化先拉回来
+        button.clampTo(screen.width, screen.height);
+        event.addListener(button);
     }
 
     /**

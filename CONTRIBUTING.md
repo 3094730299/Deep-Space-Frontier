@@ -16,7 +16,7 @@ gradlew.bat build        # Windows
 ./gradlew build          # Linux / macOS
 
 # 3. 产物
-build/libs/deepspacedeployer-0.1.1+mc1.21.1.jar
+build/libs/deepspacedeployer-0.1.2+mc1.21.1.jar
 ```
 
 **需要 JDK 21。** Gradle 用仓库自带的 wrapper，不用另外装。
