@@ -1,0 +1,69 @@
+{
+	"format_version": "1.8.0",
+	"animations": {
+		"展开": {
+			"loop": "hold_on_last_frame",
+			"animation_length": 0.5,
+			"bones": {
+				"展开面板1": {
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.4167": {
+							"vector": [8, 0, 0]
+						},
+						"0.5": {
+							"vector": [8, -2, 0]
+						}
+					}
+				},
+				"展开面板2": {
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.4167": {
+							"vector": [-8, 0, 0]
+						},
+						"0.5": {
+							"vector": [-8, -2, 0]
+						}
+					}
+				}
+			}
+		},
+		"闭合": {
+			"loop": "hold_on_last_frame",
+			"animation_length": 0.5,
+			"bones": {
+				"展开面板1": {
+					"position": {
+						"0.0": {
+							"vector": [8, -2, 0]
+						},
+						"0.0833": {
+							"vector": [8, 0, 0]
+						},
+						"0.5": {
+							"vector": [0, 0, 0]
+						}
+					}
+				},
+				"展开面板2": {
+					"position": {
+						"0.0": {
+							"vector": [-8, -2, 0]
+						},
+						"0.0833": {
+							"vector": [-8, 0, 0]
+						},
+						"0.5": {
+							"vector": [0, 0, 0]
+						}
+					}
+				}
+			}
+		}
+	}
+}

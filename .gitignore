@@ -24,8 +24,12 @@ tools/_model_textures/
 tools/_*.png
 tools/_collision_boxes.txt
 
-# 打包产物（发布时用 GitHub Release，不提交进仓库）
-release/*.zip
+# 打包产物
+# ★ 2026-10-16 改动：老板要求"打包好的模组也能从 GitHub 直接下载"，
+#   所以 release/*.zip **改为入库**（原来这里是忽略的）。
+#   代价：每次重新打包都会产生一个新的二进制版本（每个约 700 KB）——
+#   可接受；若哪天仓库变大得难受，再改回"只走 GitHub Release"。
+# release/*.zip
 
 # 注意：libs/ 里的 geckolib jar 是**编译必需**的（compileOnly），所以保留在仓库里。
 # 以后若放入从整合包复制来的大 jar（create / sable / aeronautics），请在这里单独排除，例如：
