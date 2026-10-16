@@ -27,9 +27,10 @@ public class MachineGeoRenderer extends GeoBlockRenderer<MachineBlockEntity> {
     @Override
     public void render(MachineBlockEntity animatable, float partialTick, PoseStack poseStack,
                        MultiBufferSource bufferSource, int packedLight, int packedOverlay) {
-        // ① 这种机器没有自定义 Geo 模型 → 交给原版渲染，直接跳过
-        //    （方块自身的 RenderShape 也只在 usesGeo 时才设成 INVISIBLE，两边是一致的）
-        if (!MachineGeoModel.usesGeo(animatable.kind())) {
+        // ① 这个变体没有自定义 Geo 模型 → 交给原版渲染，直接跳过
+        //    （判断要带上公司：商店那套模型只有星联动力联盟用；
+        //      方块自身的 RenderShape 也按同一套规则决定，两边必须一致）
+        if (!MachineGeoModel.usesGeo(animatable)) {
             return;
         }
 
@@ -37,6 +38,8 @@ public class MachineGeoRenderer extends GeoBlockRenderer<MachineBlockEntity> {
         if (animatable.isBuyer()) {
             animatable.clientAnimTick();
         }
+        // ③ 商店的展开/闭合不用在这里推 —— 它挂在 shop 控制器的状态处理器上
+        //    （见 TerminalShopAnim.tick），控制器回调每帧必到。
 
         super.render(animatable, partialTick, poseStack, bufferSource, packedLight, packedOverlay);
     }

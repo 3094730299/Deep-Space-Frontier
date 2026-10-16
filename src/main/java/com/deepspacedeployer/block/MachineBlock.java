@@ -213,11 +213,12 @@ public class MachineBlock extends Block implements EntityBlock {
         return new MachineBlockEntity(pos, state);
     }
 
-    /** 收购站和工厂核心需要每 tick 处理投进去的物品 */
+    /** 收购站 / 工厂核心 / 商店（星联那套要检测玩家靠近）需要每 tick 处理 */
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state,
                                                                   BlockEntityType<T> type) {
         // 收购投送机：客户端也要 tick（动画靠它推进）
+        // 商店的展开/闭合不用客户端 ticker —— 它挂在 GeckoLib 控制器的回调上（每帧必到）
         if (level.isClientSide()) {
             if (this.kind != MachineKind.BUYER) {
                 return null;
@@ -228,7 +229,8 @@ public class MachineBlock extends Block implements EntityBlock {
                 }
             };
         }
-        if (this.kind != MachineKind.BUYER && this.kind != MachineKind.CORE) {
+        if (this.kind != MachineKind.BUYER && this.kind != MachineKind.CORE
+                && this.kind != MachineKind.TERMINAL) {
             return null;
         }
         return (lvl, pos, st, blockEntity) -> {
@@ -285,12 +287,27 @@ public class MachineBlock extends Block implements EntityBlock {
     @Override
     protected RenderShape getRenderShape(BlockState state) {
         // 只有 GeckoLib 渲染器真的注册上了，才隐藏本体 ——
-        // 否则没装 GeckoLib 时收购站会变成隐形方块。
-        if (com.deepspacedeployer.client.gecko.MachineGeoModel.usesGeo(kind)
-                && com.deepspacedeployer.client.gecko.UniversalTerminalGeoSetup.isRendererRegistered()) {
-            return RenderShape.INVISIBLE;
+        // 否则没装 GeckoLib 时这些方块会变成隐形方块。
+        if (!com.deepspacedeployer.client.gecko.UniversalTerminalGeoSetup.isRendererRegistered()) {
+            return RenderShape.MODEL;
         }
-        return RenderShape.MODEL;
+        return hasCustomModel(state) ? RenderShape.INVISIBLE : RenderShape.MODEL;
+    }
+
+    /**
+     * 这个方块状态下有没有 GeckoLib 自定义模型。
+     *
+     * <p>⚠️ 必须和 {@code MachineGeoModel.geoName(方块实体)} 的判断<b>完全一致</b>：
+     * 那边按「种类 + 公司」挑模型，这边按方块状态挑渲染形状。
+     * 两边不一致就会出现"本体和模型同时画"，或者"谁都不画"的灵异现象。</p>
+     */
+    private boolean hasCustomModel(BlockState state) {
+        if (kind == MachineKind.BUYER || kind == MachineKind.CORE) {
+            return true;
+        }
+        // 星联动力联盟的商店用老板新做的模型；其余公司的商店仍用原版方块模型
+        return kind == MachineKind.TERMINAL && state.hasProperty(COMPANY)
+                && state.getValue(COMPANY) == Company.ASTRALINK;
     }
 
     private Component menuTitle() {

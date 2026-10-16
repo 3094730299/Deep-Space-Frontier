@@ -55,13 +55,32 @@ def main():
     r = read(J, "client", "gecko", "MachineGeoRenderer.java")
     checks += [
         ("渲染器有 usesGeo 守卫（防 null.geo.json 崩溃）",
-         "usesGeo(animatable.kind())" in r),
+         "usesGeo(animatable)" in r),
     ]
 
     m = read(J, "client", "gecko", "MachineGeoModel.java")
     checks += [
         ("按机器种类挑模型（BUYER/CORE）",
          '"buyer"' in m and '"factory_core"' in m),
+        # 商店那套模型只有星联动力联盟用（老板 2026-10-16 定：三个等级共用一套）
+        ("星联商店模型：按「种类 + 公司」挑，贴图独占（不带公司后缀）",
+         '"terminal_astralink"' in m and "Company.ASTRALINK == be.company()" in m
+         and 'geo.startsWith("terminal_")' in m),
+    ]
+
+    sa = read(J, "client", "gecko", "TerminalShopAnim.java")
+    checks += [
+        ("商店动画：展开/闭合且停在最后一帧（HOLD_ON_LAST_FRAME）",
+         'ANIM_OPEN = "展开"' in sa and 'ANIM_CLOSE = "闭合"' in sa
+         and "Animation.LoopType.HOLD_ON_LAST_FRAME" in sa),
+        ("商店动画：正在播时不被打断（播完才接受下一次切换）",
+         "if (nowMs - moveStartedMs < ANIM_MS)" in sa),
+        ("商店动画：重启走 forceAnimationReset（restartAnimation → forceRestart）",
+         "be.restartAnimation(CTRL" in sa
+         and "public void restartAnimation(String controllerName, String animName)" in be),
+        ("商店：只在 TERMINAL 上注册控制器，且只对星联那套模型生效",
+         "if (kind() == MachineKind.TERMINAL) {" in be
+         and "MachineGeoModel.usesGeo(be)" in sa),
     ]
 
     ps = read(J, "multiblock", "PrinterStructure.java")

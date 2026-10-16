@@ -8,10 +8,10 @@
 > - 标注 ❌ 的 = **已知失败的做法，不要重试**
 >
 > **本文档里的关键技术断言已被脚本验证**：跑
-> `python tools/verify_readme_claims.py` → **49 条全部符合 ✓**
+> `python tools/verify_readme_claims.py` → **54 条全部符合 ✓**
 > （它逐条检查本文档声称的代码结构是否真的还在。改完代码后请重跑，红了就更新本文档。）
 >
-> 最后更新：2026-10-16 18:40（对应 jar `880,439` 字节）
+> 最后更新：2026-10-16 20:24（对应 jar `887,816` 字节）
 > **本轮六个改动**：①「放置动画不播」真凶在**动画文件**里（见**铁律 11**）；
 > ②「动画播两次」真凶是**用了触发式动画**（见**铁律 12**）；
 > ③ 载具打印机**「12 格缺一不放」**（见 §7.2）；④ 收购投送机**「顶上有方块不工作」**（见 §7.5）；
@@ -204,9 +204,9 @@ docs\    设计决策.md（★77KB，最有价值） 模组介绍 玩法手册 �
 | **「放置」动画被 GeckoLib 拒收的真凶** | 复现出 GeckoLib 原话 `JsonParseException: Invalid keyframe data - multiple starting keyframes?0.0`；修好后 `tools/check_gecko_animations.py` 全绿、jar 内 12 条通道逐条复核 OK |
 | **「播两次」的真凶** | 字节码确认 `handleAnimationState` 在触发式动画播完时置 `needsAnimationReload=true` 并**再问一次状态处理器** → 同一动画被重建重播；改用 `forceAnimationReset()` 已修 |
 | **载具打印机「12 格缺一不放」** | 放置前先查 `PrinterPartBlock.canPlaceAll(...)`，不通过返回 `null`（原版直接 FAIL、无提示）；已加 2 条断言，共 42 条全绿 |
-| **投送机「顶上有方块不工作」** | 自动收购 `processBuyerCycle()` 与手动 `sellAllSlots()` 两处拦截 + 界面红字提示 + 中英文案；判定 = 从上方**一路扫到世界顶部**，「占满整格」才算挡（火把/告示牌/雪片不挡），带 0.5 秒缓存；已加 4 条断言，共 49 条全绿 |
+| **投送机「顶上有方块不工作」** | 自动收购 `processBuyerCycle()` 与手动 `sellAllSlots()` 两处拦截 + 界面红字提示 + 中英文案；判定 = 从上方**一路扫到世界顶部**，「占满整格」才算挡（火把/告示牌/雪片不挡），带 0.5 秒缓存；已加 4 条断言，共 54 条全绿 |
 | **通用终端贴图恢复 128×128** | 颜色数 138 → **299**；`check_gecko_textures.py` 报 128/128 一致；**jar 内**逐条复核贴图尺寸与 geo 声明一致；断言里的期望值也从 64 改成 128 |
-| **资源按物品隔离**（老板要求） | `gen_textures.py` 默认**不覆盖已存在文件**、支持**只点名一个物品**、`art/手绘定稿/` 自动成为**永不覆盖清单**；实测默认跑一遍**写入 0 个文件**、`git status` 无变化；已加 3 条断言（共 49 条）|
+| **资源按物品隔离**（老板要求） | `gen_textures.py` 默认**不覆盖已存在文件**、支持**只点名一个物品**、`art/手绘定稿/` 自动成为**永不覆盖清单**；实测默认跑一遍**写入 0 个文件**、`git status` 无变化；已加 3 条断言（共 54 条）|
 
 ### 5.2 进行中 / 待老板实机确认 ⚠️
 
@@ -249,7 +249,7 @@ docs\    设计决策.md（★77KB，最有价值） 模组介绍 玩法手册 �
 | `install.py` | **安全装机**：复制 + SHA256 + 逐条目解压校验，失败重试 3 次 |
 | `validate.py` | 工程自检：模型/贴图引用、语言键、掉落表、工具标签、机器注册、世界生成、结构 NBT |
 | `check_mod_ids.py` | 校验引用的物品/方块 id 在整合包 194 个 jar 里真实存在 |
-| `verify_readme_claims.py` | **验证 `README-交接.md` 的技术断言是否仍与实际代码一致**（改代码后必跑；当前 49 条）|
+| `verify_readme_claims.py` | **验证 `README-交接.md` 的技术断言是否仍与实际代码一致**（改代码后必跑；当前 54 条）|
 | `make_github_repo.py` | 【**已停用**】以前用来同步桌面副本 `C:\Users\30947\Desktop\深空铸造`。老板 2026-10-15 改成"只提交 git 仓库"，**平时不要再跑**（脚本本体保留，需要导出干净副本时还能用）|
 
 ### 建模相关
@@ -448,6 +448,48 @@ sellAllSlots()       → if (blockedAbove()) return false;   // 手动「立即�
 >
 > ⚠️ **别把 `getMaxBuildHeight()` 的循环去掉**：老板要的是"不管距离多远"，
 > 只查紧挨着的那一格是不够的。循环里有 0.5 秒结果缓存兜性能。
+
+---
+
+### 7.6 星联动力联盟商店：靠近展开 / 离开闭合（老板 2026-10-16 的新模型）
+
+**只星联动力联盟的商店**用老板新做的模型（**三个等级共用一套**），其余公司的商店
+继续用原版方块模型。
+
+| 资源 | 位置 |
+|---|---|
+| 模型 | `geo/block/terminal_astralink.geo.json`（声明 256×256，UV 上限 114）|
+| 动画 | `animations/block/terminal_astralink.animation.json`（**展开 / 闭合**，各 0.5 秒，`hold_on_last_frame`）|
+| 贴图 | `textures/block/terminal_astralink.png`（512×512 = 声明的 **2×**）|
+| 重导脚本 | `python tools\import_astralink_shop_model.py`（贴图直接取自 bbmodel 里内嵌的那张）|
+
+**行为**（老板定稿）：玩家进到**水平 2 格**内 → 播「展开」停在最后一帧；
+离开 2 格 → 播「闭合」停在最后一帧；**一个动画播完才允许播另一个**。
+
+```
+服务端（每 5 tick）  MachineBlockEntity.updateAnyoneNear()
+   └ 有变化 → anyoneNear=true/false → setChanged + syncToClient（NBT 字段 AnyoneNear）
+客户端（每帧）       TerminalShopAnim.tick()   ← 挂在 shop 控制器的状态处理器上
+   ├ 正在播 → 直接 return（绝不打断；期间目标变了就"排队"，播完立刻接上）
+   └ 状态与目标不一致 → restartAnimation("shop", 展开/闭合)
+状态处理器           TerminalShopAnim.playState()
+   ├ 还没播过任何动画且处于闭合 → STOP（模型静止姿势本来就是闭合，别平白播一遍）
+   └ 其余 → setAndContinue(对应动画)，配合 hold_on_last_frame = 停在最后一帧
+```
+
+**四个容易踩的点**（都处理了）：
+
+1. **模型静止姿势 = 闭合姿势** → 所以"还没播过 + 当前闭合"时状态处理器返回 `STOP`，
+   否则每次进游戏商店都会自己"啪"地关一次；
+2. **重启只能用 `forceAnimationReset`**（`restartAnimation` → `forceRestart`）——
+   用触发式动画会播两遍（见**铁律 12**）；
+3. **渲染形状与模型必须同一套判断**：`MachineBlock.hasCustomModel(状态)` 与
+   `MachineGeoModel.geoName(方块实体)` 都按「种类 + 公司」判断，不一致会出现
+   "本体和模型同时画"或"谁都不画"；
+4. **只给商店注册 `shop` 控制器**（`if (kind() == MachineKind.TERMINAL)`）——
+   别的机器一个字节都不参与（隔离，**铁律 14**）。
+
+> 日志关键词：`[深空铸造体][商店动画] 开始播「展开」/「闭合」`、`播完「…」→ 当前=…`
 
 ---
 

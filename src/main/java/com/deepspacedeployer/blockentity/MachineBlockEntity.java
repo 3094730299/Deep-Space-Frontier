@@ -538,9 +538,82 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
                     blockEntity.sendThumbnailsToNearby();
                 }
             }
+            // 商店（星联那套）：检查有没有玩家在 2 格内 → 驱动展开/闭合动画。
+            // 每 5 tick 算一次就够（0.25 秒），不必每 tick 遍历玩家列表。
+            case TERMINAL -> {
+                if (level.getGameTime() % 5L == 0L) {
+                    blockEntity.updateAnyoneNear();
+                }
+            }
             default -> {
             }
         }
+    }
+
+    // ---------------- 商店：玩家靠近检测（展开/闭合动画的触发源） ----------------
+
+    /** 判定半径（格）：老板定稿 —— 水平 2 格内 */
+    public static final double NEAR_RADIUS = 2.0D;
+
+    /** 有没有玩家在水平 2 格内（服务端算，同步给客户端做展开/闭合） */
+    private boolean anyoneNear;
+
+    /** 给客户端动画看的：现在有没有人在附近 */
+    public boolean anyoneNear() {
+        return anyoneNear;
+    }
+
+    /**
+     * 服务端：重算"有没有玩家在附近"，有变化才同步。
+     *
+     * <p><b>为什么算服务端</b>：谁在附近是服务端的事实（客户端不一定知道所有玩家），
+     * 而且这和收购站一个思路 —— 客户端只负责"照着服务端的状态播动画"。</p>
+     *
+     * <p>距离用<b>水平距离</b>（忽略高度差，老板选的）：站在商店上方一层的平台上也算靠近。
+     * 旁观模式不算。</p>
+     */
+    public void updateAnyoneNear() {
+        if (level == null || level.isClientSide) {
+            return;
+        }
+        boolean near = false;
+        double r2 = NEAR_RADIUS * NEAR_RADIUS;
+        for (Player p : level.players()) {
+            if (p.isSpectator()) {
+                continue;
+            }
+            double dx = p.getX() - (worldPosition.getX() + 0.5D);
+            double dz = p.getZ() - (worldPosition.getZ() + 0.5D);
+            if (dx * dx + dz * dz <= r2) {
+                near = true;
+                break;
+            }
+        }
+        if (near != anyoneNear) {
+            anyoneNear = near;
+            setChanged();
+            syncToClient();                 // 同步包带到客户端 → 那边开始播展开/闭合
+        }
+    }
+
+    /**
+     * 给「商店展开/闭合」用的重启动画入口。
+     *
+     * <p>实现就是 {@link #forceRestart}（内部用 {@code forceAnimationReset}）；
+     * 单独开一个方法只是让动画逻辑那个类不必知道内部细节。</p>
+     */
+    public void restartAnimation(String controllerName, String animName) {
+        forceRestart(controllerName, animName);
+    }
+
+    /** 商店展开/闭合的动画状态机（纯客户端；懒创建，逻辑见 TerminalShopAnim） */
+    private com.deepspacedeployer.client.gecko.TerminalShopAnim shopAnim;
+
+    public com.deepspacedeployer.client.gecko.TerminalShopAnim shopAnim() {
+        if (shopAnim == null) {
+            shopAnim = new com.deepspacedeployer.client.gecko.TerminalShopAnim(this);
+        }
+        return shopAnim;
     }
 
     /**
@@ -1744,6 +1817,8 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
         super.saveAdditional(tag, registries);
         // 放置动画是否播过（由客户端回报后置位）—— 这是"要不要播放置动画"的唯一依据
         tag.putBoolean("PlaceAnimDone", placeAnimDone);
+        // 商店：有没有玩家在 2 格内（服务端权威，客户端照着播展开/闭合）
+        tag.putBoolean("AnyoneNear", anyoneNear);
         tag.putInt("TotalSold", totalSold);
         // ⚠️ animPhase **故意不存 NBT**：它是纯客户端渲染状态。
         //    存了的话，每次收到方块实体同步包 → loadAdditional → 阶段被重置回 PENDING，
@@ -1863,6 +1938,8 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
         // ⚠️ 这里**不要**恢复 animPhase 本身：同步包里的值总是服务端那份（它不知道
         //    客户端播到哪了），逐字恢复会把客户端的进度打回去，动画就会反复重播。
         placeAnimDone = tag.getBoolean("PlaceAnimDone");
+        // 商店：玩家是否在附近（同步包/存档带过来；客户端据此播展开或闭合）
+        anyoneNear = tag.getBoolean("AnyoneNear");
         totalSold = tag.getInt("TotalSold");
         // ⚠️ 这里**不要**恢复 animPhase（见 saveAdditional 的注释）。
         //    阶段由客户端自己决定：刚放下 → 从 PENDING 开始播放置；
@@ -2327,6 +2404,20 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
                     ? state.setAndContinue(DELIVER_ANIM)
                     : software.bernie.geckolib.animation.PlayState.STOP;
         }));
+
+        // C：「展开 / 闭合」—— 星联动力联盟商店专用（玩家靠近展开、离开闭合）
+        //
+        // ⚠️ 只给商店注册：别的机器一个字节都不参与（隔离原则，铁律 14）。
+        //    逻辑全在 TerminalShopAnim 里：它管"什么时候播、播完才许切换"，
+        //    这里只负责每帧给它一次心跳 + 问它"这一刻该播哪个动画"。
+        if (kind() == MachineKind.TERMINAL) {
+            controllers.add(new software.bernie.geckolib.animation.AnimationController<>(
+                    this, com.deepspacedeployer.client.gecko.TerminalShopAnim.CTRL, 0, state -> {
+                com.deepspacedeployer.client.gecko.TerminalShopAnim anim = shopAnim();
+                anim.tick();
+                return anim.playState(state);
+            }));
+        }
     }
 
     // ---------- 客户端 tick ----------
@@ -2557,7 +2648,7 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
      * <p>这样相位期间每帧的 {@code setAndContinue} 都会早退（动画不被打断），
      * 动画自然播完后停下、回到固定姿势，<b>不会再被"请求第二次"</b>。</p>
      */
-    private void forceRestart(String controllerName, String animName) {
+    public void forceRestart(String controllerName, String animName) {
         try {
             var manager = animCache.getManagerForId(instanceId());
             if (manager == null) {
