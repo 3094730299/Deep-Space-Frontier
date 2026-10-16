@@ -38,7 +38,7 @@
 | 10 | **改动后必须提交到 git 仓库**：`git add -A && git commit -m "..."` | 老板 2026-10-15 改的规矩：**只提交 git 仓库就够了**，不再同步桌面副本（旧规矩见 §2 的说明）|
 | 11 | **动画 JSON 里 `"0.0"` 关键帧必须是该通道的第一项**（GeckoLib **不排序**，按书写顺序读） | 否则抛 `Invalid keyframe data - multiple starting keyframes?0.0` → **整份 animation.json 作废**，同文件里**所有**动画一起失效（模型还在，但一动不动）。**改完动画必须跑 `python tools/check_gecko_animations.py`** |
 | 12 | **重启动画只用 `AnimationController.forceAnimationReset()`**；**绝不要**注册 `.triggerableAnim()` / 调 `tryTriggerAnimation()` | 触发式动画一播完，GeckoLib 会置 `needsAnimationReload=true` **再回头问状态处理器**；相位还没结束时状态处理器又返回同一动画 → 动画被**从头重建又播一遍**。现象：**"播完后又重播一次 / 播到一半重置"**（真发生过，就是这个） |
-| 13 | **贴图和 geo 声明要一致，但"一致"要往原图的高分辨率靠 —— 绝不要把原图缩小去迁就声明** | 曾经为了让 64 的声明"对上"而把 **128 原图缩成 64×64** → 颜色数 299→138、**贴图肉眼可见变糊/像素块变大**（老板原话）。正确做法：**PNG 用原图尺寸 + 声明改成同样的尺寸**，两个一起改。改完跑 `python tools/check_gecko_textures.py` |
+| 13 | **geo 声明是"UV 坐标系"，PNG 尺寸必须是它的【整数倍】—— 声明绝不能改，只能改 PNG** | ① **改声明**（64→128）→ UV 空间变小、采样点整体错位 → **整片花屏**（真发生过，2026-10-15 通用终端）；② 为了"让声明对上"**把原图缩小** → 分辨率白丢（299 色→138 色，贴图变糊）。**正确做法：声明一个字不动，PNG 用高分辨率的那份（1×、2× 都合法）**。字节码依据：`GeoQuad.build` 里 `normalizedU = uv / texture_width`。改完跑 `python tools/check_gecko_textures.py` |
 
 ---
 

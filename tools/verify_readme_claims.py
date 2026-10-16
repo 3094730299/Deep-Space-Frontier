@@ -113,15 +113,33 @@ def main():
                    os.path.exists(lt) and json.load(io.open(lt, encoding="utf-8"))["pools"] == []))
 
     # geo 声明 vs 贴图尺寸
+    #
+    # ⚠️ 规则（2026-10-15 用字节码确认后改正）：**声明保持不动，PNG 是它的整数倍**。
+    #    GeckoLib 的 GeoQuad.build 里算的是 normalizedU = uv / texture_width，
+    #    所以「声明 64 + PNG 128」= 同一块图案、两倍分辨率（正确且更清晰）；
+    #    而「把声明改成 128」会让 UV 空间变小 → 采样区域错位 → 整片花屏（真发生过）。
     for geo, tex, size in (("buyer", "buyer_threshold", 256),
                            ("factory_core", "factory_core_threshold", 256),
-                           ("universal_terminal", "universal_terminal", 128)):
+                           ("universal_terminal", "universal_terminal", 64)):
         gp = os.path.join(A, "geo", "block", geo + ".geo.json")
         d = json.load(io.open(gp, encoding="utf-8"))["minecraft:geometry"][0]["description"]
         decl = (d.get("texture_width"), d.get("texture_height"))
         tp = os.path.join(A, "textures", "block", tex + ".png")
         ok = decl == (size, size) and os.path.exists(tp)
-        checks.append(("%s：geo 声明 %dx%d 且贴图存在" % (geo, size, size), ok))
+        if ok:
+            # 直接读 PNG 的 IHDR 拿宽高（不引第三方库）
+            try:
+                with open(tp, "rb") as fh:
+                    head = fh.read(24)
+                if head[:8] == b"\x89PNG\r\n\x1a\n":
+                    w = int.from_bytes(head[16:20], "big")
+                    h = int.from_bytes(head[20:24], "big")
+                    ok = (w % size == 0 and h % size == 0 and w >= size and h >= size)
+                else:
+                    ok = False
+            except OSError:
+                ok = False
+        checks.append(("%s：geo 声明 %dx%d、贴图是它的整数倍" % (geo, size, size), ok))
 
     fvs = {json.load(io.open(p, encoding="utf-8")).get("format_version")
            for p in glob.glob(os.path.join(A, "geo", "block", "*.geo.json"))}
