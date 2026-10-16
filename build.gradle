@@ -129,3 +129,56 @@ tasks.named('jar', Jar).configure {
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }
+
+// ------------------------------------------------------------
+//  界面主题（内置 WebView）的离线校验
+//  ------------------------------------------------------------
+//  主题是"玩家会自己改的 HTML"，改错了的症状通常是"某行跑到框外"或"某个界面打不开"。
+//  这两个任务不用开游戏就能查出来（用的是游戏的字宽度量 + 和游戏内同一段布局/绘制代码）：
+//
+//    gradlew checkThemes    → 每个界面加载一遍，报告元素数/规则数/内容高度/动作/占位
+//    gradlew renderThemes   → 每个界面渲染成 PNG，出到 build/theme-preview/
+//
+//  ⚠️ 必须先 compileJava（下面靠 classpath 依赖保证顺序）。
+// ------------------------------------------------------------
+def themeTaskGroup = 'deep space deployer'
+def themeDir = 'src/main/resources/assets/deepspacedeployer/theme/default'
+// 主题目录 + 中文参数：显式给 JVM 指定 UTF-8，避免 Windows 默认编码把中文搞乱
+def themeJvmArgs = ['-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8']
+
+tasks.register('checkThemes', JavaExec) {
+    group = themeTaskGroup
+    description = '校验主题里每个界面（HTML 解析 / 数据绑定 / 布局），不开游戏'
+    dependsOn tasks.named('classes')
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.deepspacedeployer.tools.ThemePreview'
+    workingDir = projectDir
+    jvmArgs = themeJvmArgs
+    args = ['--check', themeDir]
+}
+
+tasks.register('renderThemes', JavaExec) {
+    group = themeTaskGroup
+    description = '把每个界面渲染成 PNG（build/theme-preview/），改主题不用开游戏'
+    dependsOn tasks.named('classes')
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.deepspacedeployer.tools.ThemePreview'
+    workingDir = projectDir
+    jvmArgs = themeJvmArgs
+    args = ['--render', themeDir, 'build/theme-preview']
+}
+
+// 布局分解：排查"某个界面内容高得离谱"时用
+//   gradlew dumpTheme -Pfile=buyer.html
+tasks.register('dumpTheme', JavaExec) {
+    group = themeTaskGroup
+    description = '打印某个界面每个元素的 y/高度（-Pfile=buyer.html），排查排版溢出'
+    dependsOn tasks.named('classes')
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.deepspacedeployer.tools.ThemePreview'
+    workingDir = projectDir
+    jvmArgs = themeJvmArgs
+    doFirst {
+        args = ['--dump', themeDir, project.findProperty('file') ?: 'buyer.html']
+    }
+}

@@ -40,6 +40,16 @@ public final class ThemeRenderer {
         return scrollOffsets.getOrDefault(node, 0f);
     }
 
+    /**
+     * <b>滚动表本身</b>（不是拷贝）。
+     *
+     * <p>给宿主界面用：命中测试必须和渲染看到<b>同一个</b>滚动量，
+     * 所以两边共享这一个 Map 实例 —— 宿主改了滚动量，渲染下一帧就用上了。</p>
+     */
+    public java.util.Map<HtmlNode, Float> scrollView() {
+        return scrollOffsets;
+    }
+
     public void scrollBy(HtmlNode node, float delta) {
         if (!scrollable(node)) {
             return;

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<!--
+  寄售市场 —— market.html
+  ================================================================
+  数据键：{{账户}} {{余额}} {{卡余额}} {{挂单数量}} data-if="市场页"（true = 逛市场）
+          data-if="是载具" data-if="以物易物" {{收款公司}} {{收款方式}}
+  挂单列表：挂单[]（{{物品}} {{数量}} {{价格}} {{货币}} {{卖家}} {{我的}}）
+  图纸列表：图纸[]（{{名称}} {{尺寸}}）
+  动作：  buy / cancel / pick_blueprint（都配 data-index）
+          switch_page / sell_item / sell_vehicle / toggle_barter / pick_company
+          post / open_transfer
+  原生占位：data-slot="card" market_sell / market_barter / market_collect / player
+
+  ⚠️ 版面预算：画布 288×270，玩家背包占最下面 76px（y=186 起）。
+-->
+<html>
+<head>
+  <title>寄售市场</title>
+  <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+  <div class="win">
+
+    <div class="bar">
+      <div class="title">寄售市场</div>
+      <div class="chip" data-if="在线">已开机</div>
+      <div class="chip off" data-if="!在线">未插卡</div>
+      <div class="chip" data-if="市场页">逛市场</div>
+      <div class="chip warn" data-if="!市场页">我要卖</div>
+    </div>
+
+    <div class="info">
+      <div class="col">
+        <div class="k">账户 / 余额</div>
+        <div class="v gold">{{账户}} · {{余额}}</div>
+      </div>
+      <div class="col">
+        <div class="k">卡上 / 挂单</div>
+        <div class="v accent">{{卡余额}} · {{挂单数量}} 条</div>
+      </div>
+    </div>
+
+    <div class="slotgrid">
+      <div data-slot="card" class="slot"></div>
+      <div data-slot="market_sell" class="slot" style="margin-left:4"></div>
+      <div data-slot="market_barter" class="slot" style="margin-left:4"></div>
+      <div data-slot="market_collect" class="slot" style="margin-left:4"></div>
+      <div class="hint" style="margin-top:0;margin-left:6">卡槽 · 待售 · 需求 · 取货</div>
+    </div>
+
+    <div class="btns">
+      <div class="btn" data-action="switch_page">逛市场 / 我要卖</div>
+      <div class="btn ghost" data-action="open_transfer">资金转化</div>
+    </div>
+
+    <!-- ---------- 逛市场 ---------- -->
+    <div data-if="市场页">
+      <div class="list short">
+        <div class="row" data-repeat="挂单">
+          <div class="name">{{物品}}<span class="tag">×{{数量}} {{卖家}}</span></div>
+          <div class="price">{{价格}}</div>
+          <div class="btn" data-action="buy" data-index="{{行号}}">买</div>
+          <div class="btn ghost" data-if="我的" data-action="cancel" data-index="{{行号}}">撤</div>
+        </div>
+        <div class="empty" data-if="!挂单数量">还没有人挂东西 —— 切到「我要卖」当第一个</div>
+      </div>
+    </div>
+
+    <!-- ---------- 我要卖 ---------- -->
+    <div data-if="!市场页">
+      <div class="btns" style="margin-top:4">
+        <div class="btn" data-action="sell_item">挂物品</div>
+        <div class="btn ghost" data-action="sell_vehicle">挂载具</div>
+        <div class="btn" data-action="toggle_barter">收：{{收款方式}}</div>
+        <div class="btn" data-action="post">挂上去</div>
+      </div>
+
+      <div class="list short" data-if="是载具">
+        <div class="row" data-repeat="图纸">
+          <div class="name">{{名称}}<span class="tag">{{尺寸}}</span></div>
+          <div class="btn" data-action="pick_blueprint" data-index="{{行号}}">挂这个</div>
+        </div>
+        <div class="empty" data-if="!图纸数量">没有可用图纸</div>
+      </div>
+    </div>
+
+    <div data-slot="player" class="player absolute"></div>
+
+  </div>
+</body>
+</html>

@@ -217,6 +217,21 @@ public final class ThemeManager {
         return source(activeName());
     }
 
+    /**
+     * 把<b>任意一个目录</b>当成一套主题（给离线工具用：直接指到
+     * {@code src/main/resources/assets/deepspacedeployer/theme/default} 就能预览）。
+     *
+     * <p>目录的父目录被视为 {@code theme/} 根，回退目录是 {@code theme/default/}；
+     * 父目录不存在时就地兜底（不回退）。</p>
+     */
+    public static ThemeSource dirSource(Path themeDir) {
+        Path dir = themeDir.toAbsolutePath().normalize();
+        Path parent = dir.getParent();
+        Path root = parent == null ? dir : parent;
+        return new ThemeSource(dir.getFileName() == null ? DEFAULT_THEME : dir.getFileName().toString(),
+                dir, root, root.resolve(DEFAULT_THEME));
+    }
+
     /** 指定名字的资源根（不存在也返回一个可用的 default 兜底） */
     public static ThemeSource source(String name) {
         String n = name == null ? DEFAULT_THEME : name.trim();

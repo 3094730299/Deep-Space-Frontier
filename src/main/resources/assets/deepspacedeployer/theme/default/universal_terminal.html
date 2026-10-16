@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<!--
+  通用终端（装饰机） —— universal_terminal.html
+  ================================================================
+  左边 6 个卡槽（每家公司一个），插卡 → 公司自动切换 → 右边列表跟着换。
+
+  数据键：{{公司}} {{页}} {{总页}} data-if="有公司"
+  列表：  商品[]（{{名称}} {{单价}}）
+  动作：  buy（配 data-index）/ page_prev / page_next
+  原生占位：data-slot="card6"（6 个公司卡槽）data-slot="player"（玩家背包）
+
+  ⚠️ 版面预算：画布 268×270，玩家背包占最下面 76px（y=186 起）。
+-->
+<html>
+<head>
+  <title>通用终端</title>
+  <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+  <div class="win">
+
+    <div class="bar">
+      <div class="title">{{公司}} · 通用终端</div>
+      <div class="chip off" data-if="!有公司">插入银行卡以选择公司</div>
+      <div class="chip" data-if="有公司">第 {{页}} / {{总页}} 页</div>
+    </div>
+
+    <div class="slotgrid">
+      <div data-slot="card6" class="slots9"></div>
+      <div class="btns" style="margin-top:0;margin-left:6">
+        <div class="btn ghost" data-action="page_prev">上一页</div>
+        <div class="btn ghost" data-action="page_next">下一页</div>
+      </div>
+    </div>
+
+    <div class="list mid">
+      <div class="row" data-repeat="商品">
+        <div class="name">{{名称}}</div>
+        <div class="price">{{单价}}</div>
+        <div class="btn" data-action="buy" data-index="{{行号}}">买</div>
+      </div>
+      <div class="empty" data-if="!商品数量">这家公司暂时没有商品</div>
+    </div>
+
+    <div data-slot="player" class="player absolute"></div>
+
+  </div>
+</body>
+</html>

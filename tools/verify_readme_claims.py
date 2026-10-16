@@ -18,7 +18,23 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 J = os.path.join(ROOT, "src", "main", "java", "com", "deepspacedeployer")
 A = os.path.join(ROOT, "src", "main", "resources", "assets", "deepspacedeployer")
 D = os.path.join(ROOT, "src", "main", "resources", "data", "deepspacedeployer")
-JAR = os.path.join(ROOT, "build", "libs", "deepspacedeployer-0.1.0+mc1.21.1.jar")
+
+
+def _find_jar():
+    """
+    找 build/libs 里那个模组 jar。
+
+    ⚠️ 以前这里把版本号写死在路径里（deepspacedeployer-0.1.0+mc1.21.1.jar），
+    结果一提版本号这个脚本就报"构建产物不存在" —— 是脚本的问题，不是代码的问题。
+    现在按 glob 找：谁在 build/libs 里就用谁（sources / javadoc 不算）。
+    """
+    import glob as _g
+    cands = [p for p in _g.glob(os.path.join(ROOT, "build", "libs", "*.jar"))
+             if "sources" not in os.path.basename(p) and "javadoc" not in os.path.basename(p)]
+    return sorted(cands)[0] if cands else os.path.join(ROOT, "build", "libs", "(没构建过)")
+
+
+JAR = _find_jar()
 
 
 def read(*parts):
@@ -148,13 +164,18 @@ def main():
     # 里面装的 jar 没有商店模型/贴图修复。两边都存在时才校验，空仓库不算错）
     import glob as _glob
     import zipfile as _zipfile
-    _zips = _glob.glob(os.path.join(ROOT, "release", "*.zip"))
+    # ⚠️ 两个坑（都踩过）：
+    #   ① glob 不保证顺序，release/ 里留着旧版本的包时会拿到旧包 → 断言假红。
+    #      所以显式按修改时间取【最新】的那个。
+    #   ② jar 名不能写死版本号（一提版本就找不到）→ 统一按 glob 找。
+    _zips = sorted(_glob.glob(os.path.join(ROOT, "release", "*.zip")),
+                   key=os.path.getmtime)
     _jars = [j for j in _glob.glob(os.path.join(ROOT, "build", "libs", "*.jar"))
              if "sources" not in os.path.basename(j)]
     if _zips and _jars:
         with open(_jars[0], "rb") as _fh:
             _built = _fh.read()
-        with _zipfile.ZipFile(_zips[0]) as _z:
+        with _zipfile.ZipFile(_zips[-1]) as _z:
             _inner = [n for n in _z.namelist() if n.startswith("mods/") and n.endswith(".jar")]
             _payload = _z.read(_inner[0]) if _inner else b""
         checks.append(("发布包 release/*.zip 里装的就是当前 build/libs 的 jar（不是旧包）",

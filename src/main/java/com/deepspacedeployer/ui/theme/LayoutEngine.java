@@ -46,12 +46,25 @@ public final class LayoutEngine {
             return 0f;
         }
         float y = 0f;
+        // "流内内容的真实底边"：绝对定位的元素不参与流，所以不能拿它们的 y 当底边
+        float flowBottom = 0f;
         for (HtmlNode child : root.children) {
-            if (child.isElement()) {
-                y += layoutChild(child, 0f, y, viewportW, viewportH - y, null);
+            if (!child.isElement()) {
+                continue;
+            }
+            float before = y;
+            y += layoutChild(child, 0f, y, viewportW, viewportH - y, null);
+            if (child.box != null && child.box.visible && !"absolute".equals(
+                    child.style == null ? "static" : child.style.position)) {
+                flowBottom = Math.max(flowBottom, before + child.box.usedHeight);
             }
         }
-        return y;
+        // 返回值 = 流内内容的底边，且至少等于视口高度。
+        //
+        // ⚠️ 不要直接返回 y：一个 bottom:8 的绝对定位背包占位，坐标在视口内（y=186），
+        //    但顺序排到它时 y 已经 290 了 —— 那样会报出 337 这种假溢出，
+        //    把真正的排版问题淹掉（排查时吃过这个亏，见 docs 里的排查记录）。
+        return Math.max(flowBottom, viewportH);
     }
 
     // ---------------------------------------------------------------- 单个元素
@@ -149,8 +162,13 @@ public final class LayoutEngine {
                 box.h = need;
             }
         }
+        // 占位高度：写了固定高度的容器，内容再多也只占它自己那么高
+        // （多出来的内容由 overflow:hidden/scroll 裁掉，不把后面的兄弟元素往下推）。
+        // ⚠️ 这里如果返回 box.h（被内容撑高的那个）就会溢出：一个 height:104 的列表
+        //    放了 4 行会被算成 170 高，后面所有元素跟着往下跑。
+        box.usedHeight = autoHeight ? box.h : outerH;
 
-        return box.h + st.marTop + st.marBottom;
+        return box.usedHeight + st.marTop + st.marBottom;
     }
 
     /** 摆这个元素的内容（文字流 + 子元素），返回内容占用的高度 */
