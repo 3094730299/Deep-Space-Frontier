@@ -262,11 +262,23 @@ public class ShopEditorScreen extends Screen {
                 return true;
             }
             case "add_buy" -> {
+                // ⚠️ 服务端按 payload 里的 listKind 决定"加进买表还是卖表"，
+                //    不是按 index 区分（以前这里传了 1 当 index，语义是错的）。
+                this.listKind = 0;
                 edit(ShopEditor.ACTION_ADD_HELD, 0, DEFAULT_BUY_PRICE);
                 return true;
             }
             case "add_sell" -> {
-                edit(ShopEditor.ACTION_ADD_HELD, 1, DEFAULT_SELL_PRICE);
+                this.listKind = 1;
+                edit(ShopEditor.ACTION_ADD_HELD, 0, DEFAULT_SELL_PRICE);
+                return true;
+            }
+            case "tier" -> {
+                int index = parseInt(arg, -1);
+                if (index < 0) {
+                    return false;
+                }
+                edit(ShopEditor.ACTION_TIER, index, 0);
                 return true;
             }
             case "set_price" -> {
