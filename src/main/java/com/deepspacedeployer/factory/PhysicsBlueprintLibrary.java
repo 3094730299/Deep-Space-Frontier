@@ -59,8 +59,20 @@ public final class PhysicsBlueprintLibrary {
     private static final String PREVIEW_VIEW = PREVIEW + "$View";
     private static final String PREVIEW_GENERATOR =
             "dev.rew1nd.sableschematicapi.blueprint.preview.SableBlueprintPreviewGenerator";
-    /** 除了 Sable-Schematics，还要读这个文件夹 */
-    private static final String EXTRA_DIR = "enxv_aeronautics_structures";
+    /**
+     * 除了 Sable-Schematics（走 Sable 官方接口）之外，<b>还要扫这些"玩家自己的"文件夹</b>。
+     *
+     * <p>⚠️ 必须是<b>游戏目录（FMLPaths.GAMEDIR）下的一级目录名</b>。
+     * 加新文件夹就往这个数组里塞名字 —— 扫描逻辑和容错都在 {@link #scanBlueprintFolder}。</p>
+     *
+     * <p>2026-10-17 老板要求"让玩家能看到自己存在文件夹里的载具"时补的：
+     * {@code schematics} 是<b>机械动力</b>的图纸夹，玩家习惯把载具放那儿，
+     * 但之前只有 {@code Sable-Schematics} 会被读 —— 于是"自己存的载具看不见"。</p>
+     */
+    private static final String[] USER_DIRS = {
+            "enxv_aeronautics_structures",   // 别人给的航空结构包
+            "schematics",                    // 机械动力（Create）的图纸夹 —— 玩家最常用的那个
+    };
 
     private static boolean probed;
     private static boolean available;
@@ -165,7 +177,7 @@ public final class PhysicsBlueprintLibrary {
 
     /** 给玩家看的"图纸放哪"提示（游戏目录下的两个文件夹） */
     public static String folderHint() {
-        return "Sable-Schematics / " + EXTRA_DIR + "（都在游戏目录下）";
+        return "Sable-Schematics / " + String.join(" / ", USER_DIRS) + "（都在游戏目录下）";
     }
 
     // ---------------- 预览缩略图 ----------------
@@ -272,6 +284,44 @@ public final class PhysicsBlueprintLibrary {
     }
 
     /** 重新扫描两个文件夹，返回读到的蓝图数量 */
+    /**
+     * 扫一个"玩家自己的"蓝图文件夹：把里面的 {@code .nbt / .excraft / .schem} 逐个读出来，
+     * 交给 Sable 的 {@code SableBlueprint.load(CompoundTag)} 解析。
+     *
+     * <p>⚠️ 读不了的文件<b>只打 WARN 跳过</b> —— 一个坏文件/一张不兼容的图纸，
+     * 不该让整个蓝图列表消失（这个项目以前就踩过"一个失败拖垮一片"的坑）。</p>
+     *
+     * @param dirName 游戏目录下的一级文件夹名，例如 {@code schematics}
+     */
+    private static void scanBlueprintFolder(String dirName) {
+        Path dir = FMLPaths.GAMEDIR.get().resolve(dirName);
+        if (!Files.isDirectory(dir)) {
+            return;
+        }
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
+            for (Path path : stream) {
+                if (!Files.isRegularFile(path)) {
+                    continue;
+                }
+                String fileName = path.getFileName().toString();
+                String name = fileName.replaceFirst("(?i)\\.(nbt|excraft|schem)$", "");
+                if (ENTRIES.containsKey(name)) {
+                    continue;                   // 前面已经有同名的了（Sable-Schematics 优先）
+                }
+                try {
+                    CompoundTag tag = NbtIo.readCompressed(path, NbtAccounter.unlimitedHeap());
+                    Object blueprint = loadFromTag.invoke(null, tag);
+                    addEntry(name, blueprint);
+                } catch (Throwable t) {
+                    LOGGER.warn("[深空铸造体] {} 里的 {} 读不了（也许不是 Sable 蓝图）：{}",
+                            dirName, fileName, rootOf(t));
+                }
+            }
+        } catch (Throwable t) {
+            LOGGER.warn("[深空铸造体] 扫描 {} 失败：{}", dirName, t.toString());
+        }
+    }
+
     @SuppressWarnings("unchecked")
     public static int refresh(MinecraftServer server) {        probe();
         ENTRIES.clear();
@@ -298,31 +348,16 @@ public final class PhysicsBlueprintLibrary {
             LOGGER.warn("[深空铸造体] 读 Sable-Schematics 失败：{}", rootOf(t));
         }
 
-        // 2) enxv_aeronautics_structures（我们自己读 nbt，再交给 SableBlueprint.load）
-        Path extra = FMLPaths.GAMEDIR.get().resolve(EXTRA_DIR);
-        if (Files.isDirectory(extra)) {
-            try (DirectoryStream<Path> stream = Files.newDirectoryStream(extra)) {
-                for (Path path : stream) {
-                    String fileName = path.getFileName().toString();
-                    if (!Files.isRegularFile(path)) {
-                        continue;
-                    }
-                    String name = fileName.replaceFirst("(?i)\\.(nbt|excraft|schem)$", "");
-                    if (ENTRIES.containsKey(name)) {
-                        continue;
-                    }
-                    try {
-                        CompoundTag tag = NbtIo.readCompressed(path, NbtAccounter.unlimitedHeap());
-                        Object blueprint = loadFromTag.invoke(null, tag);
-                        addEntry(name, blueprint);
-                    } catch (Throwable t) {
-                        LOGGER.warn("[深空铸造体] {} 里的 {} 读不了（也许不是 Sable 蓝图）：{}",
-                                EXTRA_DIR, fileName, rootOf(t));
-                    }
-                }
-            } catch (Throwable t) {
-                LOGGER.warn("[深空铸造体] 扫描 {} 失败：{}", EXTRA_DIR, t.toString());
-            }
+        // 2) 游戏目录下的其它蓝图文件夹（我们自己读 nbt，再交给 SableBlueprint.load）
+        //
+        // ★ 2026-10-17 老板要求："让玩家能看到自己存在文件夹里的载具，而不是只能打印服务端的。"
+        //   实测他的实例里蓝图分两个地方放：
+        //     versions\孢子危机\Sable-Schematics\   7 个 .nbt   ← 上面第 1 段（Sable 官方接口）读得到
+        //     versions\孢子危机\schematics\         10 个 .nbt  ← 机械动力的图纸夹，原先【没人读】
+        //   所以这里把 USER_DIRS 里每个文件夹都扫一遍（以前只扫 enxv_aeronautics_structures）。
+        //   读不了的会打 WARN 跳过，不影响其它文件。
+        for (String dirName : USER_DIRS) {
+            scanBlueprintFolder(dirName);
         }
 
         List<BlueprintInfo> list = new ArrayList<>();
@@ -337,7 +372,8 @@ public final class PhysicsBlueprintLibrary {
         THUMBS_BUSY.clear();
         thumbnailGeneration++;
         warmThumbnailsAsync();
-        LOGGER.info("[深空铸造体] 物理蓝图已加载：{} 份（{}+{}）", list.size(), "Sable-Schematics", EXTRA_DIR);
+        LOGGER.info("[深空铸造体] 物理蓝图已加载：{} 份（来源：Sable-Schematics + {}）",
+                list.size(), String.join(" + ", USER_DIRS));
         return list.size();
     }
 
