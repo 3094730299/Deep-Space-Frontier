@@ -24,7 +24,7 @@ import net.minecraft.world.item.ItemStack;
  */
 public class MachineMenu extends AbstractContainerMenu {
 
-    public static final int DATA_COUNT = 15;
+    public static final int DATA_COUNT = 16;
     public static final int DATA_POS_X = 0;
     public static final int DATA_POS_Y = 1;
     public static final int DATA_POS_Z = 2;
@@ -45,6 +45,12 @@ public class MachineMenu extends AbstractContainerMenu {
     public static final int DATA_CREATIVE = 13;
     /** 收购站的头顶被方块挡住了（挡着就不工作，界面要提示玩家） */
     public static final int DATA_BLOCKED_ABOVE = 14;
+
+    /**
+     * 收购投送机为什么不工作的原因码（0=正常）。
+     * 见 {@code MachineBlockEntity#buyerIdleReason()} —— 5 道关卡里卡在哪一道。
+     */
+    public static final int DATA_IDLE_REASON = 15;
 
     /**
      * 购买商品 / 选择蓝图：两种"列表下标"动作。
@@ -273,6 +279,11 @@ public class MachineMenu extends AbstractContainerMenu {
      */
     public boolean blockedAbove() {
         return this.data.get(DATA_BLOCKED_ABOVE) != 0;
+    }
+
+    /** 收购投送机为什么不工作的原因码（0 = 正常） */
+    public int idleReason() {
+        return this.data.get(DATA_IDLE_REASON);
     }
 
     /** 界面上的按钮：服务端在这里分派 */

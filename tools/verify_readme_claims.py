@@ -151,9 +151,17 @@ def main():
     # 收购投送机：顶上有方块 → 不工作 + 界面提示
     mm = read(J, "menu", "MachineMenu.java")
     checks += [
-        ("投送机「顶上有方块不工作」：数据槽（14/15）与判定都在",
-         "DATA_BLOCKED_ABOVE = 14" in mm and "DATA_COUNT = 15" in mm
+        ("投送机「顶上有方块不工作」：数据槽（14/16）与判定都在",
+         "DATA_BLOCKED_ABOVE = 14" in mm and "DATA_COUNT = 16" in mm
          and "public boolean blockedAbove()" in mm),
+        # 2026-10-17：新存档"无论如何都不工作"的根因是 5 道关卡全静默 ——
+        # 现在有原因码 + 界面提示 + 日志
+        ("投送机「为什么不工作」有原因码与界面提示（不再静默失败）",
+         "DATA_IDLE_REASON = 15" in mm and "public int idleReason()" in mm
+         and "public int buyerIdleReason()" in be and "buyerIdleReason();" in be
+         and "gui.deepspacedeployer.idle_reason" in read(J, "client", "MachineScreen.java")
+         and "gui.deepspacedeployer.idle_reason.5" in read(A, "lang", "zh_cn.json")
+         and "data-if=\"未工作\"" in read(A, "theme", "default", "buyer.html")),
         ("投送机顶被挡时真的不收购（自动 + 手动两处拦截）",
          "case MachineMenu.DATA_BLOCKED_ABOVE -> blockedAbove() ? 1 : 0;" in be
          and be.count("if (blockedAbove()) {") >= 2),

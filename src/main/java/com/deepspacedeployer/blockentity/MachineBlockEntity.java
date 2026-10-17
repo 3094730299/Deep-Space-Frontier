@@ -2,6 +2,7 @@ package com.deepspacedeployer.blockentity;
 
 import com.deepspacedeployer.Company;
 import com.deepspacedeployer.Config;
+import com.deepspacedeployer.DeepSpaceDeployer;
 import com.deepspacedeployer.Tier;
 import com.deepspacedeployer.block.MachineBlock;
 import com.deepspacedeployer.economy.CardData;
@@ -362,6 +363,94 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
                 && shape.min(Direction.Axis.Z) <= 0.0D && shape.max(Direction.Axis.Z) >= 1.0D;
     }
 
+    // ================= 收购投送机「为什么不动」诊断 =================
+
+    /**
+     * 收购循环有 5 道关卡，<b>每一道失败原先都是静默 {@code return false}</b> ——
+     * 界面和日志都不吭声，玩家只能干瞪眼。
+     *
+     * <p>2026-10-17 老板反馈"新存档里无论如何都不工作"，就是这个原因：
+     * 分不清是没插卡、卡没绑定、开关关了、头顶被挡，还是投入的东西不在这家公司的收购清单里。</p>
+     *
+     * <p>这些码会同步到界面（按原因显示一行红字）并写进日志（变化时才写，不刷屏）。</p>
+     */
+    public static final int IDLE_OK = 0;
+    public static final int IDLE_NO_CARD = 1;
+    public static final int IDLE_CARD_UNBOUND = 2;
+    public static final int IDLE_AUTOSELL_OFF = 3;
+    public static final int IDLE_BLOCKED_ABOVE = 4;
+    public static final int IDLE_NOTHING_TO_SELL = 5;
+
+    /** 给日志用的人话（下标 = 上面的码） */
+    private static final String[] IDLE_REASON_NAMES = {
+            "正常（有东西可收）",
+            "没插银行卡",
+            "银行卡还没绑定账户",
+            "自动收购已关闭",
+            "头顶被整格方块挡住",
+            "输入格里没有这家公司收的东西",
+    };
+
+    /** 上一次记日志的原因（-1 = 还没记过） */
+    private int lastLoggedIdleReason = -1;
+
+    /** 原因码 → 日志/界面用的人话 */
+    public static String idleReasonName(int reason) {
+        return reason >= 0 && reason < IDLE_REASON_NAMES.length
+                ? IDLE_REASON_NAMES[reason] : "未知(" + reason + ")";
+    }
+
+    /**
+     * 收购投送机当前"为什么不工作"。{@link #IDLE_OK} = 没问题（有东西可收）。
+     *
+     * <p>顺序与 {@link #processBuyerCycle()} 里的判断<b>完全一致</b> ——
+     * 这样界面报的原因就是它真正卡住的那一道，不会指错。</p>
+     */
+    public int buyerIdleReason() {
+        if (kind() != MachineKind.BUYER) {
+            return IDLE_OK;
+        }
+        if (!isOnline()) {
+            return IDLE_NO_CARD;
+        }
+        if (activeAccount() == null) {
+            return IDLE_CARD_UNBOUND;
+        }
+        if (!autoSell) {
+            return IDLE_AUTOSELL_OFF;
+        }
+        if (blockedAbove()) {
+            return IDLE_BLOCKED_ABOVE;
+        }
+        ShopData shop = ShopData.get();
+        Company company = company();
+        for (int slot = SLOT_INPUT_START; slot < SLOT_COUNT; slot++) {
+            ItemStack stack = items.get(slot);
+            if (!stack.isEmpty() && shop.findSellEntry(company, stack) != null) {
+                return IDLE_OK;                     // 有东西可收 → 正常运行
+            }
+        }
+        return IDLE_NOTHING_TO_SELL;
+    }
+
+    /**
+     * 原因变化时写一条日志（服务端，节流为"只在变化时写"）。
+     *
+     * <p>老板说"不动"的时候，让他把日志里 {@code [收购诊断]} 那一行发过来就能立刻定位。</p>
+     */
+    public void logIdleReason() {
+        if (level == null || level.isClientSide || kind() != MachineKind.BUYER) {
+            return;
+        }
+        int reason = buyerIdleReason();
+        if (reason == lastLoggedIdleReason) {
+            return;
+        }
+        lastLoggedIdleReason = reason;
+        DeepSpaceDeployer.LOGGER.info("[深空铸造体][收购诊断] 位置={} 状态={}",
+                worldPosition, idleReasonName(reason));
+    }
+
     /**
      * <b>只推进 GeckoLib 的动画时间轴</b>（不管相位机）。
      *
@@ -542,6 +631,7 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
                 // 老板定稿：**收购和动画绑成一个循环** ——
                 //   收一轮（所有格子一次收光）→ 播一次「投送」→ 等动画播完 → 再收下一轮
                 // 所以这里不再按固定 tick 间隔，而是看"上一轮动画是否播完"。
+                blockEntity.logIdleReason();        // 原因变化时写一条日志（不动时好定位）
                 blockEntity.processBuyerCycle();
             }
             // 寄售市场：每 40 tick 主动推一次（挂单存在世界存档里，别的市场方块改了这边也要跟上）
@@ -1375,6 +1465,7 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
                     case MachineMenu.DATA_AUTO_SELL -> autoSell ? 1 : 0;
                     case MachineMenu.DATA_CREATIVE -> creativeMode(true) ? 1 : 0;
                     case MachineMenu.DATA_BLOCKED_ABOVE -> blockedAbove() ? 1 : 0;
+                    case MachineMenu.DATA_IDLE_REASON -> buyerIdleReason();
                     default -> 0;
                 };
             }

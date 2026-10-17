@@ -11,8 +11,15 @@
 > `python tools/verify_readme_claims.py` → **58 条全部符合 ✓**
 > （它逐条检查本文档声称的代码结构是否真的还在。改完代码后请重跑，红了就更新本文档。）
 >
-> 最后更新：2026-10-16 23:30（对应模组 **0.1.2+mc1.21.1**）
-> **本轮改动（界面主题 / 内置 WebView 接进游戏）**：
+> 最后更新：2026-10-17 15:00（对应模组 **0.1.3+mc1.21.1**）
+> **本轮（0.1.3）改动：收购投送机「为什么不工作」诊断** ——
+> 收购循环的 5 道关卡（没插卡 / 卡未绑定 / 自动收购关 / 头顶被挡 / 没有可收的东西）
+> 原先**全部静默失败**，界面和日志都不吭声，这就是老板说的"新存档里无论如何都不工作"。
+> 现在：原因码 `MachineMenu.DATA_IDLE_REASON`（0=正常）+ **界面一行提示**（原生界面画在 y=78；
+> 主题用 `buyer.html` 的 `data-if="未工作"`）+ **日志** `[深空铸造体][收购诊断]`（只在原因变化时写）。
+> 详见 §7.7 与 `publish/更新日志.md` 的 0.1.3 条目。
+>
+> **上一轮（0.1.1 / 0.1.2）改动（界面主题 / 内置 WebView 接进游戏）**：
 > ① **渲染内核接进游戏**：新增 `ui/webview` 包（`WebViewScreen` 宿主 / `GuiCanvas` 游戏内画布 /
 > `WebViewManager` 总开关 / `ThemeChoiceScreen` 主题菜单）；此前 `ensureDefaultTheme()` **没人调用**、
 > `theme/default/` 一直没落到磁盘上的问题**已修**（见 §5.2 第 6 项）。
@@ -60,7 +67,7 @@
 | 前置 | NeoForge 21.1.248；可选：**GeckoLib 4.9.3**（没装也能跑，只是自定义模型不显示）|
 | 语言 | Java 21 |
 | 规模 | **112 个 Java 文件**（含工具类）；467+ 个资源文件（`gradlew checkThemes` 会验主题）|
-| 当前版本 | **0.1.2+mc1.21.1**（新增内置 WebView 界面主题）|
+| 当前版本 | **0.1.3+mc1.21.1**（新增内置 WebView 界面主题）|
 
 ### 核心玩法
 
@@ -89,7 +96,7 @@ git 仓库     就是项目根目录本身（.git 在里面，分支 main）
                 浏览器正常，git 也能用（已实测推送成功）；不要以为"DNS 坏了"去乱改 hosts
 桌面副本     C:\Users\30947\Desktop\深空铸造   ← **已停用**（旧规矩遗留；别再去同步它）
 整合包版本   C:\Users\30947\Desktop\.minecraft\versions\孢子危机
-装机目录     …\versions\孢子危机\mods\deepspacedeployer-0.1.2+mc1.21.1.jar
+装机目录     …\versions\孢子危机\mods\deepspacedeployer-0.1.3+mc1.21.1.jar
 
 Java        C:\Program Files\Java\jdk-21.0.10          （必须设 JAVA_HOME）
 Gradle      C:\Users\30947\Documents\deepseek-harness\default-workspace\.tools\gradle-8.12\bin\gradle.bat
@@ -505,6 +512,36 @@ sellAllSlots()       → if (blockedAbove()) return false;   // 手动「立即�
 
 ---
 
+### 7.7 收购投送机「为什么不工作」诊断（0.1.3，老板 2026-10-17 反馈"新存档无论如何都不工作"）
+
+**根因**：收购循环有 5 道关卡，**每一道失败原先都是静默 `return false`** —— 界面和日志都不吭声，
+所以"它不动"完全无法定位。
+
+| 码 | 原因 | 怎么解决 |
+|---|---|---|
+| 0 | 正常（有东西可收） | —— |
+| 1 | 没插银行卡 | 把银行卡放进卡槽 |
+| 2 | **银行卡还没绑定账户**（新存档最常见） | **右键银行卡**绑定 |
+| 3 | 自动收购已关闭 | 界面点「自动收购」开关 |
+| 4 | 头顶被整块方块挡住 | 拆掉机器正上方的方块（火把/告示牌/半砖不算） |
+| 5 | 输入格里没有这家公司收的东西 | 换成该公司收购清单里的物品 |
+
+**现在怎么用**：
+
+1. **看界面**：原生界面在 y=78 画一行红字「未工作：银行卡还没绑定账户（右键卡绑定）」；
+   主题界面由 `buyer.html` 的 `data-if="未工作"` 显示同样一行；
+2. **看日志**：搜 `[深空铸造体][收购诊断]`，只在**原因变化时**写，不刷屏；
+
+**实现位置**（改这块时别搞乱对应关系）：
+
+- `MachineBlockEntity#buyerIdleReason()` —— 原因码，**判断顺序必须和 `processBuyerCycle()` 里一致**，
+  否则界面会报错原因；
+- `MachineMenu.DATA_IDLE_REASON = 15`（`DATA_COUNT` 现在是 **16**）；
+- `MachineScreen` —— 原生界面那行红字 + 主题键 `未工作` / `未工作原因`；
+- 语言键 `gui.deepspacedeployer.idle_reason[.1~.5]`（中英双语）。
+
+---
+
 ## 八、给接手者的建议动作顺序
 
 ```
@@ -554,7 +591,7 @@ sellAllSlots()       → if (blockedAbove()) return false;   // 手动「立即�
 ## 十、版本与许可
 
 ```
-版本        0.1.2+mc1.21.1
+版本        0.1.3+mc1.21.1
 License     见 LICENSE（All Rights Reserved）
 仓库        本地：项目根目录里的 git 仓库（分支 main）
              C:\Users\30947\Documents\deepseek-harness\default-workspace\deep-space-deployer

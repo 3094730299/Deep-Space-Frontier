@@ -311,5 +311,11 @@
   "gui.deepspacedeployer.terminal_page": "第 %s 页",
   "msg.deepspacedeployer.terminal_need_company": "先把银行卡插进终端，才能使用这家公司的服务",
   "block.deepspacedeployer.printer_part": "载具打印机（结构件）",
-  "item.deepspacedeployer.printer_part": "载具打印机（结构件）"
+  "item.deepspacedeployer.printer_part": "载具打印机（结构件）",
+  "gui.deepspacedeployer.idle_reason": "未工作：%s",
+  "gui.deepspacedeployer.idle_reason.1": "没插银行卡",
+  "gui.deepspacedeployer.idle_reason.2": "银行卡还没绑定账户（右键卡绑定）",
+  "gui.deepspacedeployer.idle_reason.3": "自动收购已关闭",
+  "gui.deepspacedeployer.idle_reason.4": "头顶被整块方块挡住",
+  "gui.deepspacedeployer.idle_reason.5": "输入格里没有这家公司收的东西"
 }

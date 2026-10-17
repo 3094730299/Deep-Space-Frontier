@@ -311,5 +311,11 @@
   "gui.deepspacedeployer.terminal_page": "Page %s",
   "msg.deepspacedeployer.terminal_need_company": "Insert a bank card into the terminal first",
   "block.deepspacedeployer.printer_part": "Vehicle Printer (Part)",
-  "item.deepspacedeployer.printer_part": "Vehicle Printer (Part)"
+  "item.deepspacedeployer.printer_part": "Vehicle Printer (Part)",
+  "gui.deepspacedeployer.idle_reason": "Idle: %s",
+  "gui.deepspacedeployer.idle_reason.1": "no bank card inserted",
+  "gui.deepspacedeployer.idle_reason.2": "bank card not bound yet (right-click it)",
+  "gui.deepspacedeployer.idle_reason.3": "auto-collect is turned off",
+  "gui.deepspacedeployer.idle_reason.4": "a full block is directly above",
+  "gui.deepspacedeployer.idle_reason.5": "nothing in the input slots is bought here"
 }

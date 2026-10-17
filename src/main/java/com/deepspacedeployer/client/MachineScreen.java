@@ -225,6 +225,15 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
         d.put("声望", this.menu.reputation());
         d.put("在线", this.menu.online());
         d.put("被挡", this.menu.blockedAbove());
+        // 不工作的其它原因（没插卡 / 卡未绑定 / 自动收购关了 / 没有可收的东西）——
+        // 以前全是静默的，主题这边也要能显示出来（buyer.html 用 data-if="未工作"）。
+        boolean idle = this.menu.kind() == MachineKind.BUYER
+                && this.menu.idleReason() != 0 && !this.menu.blockedAbove();
+        d.put("未工作", idle);
+        d.put("未工作原因", idle
+                ? Component.translatable("gui.deepspacedeployer.idle_reason."
+                        + this.menu.idleReason()).getString()
+                : "");
         d.put("创意模式", this.menu.creative());
         d.put("有公司", companyBound);
 
@@ -1188,6 +1197,13 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
         if (this.menu.kind() == MachineKind.BUYER && this.menu.blockedAbove()) {
             graphics.drawString(this.font, Component.translatable(
                     "gui.deepspacedeployer.blocked_above"), 8, 78, WARN, false);
+        } else if (this.menu.kind() == MachineKind.BUYER && this.menu.idleReason() != 0) {
+            // ★ 不是"头顶被挡"的那些原因（没插卡 / 卡未绑定 / 自动收购关了 / 没有可收的东西）——
+            //   这些以前全是静默的，玩家只能干瞪眼。现在直接写在同一个空档（y=78）里。
+            graphics.drawString(this.font, Component.translatable(
+                    "gui.deepspacedeployer.idle_reason",
+                    Component.translatable("gui.deepspacedeployer.idle_reason."
+                            + this.menu.idleReason())), 8, 78, WARN, false);
         }
 
         switch (this.menu.kind()) {
