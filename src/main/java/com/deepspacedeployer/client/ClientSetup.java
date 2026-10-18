@@ -4,12 +4,15 @@ import com.deepspacedeployer.Company;
 import com.deepspacedeployer.net.ShopEditPayload;
 import com.deepspacedeployer.registry.ModMenus;
 import com.deepspacedeployer.ui.webview.ThemeButton;
+import com.deepspacedeployer.ui.webview.ThemeKeys;
 import com.deepspacedeployer.ui.webview.WebViewManager;
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.inventory.Slot;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
@@ -24,11 +27,22 @@ import net.neoforged.neoforge.network.PacketDistributor;
  */
 public final class ClientSetup {
 
+    /** 背包界面上那颗「主题」按钮（每次界面初始化时更新；用来响应"按钮移动"键位） */
+    private static ThemeButton themeButton;
+    /** 上一帧的鼠标位置（GUI 坐标）—— 键盘触发"按钮移动"时要用 */
+    private static int lastMouseX;
+    private static int lastMouseY;
+
     public static void init(IEventBus modEventBus) {
         modEventBus.addListener(ClientSetup::onRegisterTerminalRenderers);
         modEventBus.addListener(ClientSetup::onRegisterMachineRenderer);
         modEventBus.addListener(ClientSetup::onRegisterMenuScreens);
+        // ★ 按键绑定：「按钮移动」（默认鼠标中键）
+        ThemeKeys.register(modEventBus);
         NeoForge.EVENT_BUS.addListener(ClientSetup::onScreenInit);
+        NeoForge.EVENT_BUS.addListener(ClientSetup::onScreenRender);
+        NeoForge.EVENT_BUS.addListener(ClientSetup::onMousePressed);
+        NeoForge.EVENT_BUS.addListener(ClientSetup::onKeyPressed);
         NeoForge.EVENT_BUS.addListener(ClientSetup::onClientTick);
 
         // ★ 界面主题（内置 WebView）：把 jar 里内置的默认主题释放到磁盘 + 记住当前主题名。
@@ -86,8 +100,8 @@ public final class ClientSetup {
      * 往界面上加两个入口：
      *
      * <ul>
-     *   <li><b>玩家背包</b>（按 E 打开）—— 加一颗可拖拽的圆形「界面主题」按钮
-     *       （左键点开、右键长按拖拽、位置记进配置）；</li>
+     *   <li><b>玩家背包</b>（按 E 打开）—— 加一颗圆形「界面主题」按钮
+     *       （左键点开、右键长按拖拽、按「按钮移动」键一把搬过来、位置记进配置）；</li>
      *   <li><b>ESC 暂停菜单</b> —— 只给 OP 加「价目表编辑器」。</li>
      * </ul>
      *
@@ -118,15 +132,86 @@ public final class ClientSetup {
         }).bounds(4, 40, 120, 20).build());
     }
 
-    /** 把圆形主题按钮摆到背包界面上（位置从配置里读） */
+    /** 把圆形主题按钮摆到背包界面上（位置从配置里读；没摆过就底部居中） */
     private static void addThemeButton(ScreenEvent.Init.Post event, InventoryScreen screen) {
-        int fallbackX = 6;
-        int fallbackY = 6;
-        int[] pos = ThemeButton.loadPosition(fallbackX, fallbackY);
+        int[] pos = ThemeButton.loadPosition(screen.width, screen.height);
         ThemeButton button = new ThemeButton(pos[0], pos[1]);
         // 换分辨率后按钮可能跑到可视范围外 → 每次初始化先拉回来
         button.clampTo(screen.width, screen.height);
         event.addListener(button);
+        // 记住它，供「按钮移动」键位使用（界面关掉后这个引用也没人再读）
+        themeButton = button;
+    }
+
+    // ---------------------------------------------------------------- 「按钮移动」键位
+
+    /**
+     * 每帧记一下鼠标在 GUI 坐标里的位置。
+     *
+     * <p>键盘触发「按钮移动」时没有鼠标坐标可拿（{@code ScreenEvent.KeyPressed} 只给键码），
+     * 所以从渲染事件里顺手存一份。</p>
+     */
+    private static void onScreenRender(ScreenEvent.Render.Post event) {
+        if (event.getScreen() instanceof InventoryScreen) {
+            lastMouseX = event.getMouseX();
+            lastMouseY = event.getMouseY();
+        }
+    }
+
+    /**
+     * 鼠标按下：如果按的是「按钮移动」（默认<b>中键</b>），把主题按钮搬到鼠标位置。
+     *
+     * <p>⚠️ 不吞事件：原版背包里中键还有自己的用处（创造模式"复制物品"），
+     * 所以只在"原版不会做别的事"时才搬 —— 见 {@link #wouldCloneItem}。</p>
+     */
+    private static void onMousePressed(ScreenEvent.MouseButtonPressed.Pre event) {
+        if (!(event.getScreen() instanceof InventoryScreen inventory)) {
+            return;
+        }
+        if (!ThemeKeys.isMoveKey(InputConstants.Type.MOUSE.getOrCreate(event.getButton()))) {
+            return;
+        }
+        if (wouldCloneItem(inventory)) {
+            return;                 // 创造模式 + 鼠标下有物品：这一下交给原版复制
+        }
+        moveThemeButtonTo(inventory, event.getMouseX(), event.getMouseY());
+    }
+
+    /** 键盘按下「按钮移动」（玩家把键位改成了键盘键时走这里） */
+    private static void onKeyPressed(ScreenEvent.KeyPressed.Pre event) {
+        if (!(event.getScreen() instanceof InventoryScreen inventory)) {
+            return;
+        }
+        if (!ThemeKeys.isMoveKey(InputConstants.getKey(event.getKeyCode(), event.getScanCode()))) {
+            return;
+        }
+        moveThemeButtonTo(inventory, lastMouseX, lastMouseY);
+    }
+
+    /** 把按钮搬到鼠标处、拉回可视范围、写进配置 */
+    private static void moveThemeButtonTo(InventoryScreen screen, double mouseX, double mouseY) {
+        if (themeButton == null) {
+            return;
+        }
+        themeButton.moveToCentered(mouseX, mouseY);
+        themeButton.clampTo(screen.width, screen.height);
+        ThemeButton.savePosition(themeButton.getX(), themeButton.getY());
+    }
+
+    /**
+     * 这一下中键会不会被原版用来"复制物品"？
+     *
+     * <p>原版只在<b>创造模式</b>、且鼠标下面有物品的槽位时才会复制
+     * （{@code AbstractContainerScreen.mouseClicked} 里的 {@code button == 2} 分支）。
+     * 那种情况下让原版干活，免得玩家想复制物品却把按钮搬走了。</p>
+     */
+    private static boolean wouldCloneItem(InventoryScreen screen) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player == null || !minecraft.player.isCreative()) {
+            return false;
+        }
+        Slot slot = screen.getSlotUnderMouse();
+        return slot != null && slot.hasItem();
     }
 
     /**

@@ -23,7 +23,15 @@ import org.lwjgl.glfw.GLFW;
  * <table>
  *   <tr><td><b>左键点击</b></td><td>打开主题选择界面（{@link ThemeChoiceScreen}）</td></tr>
  *   <tr><td><b>右键长按拖拽</b></td><td>把按钮拖到任意位置（松手即记住，写进配置文件）</td></tr>
+ *   <tr><td><b>按键「按钮移动」（默认鼠标中键）</b></td>
+ *       <td>背包界面里把鼠标移到想去的地方按一下 → 按钮<b>搬过去</b>（记进配置）。
+ *           键位在「选项 → 控制 → 按键绑定」里可改，见 {@link ThemeKeys#MOVE_BUTTON}</td></tr>
  * </table>
+ *
+ * <p><b>默认位置：屏幕底部居中</b>（老板 2026-10-17 的要求）。</p>
+ * <p>一开始默认在左上角，但左上角<b>会和 FTB 这类模组的按钮打架</b>（被盖住就看不见了），
+ * 底部居中那块一般是空的。配置里 {@code ui.theme_button_x/y} 初始是 {@code -1}，
+ * 意思是"按屏幕尺寸自动放底部居中"；一旦玩家拖过或按键摆过，就变成具体的坐标。</p>
  *
  * <p>形状是<b>圆形</b>（用几层矩形近似画出来，渲染器只有矩形原语），外面一圈<b>深蓝描边</b>；
  * 图标是老板给的像素图，处理成 48×48 的透明贴图放在
@@ -31,8 +39,7 @@ import org.lwjgl.glfw.GLFW;
  * {@code tools/process_theme_icon.py}：它会抠掉原图里"画进图里的浅蓝棋盘格"背景）。
  * 想换图标就换那张 48×48 的 png，代码不用动。</p>
  *
- * <p>位置存在配置里（{@code ui.theme_button_x/y}）。存的是"相对当前界面尺寸的百分比"？
- * 不是 —— 直接存屏幕坐标，越界时会被拉回可视范围（见 {@link #clampTo}），
+ * <p>位置存在配置里（{@code ui.theme_button_x/y}），越界时会被拉回可视范围（见 {@link #clampTo}），
  * 这样换分辨率不会把按钮甩到屏幕外。</p>
  */
 public class ThemeButton extends AbstractWidget {
@@ -50,6 +57,9 @@ public class ThemeButton extends AbstractWidget {
     /** 深蓝描边（老板 2026-10-17 要求"加个深蓝描边"） */
     private static final int BORDER = 0xFF14215E;
 
+    /** 配置里的"还没摆过"标记：见到它就按屏幕尺寸放到**底部居中** */
+    public static final int AUTO = -1;
+
     /** 拖拽状态 */
     private boolean dragging;
     /** 这一次右键按下之后有没有真的拖动过（决定松手时是否算"点击"） */
@@ -59,13 +69,28 @@ public class ThemeButton extends AbstractWidget {
         super(x, y, SIZE, SIZE, Component.translatable("gui.deepspacedeployer.theme_button"));
     }
 
-    /** 从配置里取按钮位置（读不到就用兜底值） */
-    public static int[] loadPosition(int fallbackX, int fallbackY) {
+    /**
+     * 从配置里取按钮位置；没摆过（-1）就<b>底部居中</b>。
+     *
+     * @param screenWidth  当前界面宽度（GUI 缩放后的坐标）
+     * @param screenHeight 当前界面高度
+     */
+    public static int[] loadPosition(int screenWidth, int screenHeight) {
+        int x = AUTO;
+        int y = AUTO;
         try {
-            return new int[]{Config.THEME_BUTTON_X.get(), Config.THEME_BUTTON_Y.get()};
-        } catch (Throwable t) {
-            return new int[]{fallbackX, fallbackY};      // 配置还没加载：用兜底
+            x = Config.THEME_BUTTON_X.get();
+            y = Config.THEME_BUTTON_Y.get();
+        } catch (Throwable ignored) {
+            // 配置还没加载：当作没摆过
         }
+        if (x == AUTO) {
+            x = (screenWidth - SIZE) / 2;
+        }
+        if (y == AUTO) {
+            y = screenHeight - SIZE - 6;            // 贴近底部，留 6px 边距
+        }
+        return new int[]{x, y};
     }
 
     /** 把位置写进配置（写不进去也不影响本次游戏内使用） */
@@ -82,8 +107,16 @@ public class ThemeButton extends AbstractWidget {
     /**
      * 把按钮拉回可视范围。
      *
-     * <p>换分辨率、改界面缩放之后，原来存的位置可能跑到屏幕外 —— 那样按钮就"消失"了。
-     * 每次渲染前调一次这个。</p>
+     * <p>三种情况会用到它：</p>
+     * <ol>
+     *   <li>换分辨率 / 改界面缩放之后，原来存的坐标跑到屏幕外 → 按钮"消失"了；</li>
+     *   <li>中键摆放时鼠标贴近边缘，按钮会有一半在屏幕外；</li>
+     *   <li>配置里存了 {@code -1}（还没摆过）→ 由 {@link #loadPosition} 先算成底部居中。</li>
+     * </ol>
+     *
+     * <p>⚠️ 这里<b>不做</b>"不许盖在物品栏上"的限制：原版界面并没有这种约束，
+     * 玩家的槽位照样能点（按钮只占 20×20，且是最后加入渲染的，点按钮时不会穿透到槽位）。
+     * 所以按老板说的"能覆盖物品栏就无需特殊处理"。</p>
      */
     public void clampTo(int screenWidth, int screenHeight) {
         int x = Math.max(0, Math.min(getX(), Math.max(0, screenWidth - SIZE)));
@@ -105,11 +138,29 @@ public class ThemeButton extends AbstractWidget {
 
     // ---------------------------------------------------------------- 交互
 
+    /** 左键点按钮 → 打开主题选择界面（只在真的点在按钮上时触发） */
     @Override
     public void onClick(double mouseX, double mouseY) {
-        // 左键点一下 → 打开主题选择界面
-        Minecraft minecraft = Minecraft.getInstance();
-        minecraft.setScreen(new ThemeChoiceScreen());
+        if (!isMouseOver(mouseX, mouseY)) {
+            return;
+        }
+        Minecraft.getInstance().setScreen(new ThemeChoiceScreen());
+    }
+
+    /**
+     * 把按钮<b>以鼠标位置为中心</b>放过去（越界由调用方 {@link #clampTo} 拉回）。
+     *
+     * <p>给"按键绑定：按钮移动"用 —— 默认是**鼠标中键**：在背包界面里把鼠标移到想去的地方，
+     * 按一下中键，按钮就搬过去。键位在「选项 → 控制 → 按键绑定」里能改
+     * （见 {@code ThemeKeys.MOVE_BUTTON}）。</p>
+     */
+    public void moveToCentered(double mouseX, double mouseY) {
+        moveTo((int) Math.round(mouseX) - SIZE / 2, (int) Math.round(mouseY) - SIZE / 2);
+    }
+
+    /** 移动到指定位置（拖拽 / 键位共用；越界会被 clampTo 拉回来） */
+    public void moveTo(int x, int y) {
+        setPosition(x, y);
     }
 
     @Override
@@ -123,7 +174,7 @@ public class ThemeButton extends AbstractWidget {
             this.dragged = true;
         }
         if (this.dragging) {
-            setPosition(Math.round((float) mouseX - SIZE / 2f), Math.round((float) mouseY - SIZE / 2f));
+            moveTo(Math.round((float) mouseX - SIZE / 2f), Math.round((float) mouseY - SIZE / 2f));
         }
     }
 
