@@ -17,7 +17,12 @@ gradlew.bat build        # Windows
 
 # 3. 产物
 build/libs/deepspacedeployer-0.1.6+mc1.21.1.jar
+deepspacedeployer-0.1.6+mc1.21.1.jar          # ★ build 结束会自动复制到项目根目录
 ```
+
+> **★ 铁律（老板 2026-10-18 定）**：**每次更新后，构建一份 jar 放到项目根目录**。
+> `gradlew build` 结束时 `copyJarToRoot` 任务会自动做这件事（并清掉根目录里旧版本的 jar），
+> 不需要手动 `Copy-Item`。根目录的 jar 不入库（`.gitignore` 的 `/*.jar`），只是方便随手取用。
 
 **需要 JDK 21。** Gradle 用仓库自带的 wrapper，不用另外装。
 

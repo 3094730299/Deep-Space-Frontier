@@ -131,6 +131,36 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 // ------------------------------------------------------------
+//  ★ 铁律（2026-10-18 老板定）：每次更新后，构建一份 jar 放到【项目根目录】
+//  ------------------------------------------------------------
+//  为什么：老板要装机/发给别人时，不用再去 build/libs 里翻；
+//  为什么做成任务而不是靠人记：靠记性一定会忘 —— 挂在 build 后面自动跑。
+//
+//  产物：<项目根>/deepspacedeployer-<版本>+mc1.21.1.jar（和 build/libs 里同一个文件）
+//  ⚠️ 根目录的 jar 不入库（.gitignore 里有 /*.jar），它只是"随手可取"的副本。
+tasks.register('copyJarToRoot') {
+    group = 'build'
+    description = '把构建好的模组 jar 复制到项目根目录（老板定的铁律）'
+    dependsOn tasks.named('jar')
+    // ⚠️ 不用 Copy 任务：项目根目录里有 .git 等 Gradle 追踪不了的内容，
+    //    它会在"目标目录状态不可读"上直接失败（真踩过）。直接 Files.copy 最省事。
+    doLast {
+        def jarFile = tasks.named('jar').get().archiveFile.get().asFile
+        // 先清掉旧版本的，避免根目录堆一堆、拿错版本
+        fileTree(projectDir) { include('deepspacedeployer-*.jar') }.files.each { it.delete() }
+        java.nio.file.Files.copy(jarFile.toPath(),
+                new File(projectDir, jarFile.name).toPath(),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        logger.lifecycle("[深空铸造体] ★ 铁律：已把 jar 复制到项目根目录 → ${jarFile.name}")
+    }
+}
+
+// build 跑完自动复制（铁律）；单独跑 `gradlew copyJarToRoot` 也行
+tasks.named('build') {
+    finalizedBy tasks.named('copyJarToRoot')
+}
+
+// ------------------------------------------------------------
 //  界面主题（内置 WebView）的离线校验
 //  ------------------------------------------------------------
 //  主题是"玩家会自己改的 HTML"，改错了的症状通常是"某行跑到框外"或"某个界面打不开"。

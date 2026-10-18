@@ -294,6 +294,25 @@ def main():
     else:
         checks.append(("构建产物存在（先跑 gradle clean build）", False))
 
+    # ★ 铁律 15（老板 2026-10-18）：项目根目录必须有一份和 build/libs 一样的 jar
+    #
+    # 不做的话，装机时容易从 build/libs 里拿到旧版本（真发生过）。
+    # 允许 "刚 clean 完还没 build" 这种中间态吗？不允许 —— 这条的意义就是逼着每次
+    # build 之后都落一份到根目录（`copyJarToRoot` 会自动做）。
+    _root_name = os.path.basename(JAR)
+    _root_jar = os.path.join(ROOT, _root_name)
+    _same = False
+    if os.path.exists(_root_jar):
+        import hashlib
+        def _sha(p):
+            h = hashlib.sha256()
+            with open(p, "rb") as fh:
+                for chunk in iter(lambda: fh.read(1 << 20), b""):
+                    h.update(chunk)
+            return h.hexdigest()
+        _same = _sha(_root_jar) == _sha(JAR)
+    checks.append(("★ 铁律15：项目根目录有当前版本的 jar（与 build/libs 一致）", _same))
+
     print("%-52s %s" % ("断言", "结果"))
     print("-" * 66)
     bad = 0
