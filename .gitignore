@@ -42,3 +42,6 @@ release/*.zip
 # 注意：libs/ 里的 geckolib jar 是**编译必需**的（compileOnly），所以保留在仓库里。
 # 以后若放入从整合包复制来的大 jar（create / sable / aeronautics），请在这里单独排除，例如：
 #   libs/create-*.jar
+
+# 老板发来的实机截图（排查用，不入库）
+屏幕截图*.png

@@ -10,6 +10,8 @@ import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.PauseScreen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.Slot;
@@ -112,9 +114,11 @@ public final class ClientSetup {
     private static void onScreenInit(ScreenEvent.Init.Post event) {
         var screen = event.getScreen();
 
-        // ① 背包界面（E）：圆形主题按钮
-        if (screen instanceof InventoryScreen inventory) {
-            addThemeButton(event, inventory);
+        // ① 背包界面：生存（InventoryScreen）和创造（CreativeModeInventoryScreen）都要加。
+        //    ⚠️ 这是**两个不同的类**（创造模式那个直接继承 AbstractContainerScreen），
+        //    只判断 InventoryScreen 的话创造模式里就看不到按钮（老板 2026-10-18 实测反馈）。
+        if (screen instanceof InventoryScreen || screen instanceof CreativeModeInventoryScreen) {
+            addThemeButton(event, (AbstractContainerScreen<?>) screen);
             return;
         }
 
@@ -133,7 +137,7 @@ public final class ClientSetup {
     }
 
     /** 把圆形主题按钮摆到背包界面上（位置从配置里读；没摆过就底部居中） */
-    private static void addThemeButton(ScreenEvent.Init.Post event, InventoryScreen screen) {
+    private static void addThemeButton(ScreenEvent.Init.Post event, AbstractContainerScreen<?> screen) {
         int[] pos = ThemeButton.loadPosition(screen.width, screen.height);
         ThemeButton button = new ThemeButton(pos[0], pos[1]);
         // 换分辨率后按钮可能跑到可视范围外 → 每次初始化先拉回来
@@ -152,7 +156,7 @@ public final class ClientSetup {
      * 所以从渲染事件里顺手存一份。</p>
      */
     private static void onScreenRender(ScreenEvent.Render.Post event) {
-        if (event.getScreen() instanceof InventoryScreen) {
+        if (isPlayerInventory(event.getScreen())) {
             lastMouseX = event.getMouseX();
             lastMouseY = event.getMouseY();
         }
@@ -165,12 +169,13 @@ public final class ClientSetup {
      * 所以只在"原版不会做别的事"时才搬 —— 见 {@link #wouldCloneItem}。</p>
      */
     private static void onMousePressed(ScreenEvent.MouseButtonPressed.Pre event) {
-        if (!(event.getScreen() instanceof InventoryScreen inventory)) {
+        if (!isPlayerInventory(event.getScreen())) {
             return;
         }
         if (!ThemeKeys.isMoveKey(InputConstants.Type.MOUSE.getOrCreate(event.getButton()))) {
             return;
         }
+        AbstractContainerScreen<?> inventory = (AbstractContainerScreen<?>) event.getScreen();
         if (wouldCloneItem(inventory)) {
             return;                 // 创造模式 + 鼠标下有物品：这一下交给原版复制
         }
@@ -179,17 +184,22 @@ public final class ClientSetup {
 
     /** 键盘按下「按钮移动」（玩家把键位改成了键盘键时走这里） */
     private static void onKeyPressed(ScreenEvent.KeyPressed.Pre event) {
-        if (!(event.getScreen() instanceof InventoryScreen inventory)) {
+        if (!isPlayerInventory(event.getScreen())) {
             return;
         }
         if (!ThemeKeys.isMoveKey(InputConstants.getKey(event.getKeyCode(), event.getScanCode()))) {
             return;
         }
-        moveThemeButtonTo(inventory, lastMouseX, lastMouseY);
+        moveThemeButtonTo((AbstractContainerScreen<?>) event.getScreen(), lastMouseX, lastMouseY);
+    }
+
+    /** 生存背包和创造背包（是两个不同的类） */
+    private static boolean isPlayerInventory(net.minecraft.client.gui.screens.Screen screen) {
+        return screen instanceof InventoryScreen || screen instanceof CreativeModeInventoryScreen;
     }
 
     /** 把按钮搬到鼠标处、拉回可视范围、写进配置 */
-    private static void moveThemeButtonTo(InventoryScreen screen, double mouseX, double mouseY) {
+    private static void moveThemeButtonTo(AbstractContainerScreen<?> screen, double mouseX, double mouseY) {
         if (themeButton == null) {
             return;
         }
@@ -205,7 +215,7 @@ public final class ClientSetup {
      * （{@code AbstractContainerScreen.mouseClicked} 里的 {@code button == 2} 分支）。
      * 那种情况下让原版干活，免得玩家想复制物品却把按钮搬走了。</p>
      */
-    private static boolean wouldCloneItem(InventoryScreen screen) {
+    private static boolean wouldCloneItem(AbstractContainerScreen<?> screen) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null || !minecraft.player.isCreative()) {
             return false;

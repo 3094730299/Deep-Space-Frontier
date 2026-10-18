@@ -115,6 +115,23 @@ public final class ThemeContext {
         }
     }
 
+    /**
+     * 用<b>指定的画布</b>画一帧（游戏内必须走这个）。
+     *
+     * <p>加载时的画布是"只量不画"的（{@link com.deepspacedeployer.ui.webview.GuiCanvas#measureOnly()}），
+     * 只用来算文字宽度和换行位置；真正落笔要换成绑定 {@code GuiGraphics} 的画布。
+     * 不换的话界面上什么都看不到（只有一层压暗的灰）。</p>
+     */
+    public void render(com.deepspacedeployer.ui.theme.Canvas frameCanvas) {
+        try {
+            renderer.setCanvas(frameCanvas);
+            renderer.render(doc.root);
+        } catch (Throwable t) {
+            DeepSpaceDeployer.LOGGER.warn("[深空铸造体][界面] 主题绘制失败（{}）：{}",
+                    doc.file, t.toString());
+        }
+    }
+
     public float contentHeight() {
         return contentHeight;
     }

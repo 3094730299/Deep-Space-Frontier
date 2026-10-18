@@ -135,7 +135,8 @@ public final class WebViewScreen {
             context = null;
             return;
         }
-        ThemeSource source = WebViewManager.active();
+        // ★ 按【本界面】取主题：高级设置里可以把 A 界面指定成主题 2、B 界面用主题 1
+        ThemeSource source = WebViewManager.activeFor(id);
         if (source == null) {
             context = null;
             lastError = "没有可用主题";
@@ -186,8 +187,7 @@ public final class WebViewScreen {
 
     /** 主题换了没（宿主每帧查一次，换了就 refresh） */
     public boolean themeChanged() {
-        ThemeSource src = WebViewManager.active();
-        return src != null && !src.name().equals(loadedTheme);
+        return !WebViewManager.themeNameFor(id).equals(loadedTheme);
     }
 
     // ---------------------------------------------------------------- 渲染
@@ -210,7 +210,9 @@ public final class WebViewScreen {
         GuiCanvas canvas = null;
         try {
             canvas = new GuiCanvas(graphics, originX, originY);
-            ctx.render();
+            // ★ 必须把"这一帧的画布"交给上下文 —— 加载时用的是只量不画的画布，
+            //   不换的话主题永远画不到屏幕上（症状：只有一层压暗的灰色，空无一物）。
+            ctx.render(canvas);
         } catch (Throwable t) {
             // 画崩了就当这个界面没有主题 —— 绝不让整个界面挂掉
             DeepSpaceDeployer.LOGGER.warn("[深空铸造体][界面] 主题绘制异常（{}），本帧起回退原生界面：{}",

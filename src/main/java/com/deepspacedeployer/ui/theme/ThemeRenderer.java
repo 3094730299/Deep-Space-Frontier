@@ -12,13 +12,34 @@ package com.deepspacedeployer.ui.theme;
 public final class ThemeRenderer {
 
     private final ThemeSource source;
-    private final Canvas canvas;
+    /**
+     * 当前用来画的画布。
+     *
+     * <p>⚠️ <b>必须每帧能换</b>：加载时只拿到"只量不画"的画布（{@code GuiCanvas.measureOnly()}），
+     * 真正绘制时宿主会传一个绑定到 {@code GuiGraphics} 的画布进来。
+     * 以前这里是 {@code final} 且没人换 —— 结果是<b>所有游戏内主题界面都画不出来</b>
+     * （布局正常、元素都在，但一个像素都落不到屏幕上），症状就是"弹出一层灰色，
+     * 空无一物"。见 {@link com.deepspacedeployer.ui.webview.WebViewScreen#render}。</p>
+     */
+    private Canvas canvas;
     /** 每个元素的滚动位置（key = 元素），交互层滚动时改它 */
     private final java.util.Map<HtmlNode, Float> scrollOffsets = new java.util.IdentityHashMap<>();
 
     public ThemeRenderer(ThemeSource source, Canvas canvas) {
         this.source = source;
         this.canvas = canvas;
+    }
+
+    /** 换一个画布（每帧渲染前由宿主调用；离线预览不用调） */
+    public void setCanvas(Canvas canvas) {
+        if (canvas != null) {
+            this.canvas = canvas;
+        }
+    }
+
+    /** 当前画布（诊断用） */
+    public Canvas canvas() {
+        return canvas;
     }
 
     public void render(HtmlNode root) {

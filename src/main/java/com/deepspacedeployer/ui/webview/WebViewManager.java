@@ -87,6 +87,32 @@ public final class WebViewManager {
     }
 
     /**
+     * <b>某个界面</b>该用的主题资源根（支持"高级界面设置"里按界面指定）。
+     *
+     * <p>没开高级设置时，所有界面都用启用列表的最后一个 —— 和 {@link #active()} 一致。</p>
+     */
+    public static ThemeSource activeFor(WebScreenId id) {
+        if (!enabled() || id == null) {
+            return null;
+        }
+        try {
+            return ThemeManager.source(ThemeManager.themeFor(id.key()));
+        } catch (Throwable t) {
+            lastError = t.toString();
+            return null;
+        }
+    }
+
+    /** 某个界面<b>实际</b>用的主题名（界面换皮时比对这个） */
+    public static String themeNameFor(WebScreenId id) {
+        try {
+            return ThemeManager.themeFor(id == null ? null : id.key());
+        } catch (Throwable t) {
+            return ThemeManager.DEFAULT_THEME;
+        }
+    }
+
+    /**
      * 每 tick 检查一次主题有没有被换掉（玩家在主题菜单里点了别的主题）。
      *
      * <p>这里只更新"上一次见到的主题名"，真正让界面重载由各界面自己看
