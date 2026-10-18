@@ -129,17 +129,20 @@ public final class Config {
     /**
      * 「界面主题」按钮（背包界面里那颗圆形按钮）的位置。
      *
-     * <p>老板 2026-10-17：右键长按可以把它拖到任意位置，松手就记在这里，
-     * 下次进游戏还在原地。换分辨率时会被自动拉回可视范围（见
-     * {@code ThemeButton.clampTo}）。</p>
+     * <p>老板 2026-10-17：默认放在<b>屏幕底部居中</b>（左上角会和 FTB 这类模组的按钮打架）；
+     * 右键长按可以拖、<b>鼠标中键</b>可以把按钮一把搬到鼠标位置，都会记在这里。</p>
+     *
+     * <p>{@code -1} = <b>还没摆过</b>，按屏幕尺寸自动放底部居中
+     * （见 {@code ThemeButton.loadPosition}）。换了分辨率也不会跑到屏幕外 ——
+     * {@code ThemeButton.clampTo} 会把它拉回可视范围。</p>
      */
     public static final ModConfigSpec.IntValue THEME_BUTTON_X = BUILDER
-            .comment("「界面主题」按钮的 X 坐标（游戏里右键长按拖拽会自动写入）")
-            .defineInRange("ui.theme_button_x", 6, -10000, 10000);
+            .comment("「界面主题」按钮的 X 坐标（-1 = 自动放底部居中；拖拽/中键摆放会自动写入）")
+            .defineInRange("ui.theme_button_x", -1, -10000, 10000);
 
     public static final ModConfigSpec.IntValue THEME_BUTTON_Y = BUILDER
-            .comment("「界面主题」按钮的 Y 坐标（游戏里右键长按拖拽会自动写入）")
-            .defineInRange("ui.theme_button_y", 6, -10000, 10000);
+            .comment("「界面主题」按钮的 Y 坐标（-1 = 自动放底部居中；拖拽/中键摆放会自动写入）")
+            .defineInRange("ui.theme_button_y", -1, -10000, 10000);
 
     /** SPEC 必须在所有配置项之后（下面这行必须在最后） */
     public static final ModConfigSpec SPEC = BUILDER.build();
