@@ -288,7 +288,7 @@ public final class WebViewScreen {
                     break;
                 }
                 // UI 编辑器的逻辑规则：data-logic="click:close;open:…"
-                String click = logicAction(n.attr("data-logic"), "click");
+                String click = logicAction(n.attr("data-logic"), "click", lastData);
                 if (click != null) {
                     action = click;
                     break;
@@ -331,12 +331,24 @@ public final class WebViewScreen {
         }
     }
 
-    /** 从 {@code data-logic} 里取某个触发的动作；没有返回 null */
-    private static String logicAction(String logic, String trigger) {
+    /** 从 {@code data-logic} 里取某个触发、且条件成立的动；没有返回 null */
+    private static String logicAction(String logic, String trigger, ThemeData data) {
         if (logic == null || logic.isBlank()) {
             return null;
         }
         for (String part : logic.split(";")) {
+            if (part.indexOf('|') > 0) {
+                String[] seg = part.split("\\|", -1);
+                if (!trigger.equals(seg[0].trim())) {
+                    continue;
+                }
+                String cond = seg.length > 2 ? seg[2].trim() : "";
+                if (!ThemeCondition.test(cond, data)) {
+                    continue;
+                }
+                String a = seg.length > 1 ? seg[1].trim() : "";
+                return a.isEmpty() ? null : a;
+            }
             int c = part.indexOf(':');
             if (c > 0 && trigger.equals(part.substring(0, c).trim())) {
                 String a = part.substring(c + 1).trim();
@@ -351,7 +363,7 @@ public final class WebViewScreen {
         if (n == null || !n.isElement()) {
             return;
         }
-        String a = logicAction(n.attr("data-logic"), "open");
+        String a = logicAction(n.attr("data-logic"), "open", lastData);
         if (a != null) {
             pendingOpen.add(a);
         }

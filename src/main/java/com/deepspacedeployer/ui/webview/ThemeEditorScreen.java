@@ -51,6 +51,7 @@ public class ThemeEditorScreen extends Screen {
     private static final int COL_DIM = 0xFF8A97AD;
     private static final int COL_ACCENT = 0xFF4C7DFF;
     private static final int COL_BAD = 0xFFFF7A7A;
+    private static final int COL_WARN = 0xFFFFC24B;
 
     /** 剪贴板（复制/剪切共用） */
     private static Path clipboard;
@@ -79,6 +80,8 @@ public class ThemeEditorScreen extends Screen {
     private Path importSource;
     /** 非 null = 正在改某个组件的文字 */
     private Comp textEditTarget;
+    /** 非 null = 正在改某条规则的条件 */
+    private String[] conditionRule;
 
     /** 正在编辑的文本文件（null = 只看不编） */
     private Path editingFile;
@@ -137,7 +140,7 @@ public class ThemeEditorScreen extends Screen {
          * <p>触发：{@code click}（点击时）/ {@code open}（这个界面打开时）。
          * 动作名同 {@code ACTIONS}，可以带参数（如 {@code buy:3}）。</p>
          */
-        final java.util.List<String[]> rules = new java.util.ArrayList<>();
+        final java.util.List<String[]> rules = new java.util.ArrayList<>();  // {触发, 动作, 条件}
         int x = 10;
         int y = 10;
         int w = 80;
@@ -553,7 +556,14 @@ public class ThemeEditorScreen extends Screen {
                     String trig = "open".equals(r[0]) ? "打开" : "点击";
                     g.drawString(this.font, "[" + trig + "]", rect[0] + 3, rect[1] + 3,
                             COL_ACCENT, false);
-                    g.drawString(this.font, r[1], rect[0] + 40, rect[1] + 3, COL_TEXT, false);
+                    g.drawString(this.font, this.font.plainSubstrByWidth(r[1], 42),
+                            rect[0] + 38, rect[1] + 3, COL_TEXT, false);
+                    String cond = r.length > 2 && r[2] != null && !r[2].isBlank()
+                            ? "?" + r[2] : "";
+                    if (!cond.isEmpty()) {
+                        g.drawString(this.font, this.font.plainSubstrByWidth(cond, 40),
+                                rect[0] + 84, rect[1] + 3, COL_WARN, false);
+                    }
                     cy += 15;
                 }
             }
@@ -603,7 +613,7 @@ public class ThemeEditorScreen extends Screen {
             }
 
             if (hit(propRects[6], mouseX, mouseY)) {
-                sel.rules.add(new String[]{"click", "close"});
+                sel.rules.add(new String[]{"click", "close", ""});
                 return true;
             }
             for (int i = 0; i < ruleRects.size() && i < sel.rules.size(); i++) {
@@ -614,8 +624,10 @@ public class ThemeEditorScreen extends Screen {
                         sel.rules.remove(i);              // 右键删这条规则
                     } else if (mouseX < rect[0] + 36) {
                         rule[0] = "open".equals(rule[0]) ? "click" : "open";
-                    } else {
+                    } else if (mouseX < rect[0] + 82) {
                         rule[1] = nextAction(rule[1]);
+                    } else {
+                        startConditionEdit(rule);
                     }
                     return true;
                 }
@@ -1165,11 +1177,19 @@ public class ThemeEditorScreen extends Screen {
 
                 String logic = strAttr(attrs, "data-logic");
                 for (String part : logic.split(";")) {
-                    int colon = part.indexOf(':');
-                    if (colon > 0) {
+                    if (part.indexOf('|') > 0) {
+                        String[] seg = part.split("\\|", -1);
                         c.rules.add(new String[]{
-                                part.substring(0, colon).trim(),
-                                part.substring(colon + 1).trim()});
+                                seg[0].trim(),
+                                seg.length > 1 ? seg[1].trim() : "",
+                                seg.length > 2 ? seg[2].trim() : ""});
+                    } else {
+                        int colon = part.indexOf(':');
+                        if (colon > 0) {
+                            c.rules.add(new String[]{
+                                    part.substring(0, colon).trim(),
+                                    part.substring(colon + 1).trim(), ""});
+                        }
                     }
                 }
                 comps.add(c);
@@ -1310,7 +1330,8 @@ public class ThemeEditorScreen extends Screen {
             if (sb.length() > 0) {
                 sb.append(';');
             }
-            sb.append(r[0]).append(':').append(r[1]);
+            sb.append(r[0]).append('|').append(r[1]).append('|')
+                    .append(r.length > 2 && r[2] != null ? r[2] : "");
         }
         return sb.length() == 0 ? "" : " data-logic=\"" + sb + "\"";
     }
@@ -1533,10 +1554,46 @@ public class ThemeEditorScreen extends Screen {
         return dot < 0 ? "" : fileName.substring(dot);
     }
 
+    /**
+     * 改某条规则的条件（如 {@code 余额>100}）。
+     *
+     * <p>复用重命名对话框：{@code conditionRule} 不为 null 时，保存的是条件串。</p>
+     */
+    private void startConditionEdit(String[] rule) {
+        if (rule == null) {
+            return;
+        }
+        importSource = null;
+        renameTarget = null;
+        textEditTarget = null;
+        conditionRule = rule;
+        renaming = true;
+        clearWidgets();
+        renameBox = new EditBox(this.font, 0, 0, 200, 18,
+                Component.translatable("gui.deepspacedeployer.editor_condition"));
+        renameBox.setValue(rule.length > 2 && rule[2] != null ? rule[2] : "");
+        renameBox.setMaxLength(60);
+        addRenderableWidget(renameBox);
+        addRenderableWidget(Button.builder(Component.translatable("gui.deepspacedeployer.editor_save"),
+                        b -> finishRename())
+                .bounds(this.width / 2 - 100, this.height / 2 + 22, 96, 20).build());
+        addRenderableWidget(Button.builder(Component.translatable("gui.deepspacedeployer.editor_cancel"),
+                        b -> {
+                            renaming = false;
+                            conditionRule = null;
+                            rebuildFooter();
+                        })
+                .bounds(this.width / 2 + 4, this.height / 2 + 22, 96, 20).build());
+    }
+
     private void finishRename() {
         try {
             String name = renameBox == null ? "" : renameBox.getValue().trim();
-            if (textEditTarget != null) {
+            if (conditionRule != null) {
+                if (conditionRule.length > 2) {
+                    conditionRule[2] = name;
+                }
+            } else if (textEditTarget != null) {
                 textEditTarget.text = name;
             } else if (importSource != null && sel != null) {
                 // ★ 导入资源：复制到主题根目录，再把组件指向它
@@ -1555,6 +1612,7 @@ public class ThemeEditorScreen extends Screen {
         }
         importSource = null;
         textEditTarget = null;
+        conditionRule = null;
         renaming = false;
         renameBox = null;
         reloadEntries();
