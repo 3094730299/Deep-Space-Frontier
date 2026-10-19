@@ -131,6 +131,13 @@ public class ThemeEditorScreen extends Screen {
          * 这样渲染器/宿主现有的点击派发**不用改就能用**。</p>
          */
         String action = "";
+        /**
+         * 逻辑规则：每条 {触发, 动作}。
+         *
+         * <p>触发：{@code click}（点击时）/ {@code open}（这个界面打开时）。
+         * 动作名同 {@code ACTIONS}，可以带参数（如 {@code buy:3}）。</p>
+         */
+        final java.util.List<String[]> rules = new java.util.ArrayList<>();
         int x = 10;
         int y = 10;
         int w = 80;
@@ -529,6 +536,26 @@ public class ThemeEditorScreen extends Screen {
                 propRects[5][2] = RIGHT_W - 12; propRects[5][3] = 14;
                 drawMini(g, propRects[5], "改文字："
                         + (sel.text == null || sel.text.isBlank() ? "(空)" : sel.text));
+
+                cy += 18;
+                g.drawString(this.font, "逻辑", x + 5, cy, COL_ACCENT, false);
+                cy += 11;
+                propRects[6][0] = x + 5; propRects[6][1] = cy;
+                propRects[6][2] = RIGHT_W - 12; propRects[6][3] = 14;
+                drawMini(g, propRects[6], "+ 规则");
+                cy += 16;
+                ruleRects.clear();
+                for (String[] r : sel.rules) {
+                    int[] rect = new int[]{x + 5, cy, RIGHT_W - 12, 14};
+                    ruleRects.add(rect);
+                    g.fill(rect[0], rect[1], rect[0] + rect[2], rect[1] + rect[3], COL_ROW);
+                    drawBorder(g, rect[0], rect[1], rect[2], rect[3], COL_BORDER);
+                    String trig = "open".equals(r[0]) ? "打开" : "点击";
+                    g.drawString(this.font, "[" + trig + "]", rect[0] + 3, rect[1] + 3,
+                            COL_ACCENT, false);
+                    g.drawString(this.font, r[1], rect[0] + 40, rect[1] + 3, COL_TEXT, false);
+                    cy += 15;
+                }
             }
         }
     }
@@ -536,7 +563,8 @@ public class ThemeEditorScreen extends Screen {
     private static final String[] ADD_LABELS = {"+ 文本", "+ 按钮", "+ 物品框", "+ 图片"};
     private static final String[] ADD_TYPES = {"text", "button", "slot", "image"};
     private final int[][] addRects = new int[4][4];
-    private final int[][] propRects = new int[6][4];
+    private final int[][] propRects = new int[7][4];
+    private final java.util.List<int[]> ruleRects = new java.util.ArrayList<>();
 
     private void drawMini(GuiGraphics g, int[] r, String label) {
         g.fill(r[0], r[1], r[0] + r[2], r[1] + r[3], COL_ROW);
@@ -545,7 +573,7 @@ public class ThemeEditorScreen extends Screen {
     }
 
     /** 右栏组件按钮的命中；返回 true = 处理了 */
-    private boolean compPanelClicked(double mouseX, double mouseY) {
+    private boolean compPanelClicked(double mouseX, double mouseY, int button) {
         if (compFile == null) {
             return false;
         }
@@ -572,6 +600,25 @@ public class ThemeEditorScreen extends Screen {
             if (hit(propRects[5], mouseX, mouseY)) {
                 startTextEdit();
                 return true;
+            }
+
+            if (hit(propRects[6], mouseX, mouseY)) {
+                sel.rules.add(new String[]{"click", "close"});
+                return true;
+            }
+            for (int i = 0; i < ruleRects.size() && i < sel.rules.size(); i++) {
+                int[] rect = ruleRects.get(i);
+                if (hit(rect, mouseX, mouseY)) {
+                    String[] rule = sel.rules.get(i);
+                    if (button == 1) {
+                        sel.rules.remove(i);              // 右键删这条规则
+                    } else if (mouseX < rect[0] + 36) {
+                        rule[0] = "open".equals(rule[0]) ? "click" : "open";
+                    } else {
+                        rule[1] = nextAction(rule[1]);
+                    }
+                    return true;
+                }
             }
             if (hit(propRects[4], mouseX, mouseY)) {
                 sel.action = nextAction(sel.action);
@@ -708,7 +755,7 @@ public class ThemeEditorScreen extends Screen {
             return true;
         }
         // 右栏：组件面板按钮
-        if (button == 0 && compPanelClicked(mouseX, mouseY)) {
+        if (compPanelClicked(mouseX, mouseY, button)) {
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
@@ -1115,6 +1162,16 @@ public class ThemeEditorScreen extends Screen {
                 c.text = m.group(3);
                 c.src = strAttr(attrs, "data-src");
                 c.action = strAttr(attrs, "data-action");
+
+                String logic = strAttr(attrs, "data-logic");
+                for (String part : logic.split(";")) {
+                    int colon = part.indexOf(':');
+                    if (colon > 0) {
+                        c.rules.add(new String[]{
+                                part.substring(0, colon).trim(),
+                                part.substring(colon + 1).trim()});
+                    }
+                }
                 comps.add(c);
             }
         } catch (Throwable t) {
@@ -1151,6 +1208,7 @@ public class ThemeEditorScreen extends Screen {
                         .append(" data-layer=\"").append(c.layer).append('"')
                         .append(" data-src=\"").append(c.src == null ? "" : c.src).append('"')
                         .append(c.action == null || c.action.isBlank() ? "" : " data-action=\"" + c.action + "\"")
+                        .append(logicAttr(c))
                         .append(" style=\"").append(styleOf(c)).append("\">")
                         .append(c.text == null ? "" : c.text)
                         .append("</div>\n");
@@ -1242,6 +1300,21 @@ public class ThemeEditorScreen extends Screen {
      * 图层用 {@code z-index}（渲染器支持的话就按它盖）——当前版本渲染器**不支持**
      * {@code z-index}，所以即使存了也不影响；等渲染器支持了立刻就生效。</p>
      */
+    /** 拼 {@code data-logic="click:close;open:switch_page"}（没有规则就返回空串） */
+    private static String logicAttr(Comp c) {
+        StringBuilder sb = new StringBuilder();
+        for (String[] r : c.rules) {
+            if (r[0] == null || r[1] == null || r[1].isBlank()) {
+                continue;
+            }
+            if (sb.length() > 0) {
+                sb.append(';');
+            }
+            sb.append(r[0]).append(':').append(r[1]);
+        }
+        return sb.length() == 0 ? "" : " data-logic=\"" + sb + "\"";
+    }
+
     private static String styleOf(Comp c) {
         StringBuilder s = new StringBuilder();
         s.append("position:absolute;left:").append(c.x)

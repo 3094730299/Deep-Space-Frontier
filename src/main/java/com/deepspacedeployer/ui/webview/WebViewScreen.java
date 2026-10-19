@@ -66,6 +66,8 @@ public final class WebViewScreen {
     private String loadedTheme = "";
     /** 上次加载时的"主题文件版本号"（UI 编辑器保存后要重载） */
     private int loadedRevision;
+    /** 下次渲染前要执行的"打开时"逻辑动作（每个界面重载后只跑一次） */
+    private final java.util.List<String> pendingOpen = new java.util.ArrayList<>();
     /** 是否允许使用主题（配置关掉 / 界面自己禁用时不加载） */
     private boolean enabled = true;
 
@@ -170,6 +172,8 @@ public final class WebViewScreen {
         }
         loadedTheme = source.name();
         loadedRevision = WebViewManager.revision();
+        pendingOpen.clear();
+        collectOpen(loaded.document().root);
         if (loaded == null) {
             context = null;
             if (lastError.isEmpty()) {
@@ -211,6 +215,20 @@ public final class WebViewScreen {
         if (ctx == null) {
             return;
         }
+        // ★ "打开时"逻辑：加载完的下一帧跑一次（不在 loadInto 里直接跑，
+        //   免得主题一打开就 close 掉自己、把界面初始化搞乱）
+        if (!pendingOpen.isEmpty()) {
+            java.util.List<String> copy = new java.util.ArrayList<>(pendingOpen);
+            pendingOpen.clear();
+            for (String a : copy) {
+                try {
+                    sink.onAction(a, null);
+                } catch (Throwable ignored) {
+                    // 动作出错不影响绘制
+                }
+            }
+        }
+
         GuiCanvas canvas = null;
         try {
             canvas = new GuiCanvas(graphics, originX, originY);
@@ -269,6 +287,12 @@ public final class WebViewScreen {
                     action = a.trim();
                     break;
                 }
+                // UI 编辑器的逻辑规则：data-logic="click:close;open:…"
+                String click = logicAction(n.attr("data-logic"), "click");
+                if (click != null) {
+                    action = click;
+                    break;
+                }
                 n = n.parent;
             }
             if (action == null) {
@@ -304,6 +328,35 @@ public final class WebViewScreen {
             return true;
         } catch (Throwable t) {
             return false;
+        }
+    }
+
+    /** 从 {@code data-logic} 里取某个触发的动作；没有返回 null */
+    private static String logicAction(String logic, String trigger) {
+        if (logic == null || logic.isBlank()) {
+            return null;
+        }
+        for (String part : logic.split(";")) {
+            int c = part.indexOf(':');
+            if (c > 0 && trigger.equals(part.substring(0, c).trim())) {
+                String a = part.substring(c + 1).trim();
+                return a.isEmpty() ? null : a;
+            }
+        }
+        return null;
+    }
+
+    /** 收集整棵树上所有 "open:" 规则 */
+    private void collectOpen(com.deepspacedeployer.ui.theme.HtmlNode n) {
+        if (n == null || !n.isElement()) {
+            return;
+        }
+        String a = logicAction(n.attr("data-logic"), "open");
+        if (a != null) {
+            pendingOpen.add(a);
+        }
+        for (com.deepspacedeployer.ui.theme.HtmlNode c : n.children) {
+            collectOpen(c);
         }
     }
 
