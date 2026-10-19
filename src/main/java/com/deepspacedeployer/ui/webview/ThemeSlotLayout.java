@@ -81,6 +81,21 @@ public final class ThemeSlotLayout {
     }
 
     /**
+     * 某个"原生输入框"标记（{@code data-input="价格"}）的位置。
+     *
+     * <p>输入框是原版 {@code EditBox}，塞不进 HTML，只能按标记挪过去。
+     * 返回的坐标<b>相对主题画布</b>，调用方自己加 {@code leftPos/topPos}。</p>
+     *
+     * @return 标记；没有返回 null
+     */
+    public static ThemeContext.Marker input(WebViewScreen webview, String name) {
+        if (webview == null || name == null) {
+            return null;
+        }
+        return webview.markers().get("input:" + name);
+    }
+
+    /**
      * 玩家背包（3×9 + 快捷栏）摆到 {@code data-slot="player"} 的位置。
      *
      * @param mainInv 36 格里的前 27 格（3×9）

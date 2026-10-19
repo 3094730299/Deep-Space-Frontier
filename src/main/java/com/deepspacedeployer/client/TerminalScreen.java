@@ -5,6 +5,7 @@ import com.deepspacedeployer.blockentity.UniversalTerminalBlockEntity;
 import com.deepspacedeployer.menu.TerminalMenu;
 import com.deepspacedeployer.shop.TradeEntry;
 import com.deepspacedeployer.ui.webview.ThemeData;
+import com.deepspacedeployer.ui.webview.ThemeSlotLayout;
 import com.deepspacedeployer.ui.webview.WebScreenId;
 import com.deepspacedeployer.ui.webview.WebViewManager;
 import com.deepspacedeployer.ui.webview.WebViewScreen;
@@ -77,6 +78,22 @@ public class TerminalScreen extends AbstractContainerScreen<TerminalMenu> {
         this.webview.setActionSink(this::onThemeAction);
         this.themeSnapshot = "";
         syncTheme();
+        applyThemeSlotLayout();
+    }
+
+    /** 把原版物品格摆到主题标记的位置（card6 = 3 列 6 格；player = 3×9 + 快捷栏） */
+    private void applyThemeSlotLayout() {
+        if (!this.webview.visible()) {
+            return;
+        }
+        var slots = this.menu.slots;
+        int playerStart = slots.size() - 36;
+        if (playerStart <= 0) {
+            return;
+        }
+        ThemeSlotLayout.grid(this.webview, slots.subList(0, playerStart), "card6", 3);
+        var player = slots.subList(playerStart, slots.size());
+        ThemeSlotLayout.player(this.webview, player.subList(0, 27), player.subList(27, 36));
     }
 
     // ---------------------------------------------------------------- 界面主题
