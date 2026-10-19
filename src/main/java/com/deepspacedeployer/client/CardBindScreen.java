@@ -3,6 +3,7 @@ package com.deepspacedeployer.client;
 import com.deepspacedeployer.economy.CardData;
 import com.deepspacedeployer.net.BindCardPayload;
 import com.deepspacedeployer.ui.webview.ThemeData;
+import com.deepspacedeployer.ui.webview.ThemeSlotLayout;
 import com.deepspacedeployer.ui.webview.WebScreenId;
 import com.deepspacedeployer.ui.webview.WebViewManager;
 import com.deepspacedeployer.ui.webview.WebViewScreen;
@@ -90,6 +91,33 @@ public class CardBindScreen extends Screen {
                 (this.height - WebScreenId.CARD_BIND.height()) / 2);
         this.webview.setActionSink(this::onThemeAction);
         this.webview.reload(this::buildThemeData);
+        applyThemeInputs();
+    }
+
+    /**
+     * 把两个原生输入框摆到主题标记的位置（{@code data-input="玩家名"} / {@code "卡名"}）。
+     *
+     * <p>这个界面不是容器界面（没有物品格），画布是**居中**的，
+     * 所以屏幕坐标 = 画布左上角 + 标记坐标。</p>
+     */
+    private void applyThemeInputs() {
+        if (!this.webview.visible()) {
+            return;
+        }
+        int originX = (this.width - WebScreenId.CARD_BIND.width()) / 2;
+        int originY = (this.height - WebScreenId.CARD_BIND.height()) / 2;
+        var name = ThemeSlotLayout.input(this.webview, "玩家名");
+        if (name != null && this.nameBox != null) {
+            this.nameBox.setX(originX + Math.round(name.x()));
+            this.nameBox.setY(originY + Math.round(name.y()));
+            this.nameBox.setWidth(Math.max(60, Math.round(name.w())));
+        }
+        var label = ThemeSlotLayout.input(this.webview, "卡名");
+        if (label != null && this.labelBox != null) {
+            this.labelBox.setX(originX + Math.round(label.x()));
+            this.labelBox.setY(originY + Math.round(label.y()));
+            this.labelBox.setWidth(Math.max(60, Math.round(label.w())));
+        }
     }
 
     private void submit(int action) {

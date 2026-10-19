@@ -135,7 +135,9 @@ public final class ThemeRenderer {
         }
 
         // ⑤ 子元素
-        for (HtmlNode child : node.children) {
+        // 按 z-index 从小到大画（稳定排序：同层保持文档顺序）—— 这就是"图层"。
+        // 没有 z-index 的（0）和以前完全一样；想让背景垫底就写 -1。
+        for (HtmlNode child : sortedChildren(node)) {
             renderNode(child, docDir);
         }
 
@@ -145,6 +147,29 @@ public final class ThemeRenderer {
         if (clip) {
             canvas.popClip();
         }
+    }
+
+    /**
+     * 子元素按 {@code z-index} 从小到大（稳定）。
+     *
+     * <p>以前只按文档顺序画，所以 UI 编辑器里的"图层"没法生效；
+     * 加了这个之后，主题里写 {@code z-index:-1} 的背景会垫在所有东西下面。</p>
+     */
+    private static java.util.List<HtmlNode> sortedChildren(HtmlNode node) {
+        java.util.List<HtmlNode> list = new java.util.ArrayList<>(node.children);
+        boolean any = false;
+        for (HtmlNode c : list) {
+            if (c.style != null && c.style.zIndex != 0) {
+                any = true;
+                break;
+            }
+        }
+        if (!any) {
+            return list;
+        }
+        list.sort(java.util.Comparator.comparingInt(
+                c -> c.style == null ? 0 : c.style.zIndex));
+        return list;
     }
 
     /** 把透明度乘进颜色（画布只有纯色原语，不做整体合成） */

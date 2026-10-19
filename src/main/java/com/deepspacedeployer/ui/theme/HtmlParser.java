@@ -97,6 +97,7 @@ public final class HtmlParser {
             }
 
             // 开始标签
+            int tagStart = pos;                     // '<' 的位置（给编辑器回写用）
             int end = findTagEnd(pos);
             String inside = src.substring(pos + 1, end);
             pos = end + 1;
@@ -125,6 +126,8 @@ public final class HtmlParser {
             }
 
             HtmlNode node = HtmlNode.element(tag);
+            node.srcTagStart = tagStart;
+            node.srcTagEnd = pos;
             parseAttrs(inside, node);
             stack.peek().add(node);
 

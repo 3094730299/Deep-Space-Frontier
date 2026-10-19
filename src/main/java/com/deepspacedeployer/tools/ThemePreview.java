@@ -239,6 +239,7 @@ public final class ThemePreview {
 
         switch (mode) {
             case "--check" -> check(src);
+            case "--slots" -> slots(src, args.length > 2 ? args[2] : "factory_terminal.html");
             case "--dump" -> {
                 // 把每个元素的 y 和高度打出来：排查"内容高得离谱"时用
                 String file = args.length > 2 ? args[2] : "buyer.html";
@@ -255,6 +256,46 @@ public final class ThemePreview {
     }
 
     /** 布局分解：谁把内容撑高了，一眼看出来 */
+    /**
+     * 打印某个界面里所有 {@code data-slot}/{@code data-input} 标记的坐标。
+     *
+     * <p>给"物品格和主题画的框对不上"排查用：标记坐标 = 原版物品格该待的地方。
+     * 布局视口用界面登记表里的建议尺寸（和游戏内一致）。</p>
+     */
+    private static void slots(ThemeSource src, String file) {
+        ThemeDocument doc = ThemeDocument.load(src, file, null);
+        if (doc == null || doc.root == null) {
+            System.out.println("加载失败：" + file);
+            return;
+        }
+        com.deepspacedeployer.ui.webview.WebScreenId id =
+                com.deepspacedeployer.ui.webview.WebScreenId.byFile(file);
+        float w = id == null ? 288 : id.width();
+        float h = id == null ? 300 : id.height();
+        // 只用它量文字；纯 JDK 环境没有字宽表时也能跑（MeasureOnly 会退化）
+        Canvas canvas = com.deepspacedeployer.ui.webview.GuiCanvas.measureOnly();
+        LayoutEngine engine = new LayoutEngine(canvas);
+        engine.layout(doc.root, w, h);
+
+        float[] found = {0};
+        doc.root.walk(n -> {
+            if (!n.isElement() || n.box == null) {
+                return;
+            }
+            String slot = n.attr("data-slot");
+            String input = n.attr("data-input");
+            if ((slot == null || slot.isBlank()) && (input == null || input.isBlank())) {
+                return;
+            }
+            found[0]++;
+            System.out.printf("  %-14s x=%-6.1f y=%-6.1f %.0fx%.0f%n",
+                    slot != null && !slot.isBlank() ? "slot:" + slot : "input:" + input,
+                    n.box.x, n.box.y, n.box.w, n.box.h);
+        });
+        System.out.println("共 " + (int) found[0] + " 个标记（视口 " + Math.round(w) + "x"
+                + Math.round(h) + "）");
+    }
+
     private static void dump(ThemeSource src, String file) {
         WebScreenId id = WebScreenId.byFile(file);
         int w = id == null ? 288 : id.width();

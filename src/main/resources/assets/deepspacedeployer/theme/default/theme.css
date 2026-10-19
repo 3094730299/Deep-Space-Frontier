@@ -26,7 +26,8 @@
    标记元素的左上角 = 原版格子该摆的位置，所以这里的 left/top 就是格子的间距。 */
 .slotgrid {
   position: relative;
-  height: 40;
+  /* 跟 .slots9 一样高（3×18），否则 3×3 出来的格子会压到下面一行 */
+  height: 56;
   margin-top: 3;
   width: 100%;
 }
@@ -46,8 +47,9 @@
   position: absolute;
   left: 22;
   top: 0;
-  width: 38;
-  height: 38;
+  /* 3×3 个 18px 格子 = 54×54（以前写 38，比实际格子小一圈，视觉上框和物品对不上） */
+  width: 54;
+  height: 54;
   background: #0C0C12;
   border: 1;
   border-color: #2A2F3D;

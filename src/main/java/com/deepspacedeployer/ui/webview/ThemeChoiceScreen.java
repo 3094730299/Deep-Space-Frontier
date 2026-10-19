@@ -73,6 +73,14 @@ public class ThemeChoiceScreen extends Screen {
     /** 高级设置里正在编辑的内容：界面 key → 主题名（不点"应用"不落盘） */
     private final Map<String, String> pending = new LinkedHashMap<>();
 
+    /**
+     * 当前<b>选中</b>的主题（用来亮起「编辑」按钮）。
+     *
+     * <p>点左边/右边的任意一行 = 选中它（同时按资源包规则启用/禁用）。
+     * 选中和启用状态是两回事：可以选中一个"未启用"的包去编辑它。</p>
+     */
+    private String selectedTheme;
+
     public ThemeChoiceScreen() {
         super(Component.translatable("gui.deepspacedeployer.theme_title"));
     }
@@ -95,6 +103,15 @@ public class ThemeChoiceScreen extends Screen {
         clearWidgets();
         int by = this.height - 26;
         if (mode == Mode.LIST) {
+            boolean anySelected = selectedTheme != null;
+            Button edit = Button.builder(
+                            Component.translatable("gui.deepspacedeployer.theme_edit"),
+                            b -> editSelected())
+                    .bounds(this.width / 2 - 84, by, 76, 20).build();
+            // 选中一个包（不管启用/未启用）之后才亮起
+            edit.active = anySelected;
+            addRenderableWidget(edit);
+
             addRenderableWidget(Button.builder(
                             Component.translatable("gui.deepspacedeployer.theme_advanced"),
                             b -> {
@@ -103,17 +120,17 @@ public class ThemeChoiceScreen extends Screen {
                                 mode = Mode.ASSIGN;
                                 rebuildButtons();
                             })
-                    .bounds(this.width / 2 - 152, by, 148, 20).build());
+                    .bounds(this.width / 2 - 206, by, 120, 20).build());
 
             addRenderableWidget(Button.builder(
                             Component.translatable("gui.deepspacedeployer.theme_open_folder"),
                             b -> openThemeFolder())
-                    .bounds(this.width / 2 + 4, by, 80, 20).build());
+                    .bounds(this.width / 2 - 4, by, 88, 20).build());
 
             addRenderableWidget(Button.builder(
                             Component.translatable("gui.deepspacedeployer.theme_done"),
                             b -> this.onClose())
-                    .bounds(this.width / 2 + 92, by, 60, 20).build());
+                    .bounds(this.width / 2 + 88, by, 60, 20).build());
         } else {
             addRenderableWidget(Button.builder(
                             Component.translatable("gui.deepspacedeployer.theme_apply"),
@@ -420,11 +437,13 @@ public class ThemeChoiceScreen extends Screen {
             int row = rowAt(mouseX, mouseY, leftX, (int) scrollLeft, notEnabled().size());
             if (row >= 0) {
                 enable(notEnabled().get(row));
+                rebuildButtons();          // ★ 选中后立刻点亮「编辑」
                 return true;
             }
             int rowR = rowAt(mouseX, mouseY, rightX, (int) scrollRight, enabled().size());
             if (rowR >= 0) {
                 disable(enabled().get(rowR));
+                rebuildButtons();          // ★ 同上
                 return true;
             }
         } else if (button == 0 && mode == Mode.ASSIGN) {
@@ -474,7 +493,21 @@ public class ThemeChoiceScreen extends Screen {
         return idx >= 0 && idx < ids.length ? idx : -1;
     }
 
+    /** 打开选中主题的编辑器（编辑器是模组内置界面，不受主题影响） */
+    private void editSelected() {
+        if (selectedTheme == null) {
+            return;
+        }
+        try {
+            var mc = net.minecraft.client.Minecraft.getInstance();
+            mc.setScreen(new ThemeEditorScreen(selectedTheme, this));
+        } catch (Throwable t) {
+            DeepSpaceDeployer.LOGGER.warn("[深空铸造体][主题] 打开编辑器失败：{}", t.toString());
+        }
+    }
+
     private void enable(String theme) {
+        selectedTheme = theme;
         try {
             if (ThemeManager.enable(theme)) {
                 // 启用其他主题会清空高级配置（规则），这里把编辑中的草稿也清掉
@@ -487,6 +520,7 @@ public class ThemeChoiceScreen extends Screen {
     }
 
     private void disable(String theme) {
+        selectedTheme = theme;
         try {
             if (ThemeManager.disable(theme)) {
                 pending.values().removeIf(theme::equals);

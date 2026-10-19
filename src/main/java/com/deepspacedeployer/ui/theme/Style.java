@@ -58,6 +58,8 @@ public final class Style {
     public float opacity = 1f;
     /** visible / hidden / scroll */
     public String overflow = "visible";
+    /** 图层：越大越靠上（默认 0；背景建议 -1） */
+    public int zIndex;
     /** 图片放大时用最近邻（像素画必开） */
     public boolean pixelated;
 
@@ -99,6 +101,7 @@ public final class Style {
         s.left = left;
         s.opacity = opacity;
         s.overflow = overflow;
+        s.zIndex = zIndex;
         s.pixelated = pixelated;
         return s;
     }
