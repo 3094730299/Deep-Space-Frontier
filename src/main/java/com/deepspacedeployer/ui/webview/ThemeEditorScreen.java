@@ -493,7 +493,11 @@ public class ThemeEditorScreen extends Screen {
             drawComponents(g);
             drawPickedNode(g);
 
-            g.drawString(this.font, rel, x + 4, top + h - 12, COL_DIM, false);
+            int nodes = countNodes(doc.root);
+            g.drawString(this.font, rel + "  节点 " + nodes
+                    + (pickedNode != null ? "  选中:" + pickedNode.tag : ""),
+                    x + 4, top + h - 12,
+                    pickedNode != null ? 0xFFFFC24B : COL_DIM, false);
         } catch (Throwable t) {
             g.drawString(this.font, "预览出错：" + t.getMessage(), x + 6, top + 6, COL_BAD, false);
         }
@@ -1149,7 +1153,7 @@ public class ThemeEditorScreen extends Screen {
 
     /** 组件层的鼠标按下；返回 true = 已处理 */
     private boolean compMouseClicked(double mouseX, double mouseY, int button) {
-        if (compFile == null || button != 0) {
+        if (button != 0) {
             return false;
         }
         if (mouseX < canvasX || mouseX > canvasX + canvasW
@@ -1169,6 +1173,10 @@ public class ThemeEditorScreen extends Screen {
             grabDx = (int) Math.round(mouseX) - (canvasX + hit.x);
             grabDy = (int) Math.round(mouseY) - (canvasY + hit.y);
             return true;
+        }
+        // 没有 html 预览时，中栏没什么可点的（但还是放行给下面的面板）
+        if (previewDoc == null && comps.isEmpty()) {
+            return false;
         }
         // 点中"已选中元素"的右下角把手 → 拉伸
         if (pickedNode != null && pickedNode.box != null) {
@@ -1559,6 +1567,20 @@ public class ThemeEditorScreen extends Screen {
         drawBorder(g, bx - 1, by - 1, bw + 2, bh + 2, 0xFFFFC24B);
         String label = (n.tag == null || n.tag.isEmpty() ? "?" : n.tag) + " " + bw + "×" + bh;
         g.drawString(this.font, label, bx, Math.max(canvasY, by - 10), 0xFFFFC24B, false);
+    }
+
+    /** 数一下文档里有多少元素（状态行用） */
+    private static int countNodes(com.deepspacedeployer.ui.theme.HtmlNode n) {
+        if (n == null) {
+            return 0;
+        }
+        int[] c = {0};
+        n.walk(x -> {
+            if (x.isElement()) {
+                c[0]++;
+            }
+        });
+        return c[0];
     }
 
     /** 在渲染结果里找鼠标下的元素（子元素优先、后画的优先） */

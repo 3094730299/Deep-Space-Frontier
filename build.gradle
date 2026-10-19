@@ -206,6 +206,17 @@ tasks.register('renderThemes', JavaExec) {
 
 // 布局分解：排查"某个界面内容高得离谱"时用
 //   gradlew dumpTheme -Pfile=buyer.html
+tasks.register('slots', JavaExec) {
+    group = themeTaskGroup
+    description = '打印某个界面里所有 data-slot / data-input 标记的坐标'
+    dependsOn tasks.named('classes')
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.deepspacedeployer.tools.ThemePreview'
+    workingDir = projectDir
+    jvmArgs = themeJvmArgs
+    doFirst { args = ['--slots', chosenThemeDir(), project.findProperty('file') ?: 'factory_terminal.html'] }
+}
+
 tasks.register('dumpTheme', JavaExec) {
     group = themeTaskGroup
     description = '打印某个界面每个元素的 y/高度（-Pfile=buyer.html），排查排版溢出'

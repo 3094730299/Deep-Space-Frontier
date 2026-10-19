@@ -198,6 +198,7 @@ public class TerminalScreen extends AbstractContainerScreen<TerminalMenu> {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         syncTheme();
         renderBackground(graphics, mouseX, mouseY, partialTick);
+        applyThemeSlotLayout();   // 每帧对齐（便宜；保证主题加载时机不影响）
         super.render(graphics, mouseX, mouseY, partialTick);
 
         UniversalTerminalBlockEntity terminal = menu.terminal();

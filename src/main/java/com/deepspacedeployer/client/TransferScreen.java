@@ -426,6 +426,7 @@ public class TransferScreen extends AbstractContainerScreen<TransferMenu> {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         syncTheme();
+        applyThemeSlotLayout();   // 每帧对齐（便宜；保证主题加载时机不影响）
         super.render(graphics, mouseX, mouseY, partialTick);
 
         int x = this.leftPos;
