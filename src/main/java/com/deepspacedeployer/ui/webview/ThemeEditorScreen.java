@@ -76,6 +76,13 @@ public class ThemeEditorScreen extends Screen {
     private EditBox renameBox;
     private Path renameTarget;
 
+    /** 正在编辑的文本文件（null = 只看不编） */
+    private Path editingFile;
+    private ThemeTextBuffer buffer;
+    private boolean dirty;
+    /** 光标闪烁计时 */
+    private long caretTick;
+
     /** 文本预览的滚动 */
     private float textScroll;
 
@@ -103,10 +110,15 @@ public class ThemeEditorScreen extends Screen {
         int by = this.height - 26;
         addRenderableWidget(Button.builder(Component.translatable("gui.deepspacedeployer.editor_back"),
                         b -> this.onClose())
-                .bounds(this.width / 2 - 100, by, 96, 20).build());
+                .bounds(this.width / 2 - 150, by, 88, 20).build());
+        Button save = Button.builder(Component.translatable("gui.deepspacedeployer.editor_save"),
+                        b -> saveFile())
+                .bounds(this.width / 2 - 50, by, 88, 20).build();
+        save.active = editingFile != null && dirty;      // 没改动就是灰的
+        addRenderableWidget(save);
         addRenderableWidget(Button.builder(Component.translatable("gui.deepspacedeployer.editor_open_folder"),
                         b -> openInExplorer())
-                .bounds(this.width / 2 + 4, by, 96, 20).build());
+                .bounds(this.width / 2 + 50, by, 100, 20).build());
     }
 
     @Override
@@ -243,9 +255,46 @@ public class ThemeEditorScreen extends Screen {
             drawImagePreview(g, p, x, top, w, h);
         } else if (name.endsWith(".html") || name.endsWith(".htm")) {
             drawHtmlPreview(g, p, x, top, w, h);
+        } else if (editingFile != null && editingFile.equals(p) && buffer != null) {
+            drawEditor(g, p, x, top, w, h);
         } else {
             drawTextPreview(g, p, x, top, w, h);
         }
+    }
+
+    /** 可编辑的文本区（带光标） */
+    private void drawEditor(GuiGraphics g, Path p, int x, int top, int w, int h) {
+        int lineH = 10;
+        int visible = Math.max(1, (h - 14) / lineH);
+        buffer.setScrollLine(buffer.scrollLine());
+        buffer.ensureVisible(visible);
+
+        int first = buffer.scrollLine();
+        g.enableScissor(x + 1, top + 1, x + w - 1, top + h - 13);
+        for (int i = 0; i < visible && first + i < buffer.lineCount(); i++) {
+            String line = buffer.line(first + i).replace("\t", "    ");
+            int drawY = top + 4 + i * lineH;
+            g.drawString(this.font, this.font.plainSubstrByWidth(line, w - 14),
+                    x + 5, drawY, COL_TEXT, false);
+        }
+        // 光标：500ms 亮 / 500ms 灭
+        if ((System.currentTimeMillis() / 500L) % 2 == 0) {
+            int caretRow = buffer.caretLine() - first;
+            if (caretRow >= 0 && caretRow < visible) {
+                String before = buffer.line(buffer.caretLine());
+                before = before.substring(0, Math.min(buffer.caretCol(), before.length()))
+                        .replace("\t", "    ");
+                int cx = x + 5 + this.font.width(before);
+                int cy = top + 4 + caretRow * lineH;
+                g.fill(cx, cy, cx + 1, cy + 9, COL_ACCENT);
+            }
+        }
+        g.disableScissor();
+
+        g.drawString(this.font,
+                (dirty ? "● " : "") + buffer.caretLine() + ":" + buffer.caretCol()
+                        + "  " + relOf(p),
+                x + 4, top + h - 11, dirty ? COL_ACCENT : COL_DIM, false);
     }
 
     private void drawImagePreview(GuiGraphics g, Path p, int x, int top, int w, int h) {
@@ -442,6 +491,10 @@ public class ThemeEditorScreen extends Screen {
                     reloadEntries();
                     return true;
                 }
+                if (button == 0 && Files.isRegularFile(p)) {
+                    openSelectedFile(p);
+                    return true;
+                }
             }
             return true;
         }
@@ -483,6 +536,141 @@ public class ThemeEditorScreen extends Screen {
             }
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
+    // ---------------------------------------------------------------- 文本编辑
+
+    /** 能不能直接用文本编辑器改（html 只预览、不改——它由组件面板负责） */
+    private static boolean isTextEditable(Path p) {
+        String n = p.getFileName().toString().toLowerCase();
+        return n.endsWith(".json") || n.endsWith(".css") || n.endsWith(".txt")
+                || n.endsWith(".md") || n.endsWith(".js");
+    }
+
+    /** 选中一个文件：文本类就载入编辑器，其它清掉编辑状态 */
+    private void openSelectedFile(Path p) {
+        if (isTextEditable(p)) {
+            try {
+                buffer = new ThemeTextBuffer();
+                buffer.setText(Files.readString(p, StandardCharsets.UTF_8));
+                editingFile = p;
+                dirty = false;
+                rebuildFooter();
+                return;
+            } catch (Throwable t) {
+                DeepSpaceDeployer.LOGGER.warn("[深空铸造体][编辑器] 读取文本失败：{}", t.toString());
+            }
+        }
+        if (editingFile != null) {
+            editingFile = null;
+            buffer = null;
+            dirty = false;
+            rebuildFooter();
+        }
+    }
+
+    /** 保存当前编辑的文本文件 */
+    private void saveFile() {
+        if (editingFile == null || buffer == null) {
+            return;
+        }
+        try {
+            Files.writeString(editingFile, buffer.toText(), StandardCharsets.UTF_8);
+            dirty = false;
+            rebuildFooter();
+            refreshLiveTheme();
+            DeepSpaceDeployer.LOGGER.info("[深空铸造体][编辑器] 已保存：{}", relOf(editingFile));
+        } catch (Throwable t) {
+            DeepSpaceDeployer.LOGGER.warn("[深空铸造体][编辑器] 保存失败：{}", t.toString());
+        }
+    }
+
+    /** 存的是"当前启用的主题"的样式时，让游戏内界面立刻跟着变 */
+    private void refreshLiveTheme() {
+        try {
+            if (themeName.equals(com.deepspacedeployer.ui.theme.ThemeManager.activeName())) {
+                WebViewManager.markThemesDirty();
+            }
+        } catch (Throwable ignored) {
+            // 刷新失败不影响保存
+        }
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (renaming) {
+            return super.keyPressed(keyCode, scanCode, modifiers);
+        }
+        if (editingFile == null || buffer == null) {
+            return super.keyPressed(keyCode, scanCode, modifiers);
+        }
+        boolean ctrl = (modifiers & 0x2) != 0;          // GLFW_MOD_CONTROL
+        switch (keyCode) {
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_S -> {
+                if (ctrl) {
+                    saveFile();
+                    return true;
+                }
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSPACE -> {
+                buffer.backspace();
+                dirty = true;
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_DELETE -> {
+                buffer.delete();
+                dirty = true;
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER,
+                 org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER -> {
+                buffer.newline();
+                dirty = true;
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT -> {
+                buffer.moveLeft();
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT -> {
+                buffer.moveRight();
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_UP -> {
+                buffer.moveUp();
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN -> {
+                buffer.moveDown();
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_HOME -> {
+                buffer.home();
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_END -> {
+                buffer.end();
+                return true;
+            }
+            default -> {
+                return super.keyPressed(keyCode, scanCode, modifiers);
+            }
+        }
+        // 走到这里只有一种情况：按了 S 但没按 Ctrl
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean charTyped(char codePoint, int modifiers) {
+        if (renaming) {
+            return super.charTyped(codePoint, modifiers);
+        }
+        if (editingFile == null || buffer == null) {
+            return super.charTyped(codePoint, modifiers);
+        }
+        buffer.insert(codePoint);
+        dirty = true;
+        return true;
     }
 
     // ---------------------------------------------------------------- 文件操作

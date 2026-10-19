@@ -64,6 +64,8 @@ public final class WebViewScreen {
     private String lastError = "";
     /** 上次加载时用的是哪套主题（主题换了要自动重载） */
     private String loadedTheme = "";
+    /** 上次加载时的"主题文件版本号"（UI 编辑器保存后要重载） */
+    private int loadedRevision;
     /** 是否允许使用主题（配置关掉 / 界面自己禁用时不加载） */
     private boolean enabled = true;
 
@@ -167,6 +169,7 @@ public final class WebViewScreen {
             lastError = t.toString();
         }
         loadedTheme = source.name();
+        loadedRevision = WebViewManager.revision();
         if (loaded == null) {
             context = null;
             if (lastError.isEmpty()) {
@@ -187,7 +190,8 @@ public final class WebViewScreen {
 
     /** 主题换了没（宿主每帧查一次，换了就 refresh） */
     public boolean themeChanged() {
-        return !WebViewManager.themeNameFor(id).equals(loadedTheme);
+        return !WebViewManager.themeNameFor(id).equals(loadedTheme)
+                || loadedRevision != WebViewManager.revision();
     }
 
     // ---------------------------------------------------------------- 渲染
