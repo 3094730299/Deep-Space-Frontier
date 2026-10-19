@@ -113,6 +113,7 @@ public class ThemeEditorScreen extends Screen {
     private final java.util.Map<com.deepspacedeployer.ui.theme.HtmlNode, int[]> nodeEdits =
             new java.util.LinkedHashMap<>();
     private boolean draggingNode;
+    private boolean resizingNode;
 
     /** 一个可编辑组件（只做"摆设"，不参与方块逻辑 —— 老板的规则） */
     private static final class Comp {
@@ -120,6 +121,14 @@ public class ThemeEditorScreen extends Screen {
         String text = "";
         /** 图片组件的图片（相对主题根/当前目录的路径） */
         String src = "";
+        /**
+         * 点击时触发的动作（空 = 纯摆设）。
+         *
+         * <p>动作名就是宿主界面 {@code onThemeAction} 认识的那些（{@code close}、
+         * {@code sell_now}、{@code toggle_autosell}……），保存时写成 {@code data-action}，
+         * 这样渲染器/宿主现有的点击派发**不用改就能用**。</p>
+         */
+        String action = "";
         int x = 10;
         int y = 10;
         int w = 80;
@@ -506,6 +515,12 @@ public class ThemeEditorScreen extends Screen {
                     drawMini(g, propRects[3],
                             Component.translatable("gui.deepspacedeployer.editor_pick_image").getString());
                 }
+
+                cy += 16;
+                propRects[4][0] = x + 5; propRects[4][1] = cy;
+                propRects[4][2] = RIGHT_W - 12; propRects[4][3] = 14;
+                drawMini(g, propRects[4], "动作：" + (sel.action == null || sel.action.isBlank()
+                        ? "无" : sel.action));
             }
         }
     }
@@ -513,7 +528,7 @@ public class ThemeEditorScreen extends Screen {
     private static final String[] ADD_LABELS = {"+ 文本", "+ 按钮", "+ 物品框", "+ 图片"};
     private static final String[] ADD_TYPES = {"text", "button", "slot", "image"};
     private final int[][] addRects = new int[4][4];
-    private final int[][] propRects = new int[4][4];
+    private final int[][] propRects = new int[5][4];
 
     private void drawMini(GuiGraphics g, int[] r, String label) {
         g.fill(r[0], r[1], r[0] + r[2], r[1] + r[3], COL_ROW);
@@ -546,12 +561,34 @@ public class ThemeEditorScreen extends Screen {
                 sel = null;
                 return true;
             }
+            if (hit(propRects[4], mouseX, mouseY)) {
+                sel.action = nextAction(sel.action);
+                return true;
+            }
             if ("image".equals(sel.type) && hit(propRects[3], mouseX, mouseY)) {
                 ThemeFilePicker.pickImage();      // 系统文件选择器（线程里弹，结果下一帧取）
                 return true;
             }
         }
         return false;
+    }
+
+    /** 可选动作（都是宿主 onThemeAction 认识的；空串 = 纯摆设） */
+    private static final String[] ACTIONS = {
+            "", "close", "switch_page", "page_prev", "page_next",
+            "toggle_autosell", "sell_now", "open_transfer", "assemble",
+            "pick_target", "post", "confirm", "center", "bind", "rename"
+    };
+
+    private static String nextAction(String current) {
+        int at = 0;
+        for (int i = 0; i < ACTIONS.length; i++) {
+            if (ACTIONS[i].equals(current == null ? "" : current)) {
+                at = i;
+                break;
+            }
+        }
+        return ACTIONS[(at + 1) % ACTIONS.length];
     }
 
     private static boolean hit(int[] r, double mx, double my) {
@@ -667,7 +704,7 @@ public class ThemeEditorScreen extends Screen {
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (compFile != null && (dragging || resizing || draggingNode)) {
+        if (compFile != null && (dragging || resizing || draggingNode || resizingNode)) {
             compMouseDragged(mouseX, mouseY);
             return true;
         }
@@ -947,6 +984,15 @@ public class ThemeEditorScreen extends Screen {
             grabDy = (int) Math.round(mouseY) - (canvasY + hit.y);
             return true;
         }
+        // 点中"已选中元素"的右下角把手 → 拉伸
+        if (pickedNode != null && pickedNode.box != null) {
+            int hx = canvasX + Math.round(pickedNode.box.x + pickedNode.box.w);
+            int hy = canvasY + Math.round(pickedNode.box.y + pickedNode.box.h);
+            if (Math.abs(mouseX - hx) <= HANDLE && Math.abs(mouseY - hy) <= HANDLE) {
+                resizingNode = true;
+                return true;
+            }
+        }
         // 没点到加进去的组件 → 选主题里已有的元素（可以拖动它）
         if (previewDoc != null && previewDoc.root != null) {
             var n = hitNode(previewDoc.root, (float) (mouseX - canvasX), (float) (mouseY - canvasY));
@@ -962,6 +1008,15 @@ public class ThemeEditorScreen extends Screen {
 
     private void compMouseDragged(double mouseX, double mouseY) {
         if (compFile == null) {
+            return;
+        }
+        if (resizingNode && pickedNode != null && pickedNode.box != null) {
+            int nw = Math.max(8, (int) Math.round(mouseX) - canvasX - Math.round(pickedNode.box.x));
+            int nh = Math.max(8, (int) Math.round(mouseY) - canvasY - Math.round(pickedNode.box.y));
+            pickedNode.box.w = nw;
+            pickedNode.box.h = nh;
+            nodeEdits.put(pickedNode, new int[]{Math.round(pickedNode.box.x),
+                    Math.round(pickedNode.box.y), nw, nh});
             return;
         }
         if (draggingNode && pickedNode != null && pickedNode.box != null) {
@@ -989,6 +1044,7 @@ public class ThemeEditorScreen extends Screen {
         dragging = false;
         resizing = false;
         draggingNode = false;
+        resizingNode = false;
     }
 
     /** 新增一个组件（摆到画布左上角，图层默认 0） */
@@ -1046,6 +1102,7 @@ public class ThemeEditorScreen extends Screen {
                 c.layer = intAttr(attrs, "data-layer", 0);
                 c.text = m.group(3);
                 c.src = strAttr(attrs, "data-src");
+                c.action = strAttr(attrs, "data-action");
                 comps.add(c);
             }
         } catch (Throwable t) {
@@ -1081,6 +1138,7 @@ public class ThemeEditorScreen extends Screen {
                         .append(" data-h=\"").append(c.h).append('"')
                         .append(" data-layer=\"").append(c.layer).append('"')
                         .append(" data-src=\"").append(c.src == null ? "" : c.src).append('"')
+                        .append(c.action == null || c.action.isBlank() ? "" : " data-action=\"" + c.action + "\"")
                         .append(" style=\"").append(styleOf(c)).append("\">")
                         .append(c.text == null ? "" : c.text)
                         .append("</div>\n");
@@ -1129,7 +1187,8 @@ public class ThemeEditorScreen extends Screen {
                     continue;
                 }
                 String tag = src.substring(n.srcTagStart, n.srcTagEnd);
-                String style = "position:absolute;left:" + v[0] + ";top:" + v[1];
+                String style = "position:absolute;left:" + v[0] + ";top:" + v[1]
+                        + ";width:" + v[2] + ";height:" + v[3];
                 String newTag = setStyleAttr(tag, style);
                 src = src.substring(0, n.srcTagStart) + newTag + src.substring(n.srcTagEnd);
                 changed++;
@@ -1207,6 +1266,8 @@ public class ThemeEditorScreen extends Screen {
             if (e != null && n.box != null) {
                 n.box.x = e[0];
                 n.box.y = e[1];
+                n.box.w = e[2];
+                n.box.h = e[3];
             }
         });
     }
