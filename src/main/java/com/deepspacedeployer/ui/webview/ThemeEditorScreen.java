@@ -576,6 +576,10 @@ public class ThemeEditorScreen extends Screen {
     private final int[][] propRects = new int[7][4];
     private final java.util.List<int[]> ruleRects = new java.util.ArrayList<>();
 
+    /** 撤销 / 重做栈（只记"画布上的组件"，最多 50 步） */
+    private final java.util.Deque<java.util.List<Comp>> undoStack = new java.util.ArrayDeque<>();
+    private final java.util.Deque<java.util.List<Comp>> redoStack = new java.util.ArrayDeque<>();
+
     private void drawMini(GuiGraphics g, int[] r, String label) {
         g.fill(r[0], r[1], r[0] + r[2], r[1] + r[3], COL_ROW);
         drawBorder(g, r[0], r[1], r[2], r[3], COL_BORDER);
@@ -595,14 +599,17 @@ public class ThemeEditorScreen extends Screen {
         }
         if (sel != null) {
             if (hit(propRects[0], mouseX, mouseY)) {
+                pushUndo();
                 sel.layer++;
                 return true;
             }
             if (hit(propRects[1], mouseX, mouseY)) {
+                pushUndo();
                 sel.layer = Math.max(-1, sel.layer - 1);
                 return true;
             }
             if (hit(propRects[2], mouseX, mouseY)) {
+                pushUndo();
                 comps.remove(sel);
                 sel = null;
                 return true;
@@ -613,6 +620,7 @@ public class ThemeEditorScreen extends Screen {
             }
 
             if (hit(propRects[6], mouseX, mouseY)) {
+                pushUndo();
                 sel.rules.add(new String[]{"click", "close", ""});
                 return true;
             }
@@ -906,6 +914,18 @@ public class ThemeEditorScreen extends Screen {
             return super.keyPressed(keyCode, scanCode, modifiers);
         }
         boolean ctrl = (modifiers & 0x2) != 0;          // GLFW_MOD_CONTROL
+        if (ctrl && keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_Z) {
+            if ((modifiers & 0x1) != 0) {               // Ctrl+Shift+Z = 重做
+                redo();
+            } else {
+                undo();
+            }
+            return true;
+        }
+        if (ctrl && keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_Y) {
+            redo();
+            return true;
+        }
         switch (keyCode) {
             case org.lwjgl.glfw.GLFW.GLFW_KEY_S -> {
                 if (ctrl) {
@@ -1049,6 +1069,7 @@ public class ThemeEditorScreen extends Screen {
         Comp hit = compAt(mouseX, mouseY);
         sel = hit;
         if (hit != null) {
+            pushUndo();
             dragging = true;
             pickedNode = null;
             grabDx = (int) Math.round(mouseX) - (canvasX + hit.x);
@@ -1118,11 +1139,63 @@ public class ThemeEditorScreen extends Screen {
         resizingNode = false;
     }
 
+    /** 把当前组件列表拍一张快照（深拷贝，规则也拷） */
+    private java.util.List<Comp> snapshot() {
+        java.util.List<Comp> copy = new java.util.ArrayList<>();
+        for (Comp c : comps) {
+            Comp d = new Comp();
+            d.type = c.type;
+            d.text = c.text;
+            d.src = c.src;
+            d.action = c.action;
+            d.x = c.x;
+            d.y = c.y;
+            d.w = c.w;
+            d.h = c.h;
+            d.layer = c.layer;
+            for (String[] r : c.rules) {
+                d.rules.add(new String[]{r[0], r[1], r.length > 2 ? r[2] : ""});
+            }
+            copy.add(d);
+        }
+        return copy;
+    }
+
+    /** 改任何东西之前调一次（最多留 50 步） */
+    private void pushUndo() {
+        undoStack.push(snapshot());
+        if (undoStack.size() > 50) {
+            undoStack.removeLast();
+        }
+        redoStack.clear();
+    }
+
+    private void undo() {
+        if (undoStack.isEmpty()) {
+            return;
+        }
+        redoStack.push(snapshot());
+        comps.clear();
+        comps.addAll(undoStack.pop());
+        sel = null;
+    }
+
+    private void redo() {
+        if (redoStack.isEmpty()) {
+            return;
+        }
+        undoStack.push(snapshot());
+        comps.clear();
+        comps.addAll(redoStack.pop());
+        sel = null;
+    }
+
     /** 新增一个组件（摆到画布左上角，图层默认 0） */
     private void addComp(String type) {
         if (compFile == null) {
             return;
         }
+        pushUndo();
         Comp c = new Comp();
         c.type = type;
         c.x = 40;
