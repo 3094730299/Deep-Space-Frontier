@@ -86,6 +86,33 @@ public class ThemeEditorScreen extends Screen {
     /** 文本预览的滚动 */
     private float textScroll;
 
+    // ---------------- 组件编辑（第 3 步） ----------------
+    /** 正在编辑组件的 html 文件（null = 没进入组件编辑） */
+    private Path compFile;
+    private final List<Comp> comps = new ArrayList<>();
+    private Comp sel;
+    private boolean dragging;
+    private boolean resizing;
+    private int grabDx;
+    private int grabDy;
+    /** 画布在屏幕上的位置（渲染时记下来，鼠标命中用） */
+    private int canvasX;
+    private int canvasY;
+    private int canvasW;
+    private int canvasH;
+    private static final int HANDLE = 7;
+
+    /** 一个可编辑组件（只做"摆设"，不参与方块逻辑 —— 老板的规则） */
+    private static final class Comp {
+        String type = "text";
+        String text = "";
+        int x = 10;
+        int y = 10;
+        int w = 80;
+        int h = 18;
+        int layer = 0;
+    }
+
     public ThemeEditorScreen(String themeName, Screen parent) {
         super(Component.translatable("gui.deepspacedeployer.editor_title", themeName));
         this.themeName = themeName;
@@ -119,6 +146,12 @@ public class ThemeEditorScreen extends Screen {
         addRenderableWidget(Button.builder(Component.translatable("gui.deepspacedeployer.editor_open_folder"),
                         b -> openInExplorer())
                 .bounds(this.width / 2 + 50, by, 100, 20).build());
+        if (compFile != null) {
+            addRenderableWidget(Button.builder(
+                            Component.translatable("gui.deepspacedeployer.editor_save_html"),
+                            b -> saveComps())
+                    .bounds(this.width / 2 + 154, by, 96, 20).build());
+        }
     }
 
     @Override
@@ -255,8 +288,7 @@ public class ThemeEditorScreen extends Screen {
             drawImagePreview(g, p, x, top, w, h);
         } else if (name.endsWith(".html") || name.endsWith(".htm")) {
             drawHtmlPreview(g, p, x, top, w, h);
-        } else if (editingFile != null && editingFile.equals(p) && buffer != null) {
-            drawEditor(g, p, x, top, w, h);
+        } else if (editingFile != null && editingFile.equals(p) && buffer != null) {            drawEditor(g, p, x, top, w, h);
         } else {
             drawTextPreview(g, p, x, top, w, h);
         }
@@ -335,6 +367,14 @@ public class ThemeEditorScreen extends Screen {
             ThemeRenderer renderer = new ThemeRenderer(source, canvas);
             renderer.render(doc.root);
             canvas.finishFrame();
+
+            // ★ 组件层：画在主题渲染的上面（图层越大越靠上）
+            canvasX = x + 4;
+            canvasY = top + 4;
+            canvasW = Math.min(w - 8, 340);
+            canvasH = Math.min(h - 8, 340);
+            drawComponents(g);
+
             g.drawString(this.font, rel, x + 4, top + h - 12, COL_DIM, false);
         } catch (Throwable t) {
             g.drawString(this.font, "预览出错：" + t.getMessage(), x + 6, top + 6, COL_BAD, false);
@@ -400,6 +440,88 @@ public class ThemeEditorScreen extends Screen {
             g.drawString(this.font, "剪贴板：" + (clipboardCut ? "剪切 " : "复制 ")
                             + clipboard.getFileName(), x + 5, bottom - 16, COL_ACCENT, false);
         }
+
+        // ---------------- 组件面板（选中 html 时才出现） ----------------
+        if (compFile != null) {
+            int cy = top + 74;
+            g.drawString(this.font, Component.translatable("gui.deepspacedeployer.editor_components"),
+                    x + 5, cy, COL_ACCENT, false);
+            cy += 12;
+            for (int i = 0; i < ADD_LABELS.length; i++) {
+                addRects[i][0] = x + 5;
+                addRects[i][1] = cy;
+                addRects[i][2] = RIGHT_W - 12;
+                addRects[i][3] = 14;
+                boolean hover = mouseX >= addRects[i][0] && mouseX < addRects[i][0] + addRects[i][2]
+                        && mouseY >= cy && mouseY < cy + 14;
+                g.fill(addRects[i][0], cy, addRects[i][0] + addRects[i][2], cy + 14,
+                        hover ? COL_ROW_HOVER : COL_ROW);
+                drawBorder(g, addRects[i][0], cy, addRects[i][2], 14, COL_BORDER);
+                g.drawString(this.font, ADD_LABELS[i], addRects[i][0] + 4, cy + 3, COL_TEXT, false);
+                cy += 16;
+            }
+
+            if (sel != null) {
+                cy += 4;
+                g.drawString(this.font, "类型：" + sel.type, x + 5, cy, COL_TEXT, false);
+                cy += 10;
+                g.drawString(this.font, "x=" + sel.x + " y=" + sel.y
+                        + " " + sel.w + "×" + sel.h, x + 5, cy, COL_DIM, false);
+                cy += 10;
+                g.drawString(this.font, "图层：" + sel.layer, x + 5, cy, COL_DIM, false);
+                cy += 12;
+                propRects[0][0] = x + 5; propRects[0][1] = cy; propRects[0][2] = 40; propRects[0][3] = 14;
+                propRects[1][0] = x + 49; propRects[1][1] = cy; propRects[1][2] = 40; propRects[1][3] = 14;
+                propRects[2][0] = x + 93; propRects[2][1] = cy; propRects[2][2] = 40; propRects[2][3] = 14;
+                drawMini(g, propRects[0], "层+");
+                drawMini(g, propRects[1], "层-");
+                drawMini(g, propRects[2], "删除");
+            }
+        }
+    }
+
+    private static final String[] ADD_LABELS = {"+ 文本", "+ 按钮", "+ 物品框", "+ 图片"};
+    private static final String[] ADD_TYPES = {"text", "button", "slot", "image"};
+    private final int[][] addRects = new int[4][4];
+    private final int[][] propRects = new int[3][4];
+
+    private void drawMini(GuiGraphics g, int[] r, String label) {
+        g.fill(r[0], r[1], r[0] + r[2], r[1] + r[3], COL_ROW);
+        drawBorder(g, r[0], r[1], r[2], r[3], COL_BORDER);
+        g.drawCenteredString(this.font, label, r[0] + r[2] / 2, r[1] + 3, COL_TEXT);
+    }
+
+    /** 右栏组件按钮的命中；返回 true = 处理了 */
+    private boolean compPanelClicked(double mouseX, double mouseY) {
+        if (compFile == null) {
+            return false;
+        }
+        for (int i = 0; i < ADD_LABELS.length; i++) {
+            if (hit(addRects[i], mouseX, mouseY)) {
+                addComp(ADD_TYPES[i]);
+                return true;
+            }
+        }
+        if (sel != null) {
+            if (hit(propRects[0], mouseX, mouseY)) {
+                sel.layer++;
+                return true;
+            }
+            if (hit(propRects[1], mouseX, mouseY)) {
+                sel.layer = Math.max(-1, sel.layer - 1);
+                return true;
+            }
+            if (hit(propRects[2], mouseX, mouseY)) {
+                comps.remove(sel);
+                sel = null;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hit(int[] r, double mx, double my) {
+        return r[2] > 0 && mx >= r[0] && mx < r[0] + r[2] && my >= r[1] && my < r[1] + r[3];
     }
 
     private void drawContextMenu(GuiGraphics g, int mouseX, int mouseY) {
@@ -498,7 +620,32 @@ public class ThemeEditorScreen extends Screen {
             }
             return true;
         }
+        // 中栏：组件层（拖动 / 选中 / 拉伸）
+        if (compMouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
+        // 右栏：组件面板按钮
+        if (button == 0 && compPanelClicked(mouseX, mouseY)) {
+            return true;
+        }
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (compFile != null && (dragging || resizing)) {
+            compMouseDragged(mouseX, mouseY);
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (compFile != null) {
+            compMouseReleased();
+        }
+        return super.mouseReleased(mouseX, mouseY, button);
     }
 
     /** 命中的行（-1 = 空白，-2 = ".."） */
@@ -547,8 +694,20 @@ public class ThemeEditorScreen extends Screen {
                 || n.endsWith(".md") || n.endsWith(".js");
     }
 
-    /** 选中一个文件：文本类就载入编辑器，其它清掉编辑状态 */
+    /** 选中一个文件：文本类就载入编辑器，html 进入组件编辑，其它清掉编辑状态 */
     private void openSelectedFile(Path p) {
+        String n = p.getFileName().toString().toLowerCase();
+        if (n.endsWith(".html") || n.endsWith(".htm")) {
+            editingFile = null;
+            buffer = null;
+            dirty = false;
+            loadComps(p);
+            rebuildFooter();
+            return;
+        }
+        compFile = null;
+        comps.clear();
+        sel = null;
         if (isTextEditable(p)) {
             try {
                 buffer = new ThemeTextBuffer();
@@ -671,6 +830,232 @@ public class ThemeEditorScreen extends Screen {
         buffer.insert(codePoint);
         dirty = true;
         return true;
+    }
+
+    // ---------------------------------------------------------------- 组件层（第 3 步）
+
+    /** 画组件：按 layer 从小到大，选中项画边框 + 右下角拉伸把手 */
+    private void drawComponents(GuiGraphics g) {
+        List<Comp> sorted = new ArrayList<>(comps);
+        sorted.sort(Comparator.comparingInt(c -> c.layer));
+        for (Comp c : sorted) {
+            int cx = canvasX + c.x;
+            int cy = canvasY + c.y;
+            switch (c.type) {
+                case "button" -> {
+                    g.fill(cx, cy, cx + c.w, cy + c.h, 0xFF1B2233);
+                    drawBorder(g, cx, cy, c.w, c.h, COL_ACCENT);
+                    g.drawString(this.font, this.font.plainSubstrByWidth(c.text, c.w - 6),
+                            cx + 3, cy + (c.h - 8) / 2, COL_TEXT, false);
+                }
+                case "slot" -> {
+                    g.fill(cx, cy, cx + c.w, cy + c.h, 0xFF0C0C12);
+                    drawBorder(g, cx, cy, c.w, c.h, COL_BORDER);
+                }
+                case "image" -> {
+                    g.fill(cx, cy, cx + c.w, cy + c.h, 0xFF14161F);
+                    drawBorder(g, cx, cy, c.w, c.h, COL_DIM);
+                    g.drawCenteredString(this.font, "图片", cx + c.w / 2, cy + c.h / 2 - 4, COL_DIM);
+                }
+                default -> g.drawString(this.font, this.font.plainSubstrByWidth(c.text, c.w),
+                        cx, cy, COL_TEXT, false);
+            }
+            if (c == sel) {
+                drawBorder(g, cx - 1, cy - 1, c.w + 2, c.h + 2, COL_ACCENT);
+                g.fill(cx + c.w - HANDLE / 2, cy + c.h - HANDLE / 2,
+                        cx + c.w + HANDLE / 2, cy + c.h + HANDLE / 2, COL_ACCENT);
+            }
+        }
+    }
+
+    /** 组件层命中：从最上层往下找 */
+    private Comp compAt(double mouseX, double mouseY) {
+        List<Comp> sorted = new ArrayList<>(comps);
+        sorted.sort((a, b) -> Integer.compare(b.layer, a.layer));
+        for (Comp c : sorted) {
+            if (mouseX >= canvasX + c.x && mouseX < canvasX + c.x + c.w
+                    && mouseY >= canvasY + c.y && mouseY < canvasY + c.y + c.h) {
+                return c;
+            }
+        }
+        return null;
+    }
+
+    /** 点到了选中组件的右下角把手？ */
+    private boolean onHandle(double mouseX, double mouseY) {
+        if (sel == null) {
+            return false;
+        }
+        int hx = canvasX + sel.x + sel.w;
+        int hy = canvasY + sel.y + sel.h;
+        return Math.abs(mouseX - hx) <= HANDLE && Math.abs(mouseY - hy) <= HANDLE;
+    }
+
+    /** 组件层的鼠标按下；返回 true = 已处理 */
+    private boolean compMouseClicked(double mouseX, double mouseY, int button) {
+        if (compFile == null || button != 0) {
+            return false;
+        }
+        if (mouseX < canvasX || mouseX > canvasX + canvasW
+                || mouseY < canvasY || mouseY > canvasY + canvasH) {
+            return false;
+        }
+        if (onHandle(mouseX, mouseY)) {
+            resizing = true;
+            return true;
+        }
+        Comp hit = compAt(mouseX, mouseY);
+        sel = hit;
+        if (hit != null) {
+            dragging = true;
+            grabDx = (int) Math.round(mouseX) - (canvasX + hit.x);
+            grabDy = (int) Math.round(mouseY) - (canvasY + hit.y);
+        }
+        return true;
+    }
+
+    private void compMouseDragged(double mouseX, double mouseY) {
+        if (compFile == null || sel == null) {
+            return;
+        }
+        if (dragging) {
+            sel.x = Math.max(-sel.w + 4, (int) Math.round(mouseX) - canvasX - grabDx);
+            sel.y = Math.max(-sel.h + 4, (int) Math.round(mouseY) - canvasY - grabDy);
+        } else if (resizing) {
+            sel.w = Math.max(8, (int) Math.round(mouseX) - canvasX - sel.x);
+            sel.h = Math.max(8, (int) Math.round(mouseY) - canvasY - sel.y);
+        }
+    }
+
+    private void compMouseReleased() {
+        dragging = false;
+        resizing = false;
+    }
+
+    /** 新增一个组件（摆到画布左上角，图层默认 0） */
+    private void addComp(String type) {
+        if (compFile == null) {
+            return;
+        }
+        Comp c = new Comp();
+        c.type = type;
+        c.x = 40;
+        c.y = 40;
+        c.layer = comps.isEmpty() ? 0 : comps.get(comps.size() - 1).layer + 1;
+        switch (type) {
+            case "button" -> {
+                c.w = 60;
+                c.h = 18;
+                c.text = "按钮";
+            }
+            case "slot" -> {
+                c.w = 18;
+                c.h = 18;
+            }
+            case "image" -> {
+                c.w = 32;
+                c.h = 32;
+            }
+            default -> {
+                c.w = 80;
+                c.h = 12;
+                c.text = "文本";
+            }
+        }
+        comps.add(c);
+        sel = c;
+    }
+
+    /** 从 html 里读出 {@code data-editor} 组件 */
+    private void loadComps(Path p) {
+        comps.clear();
+        sel = null;
+        compFile = p;
+        try {
+            String t = Files.readString(p, StandardCharsets.UTF_8);
+            var m = java.util.regex.Pattern
+                    .compile("<div data-editor=\"([^\"]+)\"([^>]*)>([^<]*)</div>")
+                    .matcher(t);
+            while (m.find()) {
+                Comp c = new Comp();
+                c.type = m.group(1);
+                String attrs = m.group(2);
+                c.x = intAttr(attrs, "data-x", 10);
+                c.y = intAttr(attrs, "data-y", 10);
+                c.w = intAttr(attrs, "data-w", 80);
+                c.h = intAttr(attrs, "data-h", 18);
+                c.layer = intAttr(attrs, "data-layer", 0);
+                c.text = m.group(3);
+                comps.add(c);
+            }
+        } catch (Throwable t) {
+            DeepSpaceDeployer.LOGGER.warn("[深空铸造体][编辑器] 读组件失败：{}", t.toString());
+        }
+    }
+
+    private static int intAttr(String attrs, String name, int fallback) {
+        var m = java.util.regex.Pattern.compile(name + "=\"(-?\\d+)\"").matcher(attrs);
+        return m.find() ? Integer.parseInt(m.group(1)) : fallback;
+    }
+
+    /** 把组件写回 html（放在 <!-- editor:begin/end --> 之间，其余内容不动） */
+    private void saveComps() {
+        if (compFile == null) {
+            return;
+        }
+        try {
+            String t = Files.readString(compFile, StandardCharsets.UTF_8);
+            t = t.replaceAll("(?s)\\s*<!-- editor:begin -->.*?<!-- editor:end -->", "");
+            StringBuilder sb = new StringBuilder();
+            sb.append("\n<!-- editor:begin -->\n");
+            for (Comp c : comps) {
+                sb.append("  <div data-editor=\"").append(c.type).append('"')
+                        .append(" data-x=\"").append(c.x).append('"')
+                        .append(" data-y=\"").append(c.y).append('"')
+                        .append(" data-w=\"").append(c.w).append('"')
+                        .append(" data-h=\"").append(c.h).append('"')
+                        .append(" data-layer=\"").append(c.layer).append('"')
+                        .append(" style=\"").append(styleOf(c)).append("\">")
+                        .append(c.text == null ? "" : c.text)
+                        .append("</div>\n");
+            }
+            sb.append("<!-- editor:end -->\n");
+            int at = t.lastIndexOf("</body>");
+            if (at < 0) {
+                at = t.length();
+            }
+            t = t.substring(0, at) + sb + t.substring(at);
+            Files.writeString(compFile, t, StandardCharsets.UTF_8);
+            DeepSpaceDeployer.LOGGER.info("[深空铸造体][编辑器] 已保存 {} 个组件到 {}",
+                    comps.size(), relOf(compFile));
+            refreshLiveTheme();
+        } catch (Throwable t) {
+            DeepSpaceDeployer.LOGGER.warn("[深空铸造体][编辑器] 保存组件失败：{}", t.toString());
+        }
+    }
+
+    /**
+     * 一个组件的内联样式（写进 html，游戏里就按这个画）。
+     *
+     * <p>绝对定位 + 显式宽高，这样它不会参与文档流、也不会把别的元素挤走。
+     * 图层用 {@code z-index}（渲染器支持的话就按它盖）——当前版本渲染器**不支持**
+     * {@code z-index}，所以即使存了也不影响；等渲染器支持了立刻就生效。</p>
+     */
+    private static String styleOf(Comp c) {
+        StringBuilder s = new StringBuilder();
+        s.append("position:absolute;left:").append(c.x)
+                .append(";top:").append(c.y)
+                .append(";width:").append(c.w)
+                .append(";height:").append(c.h)
+                .append(";z-index:").append(c.layer);
+        switch (c.type) {
+            case "button" -> s.append(";background:#1B2233;border:1;border-color:#4C7DFF")
+                    .append(";color:#E6ECF5");
+            case "slot" -> s.append(";background:#0C0C12;border:1;border-color:#2A3550");
+            case "image" -> s.append(";background:#14161F;border:1;border-color:#8A97AD");
+            default -> s.append(";color:#E6ECF5");
+        }
+        return s.toString();
     }
 
     // ---------------------------------------------------------------- 文件操作

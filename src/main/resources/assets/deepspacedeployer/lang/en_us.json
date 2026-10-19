@@ -348,5 +348,7 @@
   "gui.deepspacedeployer.editor_tip": "Right-click a file: copy / cut",
   "gui.deepspacedeployer.editor_tip2": "rename / delete / paste",
   "gui.deepspacedeployer.editor_rename": "Rename",
-  "gui.deepspacedeployer.editor_cancel": "Cancel"
+  "gui.deepspacedeployer.editor_cancel": "Cancel",
+  "gui.deepspacedeployer.editor_components": "Components (click to add)",
+  "gui.deepspacedeployer.editor_save_html": "Save to html"
 }
