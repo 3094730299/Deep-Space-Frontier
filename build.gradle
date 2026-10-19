@@ -52,8 +52,10 @@ neoForge {
     // NeoForge 版本在 gradle.properties 里改
     version = project.neo_version
 
-    // 访问转换器（暂时不需要，留空即可）
-    // accessTransformers.from 'src/main/resources/META-INF/accesstransformer.cfg'
+    // 访问转换器：把 Slot.x / Slot.y 的 final 去掉 ——
+    // 主题用 data-slot 标记位置，加载后必须能把原版物品格搬过去（否则永远错位）。
+    // 文件：src/main/resources/META-INF/accesstransformer.cfg
+    accessTransformers.from 'src/main/resources/META-INF/accesstransformer.cfg'
 
     runs {
         client {
