@@ -350,5 +350,7 @@
   "gui.deepspacedeployer.editor_rename": "重命名",
   "gui.deepspacedeployer.editor_cancel": "取消",
   "gui.deepspacedeployer.editor_components": "组件（点击添加）",
-  "gui.deepspacedeployer.editor_save_html": "保存到 html"
+  "gui.deepspacedeployer.editor_save_html": "保存到 html",
+  "gui.deepspacedeployer.editor_pick_image": "换图片…",
+  "gui.deepspacedeployer.editor_import_title": "导入到主题（改名）"
 }

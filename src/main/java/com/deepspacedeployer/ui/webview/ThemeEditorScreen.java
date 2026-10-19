@@ -75,6 +75,8 @@ public class ThemeEditorScreen extends Screen {
     private boolean renaming;
     private EditBox renameBox;
     private Path renameTarget;
+    /** 非 null = 正在"导入资源"（从系统选的图），保存时复制进主题目录 */
+    private Path importSource;
 
     /** 正在编辑的文本文件（null = 只看不编） */
     private Path editingFile;
@@ -106,6 +108,8 @@ public class ThemeEditorScreen extends Screen {
     private static final class Comp {
         String type = "text";
         String text = "";
+        /** 图片组件的图片（相对主题根/当前目录的路径） */
+        String src = "";
         int x = 10;
         int y = 10;
         int w = 80;
@@ -207,6 +211,11 @@ public class ThemeEditorScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        // 系统文件选择器是异步的：每帧取一次结果，选好了就弹"重命名"对话框
+        Path picked = ThemeFilePicker.consume();
+        if (picked != null && sel != null && !renaming) {
+            startImport(picked);
+        }
         this.renderBackground(g, mouseX, mouseY, partialTick);
         g.drawCenteredString(this.font, this.title, this.width / 2, 8, COL_TEXT);
 
@@ -476,6 +485,13 @@ public class ThemeEditorScreen extends Screen {
                 drawMini(g, propRects[0], "层+");
                 drawMini(g, propRects[1], "层-");
                 drawMini(g, propRects[2], "删除");
+                if ("image".equals(sel.type)) {
+                    cy += 16;
+                    propRects[3][0] = x + 5; propRects[3][1] = cy;
+                    propRects[3][2] = RIGHT_W - 12; propRects[3][3] = 14;
+                    drawMini(g, propRects[3],
+                            Component.translatable("gui.deepspacedeployer.editor_pick_image").getString());
+                }
             }
         }
     }
@@ -483,7 +499,7 @@ public class ThemeEditorScreen extends Screen {
     private static final String[] ADD_LABELS = {"+ 文本", "+ 按钮", "+ 物品框", "+ 图片"};
     private static final String[] ADD_TYPES = {"text", "button", "slot", "image"};
     private final int[][] addRects = new int[4][4];
-    private final int[][] propRects = new int[3][4];
+    private final int[][] propRects = new int[4][4];
 
     private void drawMini(GuiGraphics g, int[] r, String label) {
         g.fill(r[0], r[1], r[0] + r[2], r[1] + r[3], COL_ROW);
@@ -514,6 +530,10 @@ public class ThemeEditorScreen extends Screen {
             if (hit(propRects[2], mouseX, mouseY)) {
                 comps.remove(sel);
                 sel = null;
+                return true;
+            }
+            if ("image".equals(sel.type) && hit(propRects[3], mouseX, mouseY)) {
+                ThemeFilePicker.pickImage();      // 系统文件选择器（线程里弹，结果下一帧取）
                 return true;
             }
         }
@@ -986,6 +1006,7 @@ public class ThemeEditorScreen extends Screen {
                 c.h = intAttr(attrs, "data-h", 18);
                 c.layer = intAttr(attrs, "data-layer", 0);
                 c.text = m.group(3);
+                c.src = strAttr(attrs, "data-src");
                 comps.add(c);
             }
         } catch (Throwable t) {
@@ -996,6 +1017,11 @@ public class ThemeEditorScreen extends Screen {
     private static int intAttr(String attrs, String name, int fallback) {
         var m = java.util.regex.Pattern.compile(name + "=\"(-?\\d+)\"").matcher(attrs);
         return m.find() ? Integer.parseInt(m.group(1)) : fallback;
+    }
+
+    private static String strAttr(String attrs, String name) {
+        var m = java.util.regex.Pattern.compile(name + "=\"([^\"]*)\"").matcher(attrs);
+        return m.find() ? m.group(1) : "";
     }
 
     /** 把组件写回 html（放在 <!-- editor:begin/end --> 之间，其余内容不动） */
@@ -1015,6 +1041,7 @@ public class ThemeEditorScreen extends Screen {
                         .append(" data-w=\"").append(c.w).append('"')
                         .append(" data-h=\"").append(c.h).append('"')
                         .append(" data-layer=\"").append(c.layer).append('"')
+                        .append(" data-src=\"").append(c.src == null ? "" : c.src).append('"')
                         .append(" style=\"").append(styleOf(c)).append("\">")
                         .append(c.text == null ? "" : c.text)
                         .append("</div>\n");
@@ -1052,7 +1079,14 @@ public class ThemeEditorScreen extends Screen {
             case "button" -> s.append(";background:#1B2233;border:1;border-color:#4C7DFF")
                     .append(";color:#E6ECF5");
             case "slot" -> s.append(";background:#0C0C12;border:1;border-color:#2A3550");
-            case "image" -> s.append(";background:#14161F;border:1;border-color:#8A97AD");
+            case "image" -> {
+                if (c.src != null && !c.src.isBlank()) {
+                    s.append(";background-image:url('").append(c.src).append("')");
+                } else {
+                    s.append(";background:#14161F");
+                }
+                s.append(";border:1;border-color:#8A97AD");
+            }
             default -> s.append(";color:#E6ECF5");
         }
         return s.toString();
@@ -1108,6 +1142,7 @@ public class ThemeEditorScreen extends Screen {
     }
 
     private void startRename(Path p) {
+        importSource = null;
         renameTarget = p;
         renaming = true;
         clearWidgets();
@@ -1127,16 +1162,66 @@ public class ThemeEditorScreen extends Screen {
                 .bounds(this.width / 2 + 4, this.height / 2 + 22, 96, 20).build());
     }
 
+    /**
+     * 开始"导入资源"：把系统里选的一张图复制进主题根目录，再挂到选中的图片组件上。
+     *
+     * <p>输入框里**只显示不带后缀的文件名**（老板的要求），保存时自动补原后缀。</p>
+     */
+    private void startImport(Path src) {
+        if (src == null || sel == null) {
+            return;
+        }
+        importSource = src;
+        renaming = true;
+        clearWidgets();
+        renameBox = new EditBox(this.font, 0, 0, 200, 18,
+                Component.translatable("gui.deepspacedeployer.editor_import_title"));
+        renameBox.setValue(baseName(src.getFileName().toString()));
+        renameBox.setMaxLength(120);
+        addRenderableWidget(renameBox);
+        addRenderableWidget(Button.builder(Component.translatable("gui.deepspacedeployer.editor_save"),
+                        b -> finishRename())
+                .bounds(this.width / 2 - 100, this.height / 2 + 22, 96, 20).build());
+        addRenderableWidget(Button.builder(Component.translatable("gui.deepspacedeployer.editor_cancel"),
+                        b -> {
+                            renaming = false;
+                            importSource = null;
+                            rebuildFooter();
+                        })
+                .bounds(this.width / 2 + 4, this.height / 2 + 22, 96, 20).build());
+    }
+
+    /** "a.b.png" → "a.b" */
+    private static String baseName(String fileName) {
+        int dot = fileName.lastIndexOf('.');
+        return dot <= 0 ? fileName : fileName.substring(0, dot);
+    }
+
+    /** "a.b.png" → ".png" */
+    private static String extOf(String fileName) {
+        int dot = fileName.lastIndexOf('.');
+        return dot < 0 ? "" : fileName.substring(dot);
+    }
+
     private void finishRename() {
         try {
-            String name = renameBox.getValue().trim();
-            if (!name.isEmpty() && renameTarget != null) {
+            String name = renameBox == null ? "" : renameBox.getValue().trim();
+            if (importSource != null && sel != null) {
+                // ★ 导入资源：复制到主题根目录，再把组件指向它
+                String fileName = name + extOf(importSource.getFileName().toString());
+                Path dest = themeDir().resolve(fileName);
+                Files.copy(importSource, dest, StandardCopyOption.REPLACE_EXISTING);
+                sel.src = fileName;
+                ThemeImages.releaseAll();
+                DeepSpaceDeployer.LOGGER.info("[深空铸造体][编辑器] 已导入资源：{}", fileName);
+            } else if (!name.isEmpty() && renameTarget != null) {
                 Path dest = renameTarget.resolveSibling(name);
                 Files.move(renameTarget, dest, StandardCopyOption.REPLACE_EXISTING);
             }
         } catch (Throwable t) {
-            DeepSpaceDeployer.LOGGER.warn("[深空铸造体][编辑器] 重命名失败：{}", t.toString());
+            DeepSpaceDeployer.LOGGER.warn("[深空铸造体][编辑器] 重命名/导入失败：{}", t.toString());
         }
+        importSource = null;
         renaming = false;
         renameBox = null;
         reloadEntries();
