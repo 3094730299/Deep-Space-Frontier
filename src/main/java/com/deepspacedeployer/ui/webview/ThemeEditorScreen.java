@@ -104,6 +104,16 @@ public class ThemeEditorScreen extends Screen {
     private int canvasH;
     private static final int HANDLE = 7;
 
+    // ---------------- 主题里已有元素的编辑（需要渲染器提供源码位置） ----------------
+    /** 当前预览的文档（每帧重建，用来做命中测试） */
+    private com.deepspacedeployer.ui.theme.ThemeDocument previewDoc;
+    /** 画布上选中的已有元素 */
+    private com.deepspacedeployer.ui.theme.HtmlNode pickedNode;
+    /** 已有元素被拖到哪儿：key = 节点，value = {x, y, w, h} */
+    private final java.util.Map<com.deepspacedeployer.ui.theme.HtmlNode, int[]> nodeEdits =
+            new java.util.LinkedHashMap<>();
+    private boolean draggingNode;
+
     /** 一个可编辑组件（只做"摆设"，不参与方块逻辑 —— 老板的规则） */
     private static final class Comp {
         String type = "text";
@@ -369,6 +379,9 @@ public class ThemeEditorScreen extends Screen {
                 g.drawString(this.font, "HTML 解析失败", x + 6, top + 6, COL_BAD, false);
                 return;
             }
+            previewDoc = doc;
+            applyNodeEdits(doc.root);
+
             GuiCanvas canvas = new GuiCanvas(g, x + 4, top + 4);
             LayoutEngine engine = new LayoutEngine(canvas);
             // 预览按界面本身的建议尺寸布局，再用左上角对齐（不做缩放，保持 1:1 像素）
@@ -383,6 +396,7 @@ public class ThemeEditorScreen extends Screen {
             canvasW = Math.min(w - 8, 340);
             canvasH = Math.min(h - 8, 340);
             drawComponents(g);
+            drawPickedNode(g);
 
             g.drawString(this.font, rel, x + 4, top + h - 12, COL_DIM, false);
         } catch (Throwable t) {
@@ -653,7 +667,7 @@ public class ThemeEditorScreen extends Screen {
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (compFile != null && (dragging || resizing)) {
+        if (compFile != null && (dragging || resizing || draggingNode)) {
             compMouseDragged(mouseX, mouseY);
             return true;
         }
@@ -928,14 +942,38 @@ public class ThemeEditorScreen extends Screen {
         sel = hit;
         if (hit != null) {
             dragging = true;
+            pickedNode = null;
             grabDx = (int) Math.round(mouseX) - (canvasX + hit.x);
             grabDy = (int) Math.round(mouseY) - (canvasY + hit.y);
+            return true;
+        }
+        // 没点到加进去的组件 → 选主题里已有的元素（可以拖动它）
+        if (previewDoc != null && previewDoc.root != null) {
+            var n = hitNode(previewDoc.root, (float) (mouseX - canvasX), (float) (mouseY - canvasY));
+            pickedNode = n;
+            draggingNode = n != null;
+            if (n != null) {
+                grabDx = (int) Math.round(mouseX) - (canvasX + Math.round(n.box.x));
+                grabDy = (int) Math.round(mouseY) - (canvasY + Math.round(n.box.y));
+            }
         }
         return true;
     }
 
     private void compMouseDragged(double mouseX, double mouseY) {
-        if (compFile == null || sel == null) {
+        if (compFile == null) {
+            return;
+        }
+        if (draggingNode && pickedNode != null && pickedNode.box != null) {
+            int nx = (int) Math.round(mouseX) - canvasX - grabDx;
+            int ny = (int) Math.round(mouseY) - canvasY - grabDy;
+            pickedNode.box.x = nx;
+            pickedNode.box.y = ny;
+            nodeEdits.put(pickedNode, new int[]{nx, ny,
+                    Math.round(pickedNode.box.w), Math.round(pickedNode.box.h)});
+            return;
+        }
+        if (sel == null) {
             return;
         }
         if (dragging) {
@@ -950,6 +988,7 @@ public class ThemeEditorScreen extends Screen {
     private void compMouseReleased() {
         dragging = false;
         resizing = false;
+        draggingNode = false;
     }
 
     /** 新增一个组件（摆到画布左上角，图层默认 0） */
@@ -1053,12 +1092,76 @@ public class ThemeEditorScreen extends Screen {
             }
             t = t.substring(0, at) + sb + t.substring(at);
             Files.writeString(compFile, t, StandardCharsets.UTF_8);
-            DeepSpaceDeployer.LOGGER.info("[深空铸造体][编辑器] 已保存 {} 个组件到 {}",
-                    comps.size(), relOf(compFile));
+            int moved = saveNodeEdits();
+            DeepSpaceDeployer.LOGGER.info("[深空铸造体][编辑器] 已保存 {} 个组件、{} 个元素位置到 {}",
+                    comps.size(), moved, relOf(compFile));
             refreshLiveTheme();
         } catch (Throwable t) {
             DeepSpaceDeployer.LOGGER.warn("[深空铸造体][编辑器] 保存组件失败：{}", t.toString());
         }
+    }
+
+    /**
+     * 把拖动过的已有元素写回源码：改它的开始标签里的 {@code style}。
+     *
+     * <p>从后往前改（{@code srcTagStart} 降序），这样前面的偏移不会被后面的修改带歪。
+     * 只处理从源码解析出来的节点（{@code srcTagStart >= 0}），
+     * {@code data-repeat} 克隆出来的节点没有源码位置，跳过。</p>
+     *
+     * @return 实际改了几个
+     */
+    private int saveNodeEdits() {
+        if (compFile == null || nodeEdits.isEmpty()) {
+            return 0;
+        }
+        int changed = 0;
+        try {
+            String src = Files.readString(compFile, StandardCharsets.UTF_8);
+            var list = new ArrayList<>(nodeEdits.entrySet());
+            list.removeIf(e -> e.getKey().srcTagStart < 0
+                    || e.getKey().srcTagEnd <= e.getKey().srcTagStart);
+            list.sort((a, b) -> Integer.compare(
+                    b.getKey().srcTagStart, a.getKey().srcTagStart));
+            for (var e : list) {
+                var n = e.getKey();
+                int[] v = e.getValue();
+                if (n.srcTagEnd > src.length()) {
+                    continue;
+                }
+                String tag = src.substring(n.srcTagStart, n.srcTagEnd);
+                String style = "position:absolute;left:" + v[0] + ";top:" + v[1];
+                String newTag = setStyleAttr(tag, style);
+                src = src.substring(0, n.srcTagStart) + newTag + src.substring(n.srcTagEnd);
+                changed++;
+            }
+            if (changed > 0) {
+                Files.writeString(compFile, src, StandardCharsets.UTF_8);
+                nodeEdits.clear();
+            }
+        } catch (Throwable t) {
+            DeepSpaceDeployer.LOGGER.warn("[深空铸造体][编辑器] 写回元素位置失败：{}", t.toString());
+        }
+        return changed;
+    }
+
+    /** 在开始标签里合并 style 属性（有就追加，没有就插在 '>' 前） */
+    private static String setStyleAttr(String tag, String extra) {
+        int close = tag.lastIndexOf('>');
+        if (close < 0) {
+            return tag;
+        }
+        int styleAt = tag.indexOf("style=\"");
+        if (styleAt >= 0 && styleAt < close) {
+            int valueStart = styleAt + 7;
+            int valueEnd = tag.indexOf('"', valueStart);
+            if (valueEnd > 0) {
+                String old = tag.substring(valueStart, valueEnd);
+                String merged = old.isBlank() ? extra : old + (";" ) + extra;
+                return tag.substring(0, valueStart) + merged + tag.substring(valueEnd);
+            }
+        }
+        String insert = " style=\"" + extra + "\"";
+        return tag.substring(0, close) + insert + tag.substring(close);
     }
 
     /**
@@ -1090,6 +1193,56 @@ public class ThemeEditorScreen extends Screen {
             default -> s.append(";color:#E6ECF5");
         }
         return s.toString();
+    }
+
+    // ---------------------------------------------------------------- 已有元素（第 5 步）
+
+    /** 把拖动过的位置写回布局（只改屏幕坐标，不改文档流） */
+    private void applyNodeEdits(com.deepspacedeployer.ui.theme.HtmlNode root) {
+        if (root == null || nodeEdits.isEmpty()) {
+            return;
+        }
+        root.walk(n -> {
+            int[] e = nodeEdits.get(n);
+            if (e != null && n.box != null) {
+                n.box.x = e[0];
+                n.box.y = e[1];
+            }
+        });
+    }
+
+    /** 画选中元素的框 + 标签 */
+    private void drawPickedNode(GuiGraphics g) {
+        var n = pickedNode;
+        if (n == null || n.box == null) {
+            return;
+        }
+        int bx = canvasX + Math.round(n.box.x);
+        int by = canvasY + Math.round(n.box.y);
+        int bw = Math.max(2, Math.round(n.box.w));
+        int bh = Math.max(2, Math.round(n.box.h));
+        drawBorder(g, bx - 1, by - 1, bw + 2, bh + 2, 0xFFFFC24B);
+        String label = (n.tag == null || n.tag.isEmpty() ? "?" : n.tag) + " " + bw + "×" + bh;
+        g.drawString(this.font, label, bx, Math.max(canvasY, by - 10), 0xFFFFC24B, false);
+    }
+
+    /** 在渲染结果里找鼠标下的元素（子元素优先、后画的优先） */
+    private com.deepspacedeployer.ui.theme.HtmlNode hitNode(
+            com.deepspacedeployer.ui.theme.HtmlNode node, float px, float py) {
+        if (node == null || node.box == null || !node.box.visible) {
+            return null;
+        }
+        for (int i = node.children.size() - 1; i >= 0; i--) {
+            var hit = hitNode(node.children.get(i), px, py);
+            if (hit != null) {
+                return hit;
+            }
+        }
+        var b = node.box;
+        if (px >= b.x && px < b.x + b.w && py >= b.y && py < b.y + b.h) {
+            return node;
+        }
+        return null;
     }
 
     // ---------------------------------------------------------------- 文件操作
