@@ -352,5 +352,6 @@
   "gui.deepspacedeployer.editor_components": "Components (click to add)",
   "gui.deepspacedeployer.editor_save_html": "Save to html",
   "gui.deepspacedeployer.editor_pick_image": "Change image…",
-  "gui.deepspacedeployer.editor_import_title": "Import into theme (rename)"
+  "gui.deepspacedeployer.editor_import_title": "Import into theme (rename)",
+  "gui.deepspacedeployer.editor_edit_text": "Edit text"
 }

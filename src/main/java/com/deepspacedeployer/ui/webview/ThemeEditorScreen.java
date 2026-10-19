@@ -77,6 +77,8 @@ public class ThemeEditorScreen extends Screen {
     private Path renameTarget;
     /** 非 null = 正在"导入资源"（从系统选的图），保存时复制进主题目录 */
     private Path importSource;
+    /** 非 null = 正在改某个组件的文字 */
+    private Comp textEditTarget;
 
     /** 正在编辑的文本文件（null = 只看不编） */
     private Path editingFile;
@@ -521,6 +523,12 @@ public class ThemeEditorScreen extends Screen {
                 propRects[4][2] = RIGHT_W - 12; propRects[4][3] = 14;
                 drawMini(g, propRects[4], "动作：" + (sel.action == null || sel.action.isBlank()
                         ? "无" : sel.action));
+
+                cy += 16;
+                propRects[5][0] = x + 5; propRects[5][1] = cy;
+                propRects[5][2] = RIGHT_W - 12; propRects[5][3] = 14;
+                drawMini(g, propRects[5], "改文字："
+                        + (sel.text == null || sel.text.isBlank() ? "(空)" : sel.text));
             }
         }
     }
@@ -528,7 +536,7 @@ public class ThemeEditorScreen extends Screen {
     private static final String[] ADD_LABELS = {"+ 文本", "+ 按钮", "+ 物品框", "+ 图片"};
     private static final String[] ADD_TYPES = {"text", "button", "slot", "image"};
     private final int[][] addRects = new int[4][4];
-    private final int[][] propRects = new int[5][4];
+    private final int[][] propRects = new int[6][4];
 
     private void drawMini(GuiGraphics g, int[] r, String label) {
         g.fill(r[0], r[1], r[0] + r[2], r[1] + r[3], COL_ROW);
@@ -559,6 +567,10 @@ public class ThemeEditorScreen extends Screen {
             if (hit(propRects[2], mouseX, mouseY)) {
                 comps.remove(sel);
                 sel = null;
+                return true;
+            }
+            if (hit(propRects[5], mouseX, mouseY)) {
+                startTextEdit();
                 return true;
             }
             if (hit(propRects[4], mouseX, mouseY)) {
@@ -1405,6 +1417,37 @@ public class ThemeEditorScreen extends Screen {
                 .bounds(this.width / 2 + 4, this.height / 2 + 22, 96, 20).build());
     }
 
+    /**
+     * 改组件的"呈现内容"（文本框/按钮上显示的字）。
+     *
+     * <p>复用重命名那个对话框：{@code textEditTarget} 不为 null 时，保存的是文字而不是文件名。</p>
+     */
+    private void startTextEdit() {
+        if (sel == null) {
+            return;
+        }
+        importSource = null;
+        renameTarget = null;
+        textEditTarget = sel;
+        renaming = true;
+        clearWidgets();
+        renameBox = new EditBox(this.font, 0, 0, 200, 18,
+                Component.translatable("gui.deepspacedeployer.editor_edit_text"));
+        renameBox.setValue(sel.text == null ? "" : sel.text);
+        renameBox.setMaxLength(200);
+        addRenderableWidget(renameBox);
+        addRenderableWidget(Button.builder(Component.translatable("gui.deepspacedeployer.editor_save"),
+                        b -> finishRename())
+                .bounds(this.width / 2 - 100, this.height / 2 + 22, 96, 20).build());
+        addRenderableWidget(Button.builder(Component.translatable("gui.deepspacedeployer.editor_cancel"),
+                        b -> {
+                            renaming = false;
+                            textEditTarget = null;
+                            rebuildFooter();
+                        })
+                .bounds(this.width / 2 + 4, this.height / 2 + 22, 96, 20).build());
+    }
+
     /** "a.b.png" → "a.b" */
     private static String baseName(String fileName) {
         int dot = fileName.lastIndexOf('.');
@@ -1420,7 +1463,9 @@ public class ThemeEditorScreen extends Screen {
     private void finishRename() {
         try {
             String name = renameBox == null ? "" : renameBox.getValue().trim();
-            if (importSource != null && sel != null) {
+            if (textEditTarget != null) {
+                textEditTarget.text = name;
+            } else if (importSource != null && sel != null) {
                 // ★ 导入资源：复制到主题根目录，再把组件指向它
                 String fileName = name + extOf(importSource.getFileName().toString());
                 Path dest = themeDir().resolve(fileName);
@@ -1436,6 +1481,7 @@ public class ThemeEditorScreen extends Screen {
             DeepSpaceDeployer.LOGGER.warn("[深空铸造体][编辑器] 重命名/导入失败：{}", t.toString());
         }
         importSource = null;
+        textEditTarget = null;
         renaming = false;
         renameBox = null;
         reloadEntries();
