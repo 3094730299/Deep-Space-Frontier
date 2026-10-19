@@ -270,4 +270,236 @@ public final class ThemeManager {
         return String.format(Locale.ROOT, "theme=%s root=%s 可用=%s",
                 activeName(), root(), availableThemes());
     }
+
+    // ---------------------------------------------------------------- 元数据 / 图标
+
+    /** index.json 缓存（键 = 主题名；玩家改文件后由 {@link #invalidateMeta()} 清掉） */
+    private static final java.util.Map<String, ThemeMeta> META_CACHE = new java.util.HashMap<>();
+
+    /** 清掉元数据缓存（主题选择界面"刷新"时调） */
+    public static void invalidateMeta() {
+        synchronized (META_CACHE) {
+            META_CACHE.clear();
+        }
+    }
+
+    /**
+     * 读一套主题的 {@code index.json}（名称 / 作者 / 版本 / 介绍 / 图标）。
+     *
+     * <p>读不到、读坏了都返回 {@link ThemeMeta#EMPTY} —— 主题文件是玩家可以随便改的，
+     * 一个坏 JSON 不能影响界面打开。</p>
+     */
+    public static ThemeMeta metaOf(String themeName) {
+        String name = themeName == null ? DEFAULT_THEME : themeName.trim();
+        synchronized (META_CACHE) {
+            ThemeMeta cached = META_CACHE.get(name);
+            if (cached != null) {
+                return cached;
+            }
+        }
+        ThemeMeta meta = ThemeMeta.EMPTY;
+        try {
+            Path file = source(name).dir().resolve("index.json");
+            if (Files.isRegularFile(file)) {
+                meta = ThemeMeta.parse(Files.readString(file));
+            }
+        } catch (Throwable t) {
+            meta = ThemeMeta.EMPTY;
+        }
+        synchronized (META_CACHE) {
+            META_CACHE.put(name, meta);
+        }
+        return meta;
+    }
+
+    /**
+     * 一套主题的<b>图标字节</b>（PNG）。
+     *
+     * <p>路径来自 {@code index.json} 的 {@code icon}（默认 {@code icon.png}），
+     * 相对主题文件夹、和 index.json 同级。自定义主题没放图标时，
+     * {@link ThemeSource#read} 会自动回退到 {@code theme/default/} 的同名文件，
+     * 所以默认主题放了 {@code icon.png}，所有没配图标的主题都会显示它。</p>
+     *
+     * @return PNG 字节；找不到返回 null（界面自己画占位方块）
+     */
+    public static byte[] iconBytes(String themeName) {
+        String name = themeName == null ? DEFAULT_THEME : themeName.trim();
+        try {
+            String icon = metaOf(name).iconFile();
+            return source(name).read(icon, "");
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    // ---------------------------------------------------------------- 启用列表（资源包式）
+
+    /** 已启用的主题（按配置里的顺序；过滤掉已经不存在的；空表 = 只有 default） */
+    public static List<String> enabledThemes() {
+        List<String> available = availableThemes();
+        List<String> out = new ArrayList<>();
+        String raw = readConfig(Config.UI_THEME_LIST, "");
+        for (String part : raw.split("[,;]")) {
+            String n = part.trim();
+            if (!n.isEmpty() && available.contains(n) && !out.contains(n)) {
+                out.add(n);
+            }
+        }
+        if (out.isEmpty()) {
+            out.add(DEFAULT_THEME);
+        }
+        return out;
+    }
+
+    /** 写回启用列表（同时把 {@code ui.theme} 同步成"最后一个"，保持旧配置兼容） */
+    public static void setEnabledThemes(List<String> names) {
+        List<String> clean = new ArrayList<>();
+        for (String n : names) {
+            if (n != null && !n.isBlank() && !clean.contains(n.trim())) {
+                clean.add(n.trim());
+            }
+        }
+        if (clean.isEmpty()) {
+            clean.add(DEFAULT_THEME);
+        }
+        writeConfig(Config.UI_THEME_LIST, String.join(",", clean));
+        writeConfig(Config.UI_THEME, clean.get(clean.size() - 1));
+    }
+
+    // ---------------------------------------------------------------- 高级：每界面指定
+
+    /** 每个界面的主题指定（key = {@code WebScreenId.key()}）；空表 = 没开高级设置 */
+    public static java.util.Map<String, String> assignments() {
+        java.util.Map<String, String> out = new java.util.LinkedHashMap<>();
+        String raw = readConfig(Config.UI_THEME_ASSIGN, "");
+        if (raw.isBlank()) {
+            return out;
+        }
+        List<String> available = availableThemes();
+        for (String part : raw.split("[;]")) {
+            int eq = part.indexOf('=');
+            if (eq <= 0) {
+                continue;
+            }
+            String key = part.substring(0, eq).trim();
+            String theme = part.substring(eq + 1).trim();
+            if (!key.isEmpty() && available.contains(theme)) {
+                out.put(key, theme);
+            }
+        }
+        return out;
+    }
+
+    /** 写回高级指定（空表 = 关掉高级设置，所有界面回到启用列表的最后一个） */
+    public static void setAssignments(java.util.Map<String, String> assign) {
+        StringBuilder sb = new StringBuilder();
+        for (var e : assign.entrySet()) {
+            if (e.getKey() == null || e.getValue() == null || e.getValue().isBlank()) {
+                continue;
+            }
+            if (sb.length() > 0) {
+                sb.append(';');
+            }
+            sb.append(e.getKey().trim()).append('=').append(e.getValue().trim());
+        }
+        writeConfig(Config.UI_THEME_ASSIGN, sb.toString());
+    }
+
+    public static boolean hasAssignments() {
+        return !assignments().isEmpty();
+    }
+
+    // ---------------------------------------------------------------- 生效主题
+
+    /**
+     * 某个界面<b>实际</b>该用哪套主题。
+     *
+     * <p>规则（老板 2026-10-18 定）：</p>
+     * <ol>
+     *   <li>开了"高级界面设置"（{@code ui.theme_assign} 非空）→ 该界面指定的主题；
+     *       没指定 / 指定的不存在 → {@code default}；</li>
+     *   <li>没开高级设置 → 启用列表的<b>最后一个</b>。</li>
+     * </ol>
+     *
+     * @param screenKey {@code WebScreenId.key()}，如 {@code buyer}
+     */
+    public static String themeFor(String screenKey) {
+        java.util.Map<String, String> assign = assignments();
+        if (!assign.isEmpty()) {
+            String t = screenKey == null ? null : assign.get(screenKey);
+            return t == null ? DEFAULT_THEME : t;
+        }
+        List<String> en = enabledThemes();
+        return en.get(en.size() - 1);
+    }
+
+    /**
+     * 启用一套主题（资源包式的"点左边的加进右边"）。
+     *
+     * <p>⚠️ 老板定的规则：<b>启用其他主题会清空高级界面设置</b> ——
+     * 否则"某个界面还指着别的主题"和"所有界面都由新主题渲染"会互相打架。</p>
+     */
+    public static boolean enable(String name) {
+        if (name == null || !availableThemes().contains(name.trim())) {
+            return false;
+        }
+        String n = name.trim();
+        setAssignments(java.util.Map.of());          // 清空高级设置
+        List<String> list = enabledThemes();
+        list.remove(n);
+        list.add(n);                                  // 放到最后 = 生效
+        setEnabledThemes(list);
+        return true;
+    }
+
+    /**
+     * 禁用一套主题。
+     *
+     * <p>规则：它负责的界面<b>回落到 default</b>（把高级设置里指向它的条目删掉）；
+     * 如果它是"最后一个"（正在全局生效），生效的变成剩下那个（或 default）。</p>
+     */
+    public static boolean disable(String name) {
+        if (name == null) {
+            return false;
+        }
+        String n = name.trim();
+        List<String> list = enabledThemes();
+        if (!list.contains(n)) {
+            return false;
+        }
+        list.remove(n);
+        if (list.isEmpty()) {
+            list.add(DEFAULT_THEME);
+        }
+        // 高级设置里指向它的条目 → 删掉（= 该界面回到 default）
+        java.util.Map<String, String> assign = assignments();
+        boolean changed = assign.values().removeIf(n::equals);
+        if (changed) {
+            setAssignments(assign);
+        }
+        setEnabledThemes(list);
+        return true;
+    }
+
+    // ---------------------------------------------------------------- 配置读写小工具
+
+    private static String readConfig(net.neoforged.neoforge.common.ModConfigSpec.ConfigValue<String> value,
+                                     String fallback) {
+        try {
+            String v = value.get();
+            return v == null ? fallback : v;
+        } catch (Throwable t) {
+            return fallback;
+        }
+    }
+
+    private static void writeConfig(net.neoforged.neoforge.common.ModConfigSpec.ConfigValue<String> value,
+                                    String v) {
+        try {
+            value.set(v);
+            value.save();
+        } catch (Throwable t) {
+            DeepSpaceDeployer.LOGGER.warn("[深空铸造体][主题] 保存主题配置失败：{}", t.toString());
+        }
+    }
 }

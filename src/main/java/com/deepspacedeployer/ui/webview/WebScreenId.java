@@ -51,6 +51,16 @@ public enum WebScreenId {
         return file;
     }
 
+    /**
+     * 配置里用的短名（= 文件名去掉 {@code .html}）。
+     *
+     * <p>"高级界面设置"就是按这个 key 存 {@code ui.theme_assign} 的：
+     * {@code buyer=我的主题;market=默认主题}。</p>
+     */
+    public String key() {
+        return file.endsWith(".html") ? file.substring(0, file.length() - 5) : file;
+    }
+
     public String cnName() {
         return cnName;
     }
@@ -68,6 +78,18 @@ public enum WebScreenId {
     /** 登记表里所有界面（自检用） */
     public static WebScreenId[] all() {
         return values();
+    }
+
+    /**
+     * <b>真正会用主题渲染</b>的界面（给"高级界面设置"列出来用）。
+     *
+     * <p>排除 {@link #CHOICE}：主题选择界面从 0.1.6 起是原生实现，不再读 html，
+     * 把它列进"这个界面用哪套主题"只会让玩家困惑。</p>
+     */
+    public static WebScreenId[] themeable() {
+        return java.util.Arrays.stream(values())
+                .filter(id -> id != CHOICE)
+                .toArray(WebScreenId[]::new);
     }
 
     /**

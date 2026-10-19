@@ -144,6 +144,34 @@ public final class Config {
             .comment("「界面主题」按钮的 Y 坐标（-1 = 自动放底部居中；拖拽/中键摆放会自动写入）")
             .defineInRange("ui.theme_button_y", -1, -10000, 10000);
 
+    /**
+     * <b>已启用的主题列表</b>（顺序有意义：<b>最后一个</b>渲染那些没有单独指定的界面）。
+     *
+     * <p>资源包式的"启用"逻辑：在主题选择界面里点左边的主题 → 它跑到右边（启用）；
+     * 点右边已启用的 → 取消。逗号分隔，由主题选择界面自己维护，手改也可以。</p>
+     */
+    public static final ModConfigSpec.ConfigValue<String> UI_THEME_LIST = BUILDER
+            .comment("已启用的主题（逗号分隔；最后一个负责渲染没有单独指定的界面）",
+                    "由「界面主题」界面自动维护，一般不用手改")
+            .define("ui.theme_list", "default");
+
+    /**
+     * <b>高级：每个界面单独指定主题</b>。
+     *
+     * <p>格式 {@code 界面key=主题名;界面key=主题名}，例如
+     * {@code buyer=我的主题;market=默认主题}。界面 key 见 {@code WebScreenId.key()}
+     * （{@code factory_terminal} / {@code buyer} / … ）。</p>
+     *
+     * <p><b>非空时</b>：没列出来的界面一律用 {@code default}（这正是"高级设置"的语义）；
+     * <b>为空时</b>：所有界面用 {@link #UI_THEME_LIST} 的最后一个。</p>
+     *
+     * <p>⚠️ 在主题选择界面里"启用其他主题"会<b>清空</b>这一项（老板 2026-10-18 定的规则）。</p>
+     */
+    public static final ModConfigSpec.ConfigValue<String> UI_THEME_ASSIGN = BUILDER
+            .comment("高级界面设置：界面key=主题名，用分号分隔（非空时未列出的界面一律用 default）",
+                    "由「界面主题 → 高级界面设置」自动维护")
+            .define("ui.theme_assign", "");
+
     /** SPEC 必须在所有配置项之后（下面这行必须在最后） */
     public static final ModConfigSpec SPEC = BUILDER.build();
 

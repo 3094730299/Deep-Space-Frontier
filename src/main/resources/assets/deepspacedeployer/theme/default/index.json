@@ -1,6 +1,7 @@
 {
   "name": "默认主题",
   "author": "深空铸造体",
-  "version": "2.0.0",
-  "description": "模组内置的预设界面：深色工业风，十个界面共用一份 theme.css。想改就整份复制到 custom/ 里。"
+  "version": "2.1.0",
+  "description": "模组内置的预设界面：深色工业风，所有界面共用一份 base.css + theme.css。想改就整份复制到 custom/ 里。",
+  "icon": "icon.png"
 }

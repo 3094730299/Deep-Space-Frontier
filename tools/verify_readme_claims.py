@@ -211,6 +211,25 @@ def main():
          'JAR_PREFIX + "*.jar"' in ins and "清理旧版本" in ins),
     ]
 
+    # 主题渲染的"画布交接"（2026-10-18 真踩过，症状特别迷惑）
+    #
+    # 布局用的是「只量不画」的画布，真正绘制必须换成绑定 GuiGraphics 的画布。
+    # 漏掉那一步的话：界面元素全都在、日志一切正常，但屏幕上只有一层压暗的灰 ——
+    # 而且离线 renderThemes 用的是另一套画布，**跑预览完全看不出来**。
+    wv = read(ROOT, "src", "main", "java", "com", "deepspacedeployer",
+              "ui", "webview", "WebViewScreen.java")
+    checks += [
+        ("游戏内绘制时把「这一帧的画布」交给主题上下文（漏了 = 界面全空白）",
+         "ctx.render(canvas)" in wv),
+        ("创造模式背包也挂主题按钮（CreativeModeInventoryScreen 和生存是兩個类）",
+         "CreativeModeInventoryScreen" in read(ROOT, "src", "main", "java",
+                                              "com", "deepspacedeployer",
+                                              "client", "ClientSetup.java")),
+        ("主题选择界面按界面指定主题（高级设置走 ui.theme_assign）",
+         "ui.theme_assign" in read(ROOT, "src", "main", "java", "com",
+                                   "deepspacedeployer", "Config.java")),
+    ]
+
     lt = os.path.join(D, "loot_table", "blocks", "printer_part.json")
     checks.append(("结构件掉落表为空（只掉控制器）",
                    os.path.exists(lt) and json.load(io.open(lt, encoding="utf-8"))["pools"] == []))
@@ -274,6 +293,25 @@ def main():
                            sum(1 for n in names if "worldgen" in n) > 0))
     else:
         checks.append(("构建产物存在（先跑 gradle clean build）", False))
+
+    # ★ 铁律 15（老板 2026-10-18）：项目根目录必须有一份和 build/libs 一样的 jar
+    #
+    # 不做的话，装机时容易从 build/libs 里拿到旧版本（真发生过）。
+    # 允许 "刚 clean 完还没 build" 这种中间态吗？不允许 —— 这条的意义就是逼着每次
+    # build 之后都落一份到根目录（`copyJarToRoot` 会自动做）。
+    _root_name = os.path.basename(JAR)
+    _root_jar = os.path.join(ROOT, _root_name)
+    _same = False
+    if os.path.exists(_root_jar):
+        import hashlib
+        def _sha(p):
+            h = hashlib.sha256()
+            with open(p, "rb") as fh:
+                for chunk in iter(lambda: fh.read(1 << 20), b""):
+                    h.update(chunk)
+            return h.hexdigest()
+        _same = _sha(_root_jar) == _sha(JAR)
+    checks.append(("★ 铁律15：项目根目录有当前版本的 jar（与 build/libs 一致）", _same))
 
     print("%-52s %s" % ("断言", "结果"))
     print("-" * 66)
