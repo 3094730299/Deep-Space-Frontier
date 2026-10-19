@@ -168,6 +168,23 @@ public final class ModItems {
             ITEMS.register("universal_terminal",
                     () -> new BlockItem(ModBlocks.UNIVERSAL_TERMINAL.get(), new Item.Properties()));
 
+    /** 精构仪：装饰方块（1×1×5 多方块的主体） */
+    public static final DeferredHolder<Item, BlockItem> PRECISION_FABRICATOR =
+            ITEMS.register("precision_fabricator",
+                    () -> new BlockItem(ModBlocks.PRECISION_FABRICATOR.get(), new Item.Properties()));
+
+    /**
+     * 精构仪多方块的部件格物品。
+     *
+     * <p>和 {@link #PRINTER_PART} 一样：<b>不能单独放置</b>
+     * （{@code PrecisionFabricatorPartBlock.getStateForPlacement} 返回 null）、
+     * 也不在创造模式物品栏里；注册它只是为了让掉落表和注册表完整，
+     * 万一被指令取出也不会出现"方块没有对应物品"的怪状态。</p>
+     */
+    public static final DeferredHolder<Item, BlockItem> PRECISION_FABRICATOR_PART =
+            ITEMS.register("precision_fabricator_part",
+                    () -> new BlockItem(ModBlocks.PRECISION_FABRICATOR_PART.get(), new Item.Properties()));
+
     /**
      * 载具打印机多方块结构的部件格物品。
      *

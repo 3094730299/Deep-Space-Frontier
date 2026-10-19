@@ -334,5 +334,9 @@
   "gui.deepspacedeployer.idle_reason.2": "bank card not bound yet (right-click it)",
   "gui.deepspacedeployer.idle_reason.3": "auto-collect is turned off",
   "gui.deepspacedeployer.idle_reason.4": "a full block is directly above",
-  "gui.deepspacedeployer.idle_reason.5": "nothing in the input slots is bought here"
+  "gui.deepspacedeployer.idle_reason.5": "nothing in the input slots is bought here",
+  "block.deepspacedeployer.precision_fabricator": "Precision Fabricator",
+  "item.deepspacedeployer.precision_fabricator": "Precision Fabricator",
+  "block.deepspacedeployer.precision_fabricator_part": "Precision Fabricator (Part)",
+  "item.deepspacedeployer.precision_fabricator_part": "Precision Fabricator (Part)"
 }

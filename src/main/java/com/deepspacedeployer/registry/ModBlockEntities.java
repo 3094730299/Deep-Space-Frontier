@@ -37,6 +37,12 @@ public final class ModBlockEntities {
                     com.deepspacedeployer.blockentity.UniversalTerminalBlockEntity::new,
                     ModBlocks.UNIVERSAL_TERMINAL.get()).build(null));
 
+    /** 精构仪（装饰方块）的方块实体 —— 只为了让 GeckoLib 有东西可画 */
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<com.deepspacedeployer.blockentity.PrecisionFabricatorBlockEntity>>
+            PRECISION_FABRICATOR = BLOCK_ENTITIES.register("precision_fabricator", () -> BlockEntityType.Builder.of(
+                    com.deepspacedeployer.blockentity.PrecisionFabricatorBlockEntity::new,
+                    ModBlocks.PRECISION_FABRICATOR.get()).build(null));
+
     public static void register(IEventBus modEventBus) {
         BLOCK_ENTITIES.register(modEventBus);
     }

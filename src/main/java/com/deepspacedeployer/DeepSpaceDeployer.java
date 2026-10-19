@@ -60,6 +60,9 @@ public class DeepSpaceDeployer {
         // ---- 管理员指令 /dsd reloadblueprints ----
         NeoForge.EVENT_BUS.addListener(DeepSpaceDeployer::onRegisterCommands);
 
+        // ---- 空卡自动挂失（老板 2026-10-19：空卡 30 游戏日自动按"第三张卡"处理）----
+        NeoForge.EVENT_BUS.addListener(DeepSpaceDeployer::onServerTick);
+
         // ---- 客户端专属：界面注册（服务器不会执行到这里）----
         if (FMLEnvironment.dist == Dist.CLIENT) {
             ClientSetup.init(modEventBus);
@@ -76,6 +79,28 @@ public class DeepSpaceDeployer {
         event.addListener(new ShopReloadListener());
     }
 
+    /**
+     * 服务器 tick：每 200 tick（≈10 秒）扫一次空卡，空满 30 游戏日就自动挂失。
+     *
+     * <p>老板 2026-10-19：空卡 30 游戏日自动按"第三张卡"处理（= 挂失 → 变废卡、清数据）。
+     * 30 游戏日 = 720,000 tick 的量级，没必要每 tick 扫，10 秒一次足够准。</p>
+     */
+    private static void onServerTick(net.neoforged.neoforge.event.tick.ServerTickEvent.Post event) {
+        net.minecraft.server.MinecraftServer server = event.getServer();
+        if (server.getTickCount() % 200 != 0) {
+            return;
+        }
+        try {
+            long day = com.deepspacedeployer.economy.CardRegistry.gameDay(server);
+            int voided = com.deepspacedeployer.economy.CardRegistry.get(server).sweepExpired(server, day);
+            if (voided > 0) {
+                LOGGER.info("[深空铸造体] 空卡自动挂失：{} 张（游戏日 {}）", voided, day);
+            }
+        } catch (Throwable t) {
+            LOGGER.warn("[深空铸造体] 空卡扫描失败：{}", t.toString());
+        }
+    }
+
     /** 服务器起来了就读一遍物理蓝图（两个文件夹），并打印联动探测报告 */
     private static void onServerStarted(net.neoforged.neoforge.event.server.ServerStartedEvent event) {
         int count = com.deepspacedeployer.factory.PhysicsBlueprintLibrary.refresh(event.getServer());
@@ -86,6 +111,5 @@ public class DeepSpaceDeployer {
     }
 
     private static void onRegisterCommands(net.neoforged.neoforge.event.RegisterCommandsEvent event) {
-        FactoryCommands.register(event.getDispatcher());
-    }
+        FactoryCommands.register(event.getDispatcher());    }
 }

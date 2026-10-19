@@ -87,6 +87,12 @@ public final class ClientSetup {
                 com.deepspacedeployer.client.gecko.MachineGeoRenderer::new);
         com.deepspacedeployer.DeepSpaceDeployer.LOGGER.info(
                 "[深空铸造体] 已启用 GeckoLib 渲染：收购投送机 + 载具打印机");
+        // 精构仪（装饰方块）
+        event.registerBlockEntityRenderer(
+                com.deepspacedeployer.registry.ModBlockEntities.PRECISION_FABRICATOR.get(),
+                com.deepspacedeployer.client.gecko.PrecisionFabricatorRenderer::new);
+        com.deepspacedeployer.DeepSpaceDeployer.LOGGER.info(
+                "[深空铸造体] 已启用 GeckoLib 渲染：精构仪");
     }
 
     private static void onRegisterMenuScreens(RegisterMenuScreensEvent event) {

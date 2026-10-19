@@ -1,0 +1,5 @@
+{
+  "type": "minecraft:block",
+  "pools": [],
+  "random_sequence": "deepspacedeployer:blocks/precision_fabricator_part"
+}

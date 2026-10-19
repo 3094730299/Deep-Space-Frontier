@@ -334,5 +334,9 @@
   "gui.deepspacedeployer.idle_reason.2": "银行卡还没绑定账户（右键卡绑定）",
   "gui.deepspacedeployer.idle_reason.3": "自动收购已关闭",
   "gui.deepspacedeployer.idle_reason.4": "头顶被整块方块挡住",
-  "gui.deepspacedeployer.idle_reason.5": "输入格里没有这家公司收的东西"
+  "gui.deepspacedeployer.idle_reason.5": "输入格里没有这家公司收的东西",
+  "block.deepspacedeployer.precision_fabricator": "精构仪",
+  "item.deepspacedeployer.precision_fabricator": "精构仪",
+  "block.deepspacedeployer.precision_fabricator_part": "精构仪（结构件）",
+  "item.deepspacedeployer.precision_fabricator_part": "精构仪（结构件）"
 }

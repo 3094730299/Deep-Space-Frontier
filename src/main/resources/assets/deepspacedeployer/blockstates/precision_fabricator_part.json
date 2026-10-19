@@ -1,0 +1,52 @@
+{
+  "variants": {
+    "facing=north,slot=left_2": {
+      "model": "deepspacedeployer:block/precision_fabricator_part"
+    },
+    "facing=east,slot=left_2": {
+      "model": "deepspacedeployer:block/precision_fabricator_part"
+    },
+    "facing=south,slot=left_2": {
+      "model": "deepspacedeployer:block/precision_fabricator_part"
+    },
+    "facing=west,slot=left_2": {
+      "model": "deepspacedeployer:block/precision_fabricator_part"
+    },
+    "facing=north,slot=left_1": {
+      "model": "deepspacedeployer:block/precision_fabricator_part"
+    },
+    "facing=east,slot=left_1": {
+      "model": "deepspacedeployer:block/precision_fabricator_part"
+    },
+    "facing=south,slot=left_1": {
+      "model": "deepspacedeployer:block/precision_fabricator_part"
+    },
+    "facing=west,slot=left_1": {
+      "model": "deepspacedeployer:block/precision_fabricator_part"
+    },
+    "facing=north,slot=right_1": {
+      "model": "deepspacedeployer:block/precision_fabricator_part"
+    },
+    "facing=east,slot=right_1": {
+      "model": "deepspacedeployer:block/precision_fabricator_part"
+    },
+    "facing=south,slot=right_1": {
+      "model": "deepspacedeployer:block/precision_fabricator_part"
+    },
+    "facing=west,slot=right_1": {
+      "model": "deepspacedeployer:block/precision_fabricator_part"
+    },
+    "facing=north,slot=right_2": {
+      "model": "deepspacedeployer:block/precision_fabricator_part"
+    },
+    "facing=east,slot=right_2": {
+      "model": "deepspacedeployer:block/precision_fabricator_part"
+    },
+    "facing=south,slot=right_2": {
+      "model": "deepspacedeployer:block/precision_fabricator_part"
+    },
+    "facing=west,slot=right_2": {
+      "model": "deepspacedeployer:block/precision_fabricator_part"
+    }
+  }
+}

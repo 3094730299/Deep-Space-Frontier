@@ -6,6 +6,8 @@
     "deepspacedeployer:buyer",
     "deepspacedeployer:market",
     "deepspacedeployer:universal_terminal",
-    "deepspacedeployer:printer_part"
+    "deepspacedeployer:printer_part",
+    "deepspacedeployer:precision_fabricator",
+    "deepspacedeployer:precision_fabricator_part"
   ]
 }

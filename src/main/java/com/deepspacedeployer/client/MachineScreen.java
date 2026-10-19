@@ -648,9 +648,7 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
                 addRenderableWidget(this.autoSellButton);
                 addRenderableWidget(button("gui.deepspacedeployer.buyer_sell_now", x + 130, y + 96, 100, 2));
                 // 「查看账户余额」按钮删掉了（老板说多余）：账户 / 余额 / 等级声望本来就一直显示在顶上
-                // 资金转化入口（老板要求从商店搬到收购站）
-                addRenderableWidget(button("gui.deepspacedeployer.money_panel", x + 8, y + 118, 108,
-                        MachineMenu.ACTION_OPEN_TRANSFER));
+                // 「资金转化」按钮删掉了（老板 2026-10-19：换成货币银行，收购站不再有入口）
                 // 收购清单从 y+140 开始画（在按钮下面），见 renderSellList
                 this.lastAutoSell = this.menu.autoSell();
             }
