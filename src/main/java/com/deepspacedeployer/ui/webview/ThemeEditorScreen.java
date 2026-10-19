@@ -66,6 +66,13 @@ public class ThemeEditorScreen extends Screen {
     private final List<Path> entries = new ArrayList<>();
     private int selected = -1;
     private float scroll;
+    /** 左栏"文件"区到哪儿为止（下面是组件库） */
+    private int filesBottom;
+    /** 右栏属性的滚动量 / 内容总高 */
+    private float propScroll;
+    private int propContentH;
+    /** 正在从组件库拖出来的组件类型（null = 没在拖） */
+    private String dragNewType;
 
     /** 右键菜单（屏幕坐标；null = 没打开） */
     private int menuX = -1;
@@ -112,6 +119,8 @@ public class ThemeEditorScreen extends Screen {
     // ---------------- 主题里已有元素的编辑（需要渲染器提供源码位置） ----------------
     /** 当前预览的文档（每帧重建，用来做命中测试） */
     private com.deepspacedeployer.ui.theme.ThemeDocument previewDoc;
+    /** 预览文档对应哪个文件（同文件就不重建，否则选中的节点引用会失效） */
+    private Path previewFile;
     /** 画布上选中的已有元素 */
     private com.deepspacedeployer.ui.theme.HtmlNode pickedNode;
     /** 已有元素被拖到哪儿：key = 节点，value = {x, y, w, h} */
@@ -162,6 +171,9 @@ public class ThemeEditorScreen extends Screen {
         super.init();
         reloadEntries();
         rebuildFooter();
+        int top = 26;
+        int bottom = this.height - 32;
+        filesBottom = top + Math.max(80, (bottom - top) * 55 / 100);
     }
 
     private void rebuildFooter() {
@@ -253,9 +265,13 @@ public class ThemeEditorScreen extends Screen {
         int top = 26;
         int bottom = this.height - 32;
 
-        drawLeft(g, mouseX, mouseY, top, bottom);
+        if (filesBottom <= top) {
+            filesBottom = top + Math.max(80, (bottom - top) * 55 / 100);
+        }
+        drawFiles(g, mouseX, mouseY, top, filesBottom);
+        drawLibrary(g, mouseX, mouseY, filesBottom + 18, bottom);
         drawCenter(g, top, bottom);
-        drawRight(g, mouseX, mouseY, top, bottom);
+        drawRightScrolled(g, mouseX, mouseY, top, bottom);
 
         for (Renderable r : this.renderables) {
             r.render(g, mouseX, mouseY, partialTick);
@@ -269,7 +285,7 @@ public class ThemeEditorScreen extends Screen {
         }
     }
 
-    private void drawLeft(GuiGraphics g, int mouseX, int mouseY, int top, int bottom) {
+    private void drawFiles(GuiGraphics g, int mouseX, int mouseY, int top, int bottom) {
         int x = 6;
         g.fill(x, top - 14, x + LEFT_W, bottom, COL_PANEL);
         g.fill(x, top - 14, x + LEFT_W, top, COL_HEAD);
@@ -291,6 +307,56 @@ public class ThemeEditorScreen extends Screen {
             y += ROW_H;
         }
         g.disableScissor();
+    }
+
+    /**
+     * 左下：组件库（点一下加到画布中间，或者按住拖到画布上要放的位置）。
+     *
+     * <p>老板要求"左上文件管理、左下组件库"，所以加组件的入口放这儿，右栏只放属性。</p>
+     */
+    private void drawLibrary(GuiGraphics g, int mouseX, int mouseY, int top, int bottom) {
+        int x = 6;
+        g.fill(x, top - 14, x + LEFT_W, bottom, COL_PANEL);
+        g.fill(x, top - 14, x + LEFT_W, top, COL_HEAD);
+        g.drawString(this.font, Component.translatable("gui.deepspacedeployer.editor_components"),
+                x + 4, top - 11, COL_TEXT, false);
+        drawBorder(g, x, top - 14, LEFT_W, bottom - top + 14, COL_BORDER);
+
+        int cy = top + 4;
+        for (int i = 0; i < ADD_LABELS.length; i++) {
+            addRects[i][0] = x + 5;
+            addRects[i][1] = cy;
+            addRects[i][2] = LEFT_W - 12;
+            addRects[i][3] = 16;
+            boolean hover = mouseX >= addRects[i][0] && mouseX < addRects[i][0] + addRects[i][2]
+                    && mouseY >= cy && mouseY < cy + 16;
+            g.fill(addRects[i][0], cy, addRects[i][0] + addRects[i][2], cy + 16,
+                    hover ? COL_ROW_HOVER : COL_ROW);
+            drawBorder(g, addRects[i][0], cy, addRects[i][2], 16, COL_BORDER);
+            g.drawString(this.font, ADD_LABELS[i], addRects[i][0] + 4, cy + 4, COL_TEXT, false);
+            cy += 19;
+        }
+        g.drawString(this.font, Component.translatable("gui.deepspacedeployer.editor_drag_hint"),
+                x + 5, Math.min(bottom - 12, cy + 4), COL_DIM, false);
+    }
+
+    /** 右栏：先裁到面板范围，再把内容按 propScroll 上滚 */
+    private void drawRightScrolled(GuiGraphics g, int mouseX, int mouseY, int top, int bottom) {
+        int x = this.width - RIGHT_W - 6;
+        g.enableScissor(x, top - 14, x + RIGHT_W, bottom);
+        drawRight(g, mouseX, mouseY, top, bottom);
+        g.disableScissor();
+
+        // 滚动条（内容比面板高时才画）
+        int viewH = bottom - (top - 14);
+        if (propContentH > viewH && viewH > 0) {
+            float max = propContentH - viewH;
+            float ratio = Math.max(0f, Math.min(1f, propScroll / max));
+            int barH = Math.max(12, viewH * viewH / propContentH);
+            int barY = top - 14 + Math.round((viewH - barH) * ratio);
+            g.fill(x + RIGHT_W - 3, top - 14, x + RIGHT_W - 1, bottom, 0xFF0E1320);
+            g.fill(x + RIGHT_W - 3, barY, x + RIGHT_W - 1, barY + barH, COL_DIM);
+        }
     }
 
     private void drawRow(GuiGraphics g, int x, int y, String text, int color, boolean sel,
@@ -395,7 +461,15 @@ public class ThemeEditorScreen extends Screen {
     private void drawHtmlPreview(GuiGraphics g, Path p, int x, int top, int w, int h) {
         try {
             String rel = relOf(p);
-            ThemeDocument doc = ThemeDocument.load(source, rel, null);
+            // ★ 文档要缓存：以前每帧重建，导致"选中的节点"下一帧就变成了旧对象，
+            //   拖动/选中全部失效（老板 2026-10-20 反馈"原有元素选不中"就是这个）。
+            if (previewDoc == null || previewFile == null || !previewFile.equals(p)) {
+                previewDoc = ThemeDocument.load(source, rel, null);
+                previewFile = p;
+                pickedNode = null;
+                nodeEdits.clear();
+            }
+            ThemeDocument doc = previewDoc;
             if (doc == null || doc.root == null) {
                 g.drawString(this.font, "HTML 解析失败", x + 6, top + 6, COL_BAD, false);
                 return;
@@ -456,7 +530,7 @@ public class ThemeEditorScreen extends Screen {
         drawBorder(g, x, top - 14, RIGHT_W, bottom - top + 14, COL_BORDER);
 
         Path p = selectedPath();
-        int y = top + 4;
+        int y = top + 4 - Math.round(propScroll);
         if (p == null) {
             g.drawString(this.font, "—", x + 5, y, COL_DIM, false);
             return;
@@ -487,24 +561,10 @@ public class ThemeEditorScreen extends Screen {
 
         // ---------------- 组件面板（选中 html 时才出现） ----------------
         if (compFile != null) {
-            int cy = top + 74;
+            int cy = top + 74 - Math.round(propScroll);
             g.drawString(this.font, Component.translatable("gui.deepspacedeployer.editor_components"),
                     x + 5, cy, COL_ACCENT, false);
             cy += 12;
-            for (int i = 0; i < ADD_LABELS.length; i++) {
-                addRects[i][0] = x + 5;
-                addRects[i][1] = cy;
-                addRects[i][2] = RIGHT_W - 12;
-                addRects[i][3] = 14;
-                boolean hover = mouseX >= addRects[i][0] && mouseX < addRects[i][0] + addRects[i][2]
-                        && mouseY >= cy && mouseY < cy + 14;
-                g.fill(addRects[i][0], cy, addRects[i][0] + addRects[i][2], cy + 14,
-                        hover ? COL_ROW_HOVER : COL_ROW);
-                drawBorder(g, addRects[i][0], cy, addRects[i][2], 14, COL_BORDER);
-                g.drawString(this.font, ADD_LABELS[i], addRects[i][0] + 4, cy + 3, COL_TEXT, false);
-                cy += 16;
-            }
-
             if (sel != null) {
                 cy += 4;
                 g.drawString(this.font, "类型：" + sel.type, x + 5, cy, COL_TEXT, false);
@@ -567,6 +627,7 @@ public class ThemeEditorScreen extends Screen {
                     cy += 15;
                 }
             }
+            propContentH = cy - (top - 14) + 8;
         }
     }
 
@@ -742,7 +803,18 @@ public class ThemeEditorScreen extends Screen {
 
         int top = 26;
         int bottom = this.height - 32;
-        if (mouseX >= 6 && mouseX < 6 + LEFT_W && mouseY >= top && mouseY < bottom) {
+        // 左下组件库：点一下 = 加到画布中间；按住拖到画布 = 放到鼠标位置
+        if (mouseX >= 6 && mouseX < 6 + LEFT_W && mouseY >= filesBottom + 18 && mouseY < bottom) {
+            for (int i = 0; i < ADD_LABELS.length; i++) {
+                if (hit(addRects[i], mouseX, mouseY)) {
+                    dragNewType = ADD_TYPES[i];
+                    return true;
+                }
+            }
+            return true;
+        }
+        // 左上文件区
+        if (mouseX >= 6 && mouseX < 6 + LEFT_W && mouseY >= top && mouseY < filesBottom) {
             int rowIndex = rowIndexAt(mouseY);
             if (rowIndex == -2) {                    // ".."
                 dir = parentDir(dir);
@@ -792,6 +864,17 @@ public class ThemeEditorScreen extends Screen {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (dragNewType != null) {
+            String type = dragNewType;
+            dragNewType = null;
+            addComp(type);
+            if (sel != null
+                    && mouseX >= canvasX && mouseX <= canvasX + canvasW
+                    && mouseY >= canvasY && mouseY <= canvasY + canvasH) {
+                sel.x = (int) Math.round(mouseX) - canvasX - sel.w / 2;
+                sel.y = (int) Math.round(mouseY) - canvasY - sel.h / 2;
+            }
+        }
         if (compFile != null) {
             compMouseReleased();
         }
@@ -821,6 +904,13 @@ public class ThemeEditorScreen extends Screen {
             int rows = entries.size() + (dir.isEmpty() ? 0 : 1);
             float max = Math.max(0, rows * ROW_H - (bottom - top - 4));
             scroll = (float) Math.max(0, Math.min(max, scroll - scrollY * 12));
+            return true;
+        }
+        int xR = this.width - RIGHT_W - 6;
+        if (mouseX >= xR && mouseX < xR + RIGHT_W) {
+            int viewH = bottom - (top - 14);
+            float max = Math.max(0, propContentH - viewH);
+            propScroll = (float) Math.max(0, Math.min(max, propScroll - scrollY * 16));
             return true;
         }
         Path p = selectedPath();
@@ -858,6 +948,10 @@ public class ThemeEditorScreen extends Screen {
         compFile = null;
         comps.clear();
         sel = null;
+        previewDoc = null;
+        previewFile = null;
+        pickedNode = null;
+        nodeEdits.clear();
         if (isTextEditable(p)) {
             try {
                 buffer = new ThemeTextBuffer();
@@ -1314,6 +1408,7 @@ public class ThemeEditorScreen extends Screen {
             t = t.substring(0, at) + sb + t.substring(at);
             Files.writeString(compFile, t, StandardCharsets.UTF_8);
             int moved = saveNodeEdits();
+            previewDoc = null;                       // 文件改了，下一帧重新读
             DeepSpaceDeployer.LOGGER.info("[深空铸造体][编辑器] 已保存 {} 个组件、{} 个元素位置到 {}",
                     comps.size(), moved, relOf(compFile));
             refreshLiveTheme();

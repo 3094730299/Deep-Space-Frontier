@@ -437,11 +437,13 @@ public class ThemeChoiceScreen extends Screen {
             int row = rowAt(mouseX, mouseY, leftX, (int) scrollLeft, notEnabled().size());
             if (row >= 0) {
                 enable(notEnabled().get(row));
+                rebuildButtons();          // ★ 选中后立刻点亮「编辑」
                 return true;
             }
             int rowR = rowAt(mouseX, mouseY, rightX, (int) scrollRight, enabled().size());
             if (rowR >= 0) {
                 disable(enabled().get(rowR));
+                rebuildButtons();          // ★ 同上
                 return true;
             }
         } else if (button == 0 && mode == Mode.ASSIGN) {
