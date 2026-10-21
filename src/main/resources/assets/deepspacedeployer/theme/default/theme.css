@@ -109,3 +109,12 @@
 .theme.on .tname {
   color: #7CE38B;
 }
+
+/* 列表行里的物品图标（物品展示框，跟着行一起滚） */
+.row .icon {
+  width: 14;
+  height: 14;
+  margin-right: 3;
+  background: transparent;
+  border-width: 0;
+}

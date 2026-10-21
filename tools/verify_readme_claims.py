@@ -49,9 +49,12 @@ def _git(*args):
     """
     import subprocess
     try:
+        # ⚠️ 必须显式指定 UTF-8：Windows 默认 GBK，读中文提交信息会抛
+        # UnicodeDecodeError → stdout 变 None（真踩过，断言直接崩）。
         out = subprocess.run(["git", "-C", ROOT] + list(args),
-                             capture_output=True, text=True, timeout=30)
-        return out.stdout if out.returncode == 0 else ""
+                             capture_output=True, text=True, timeout=30,
+                             encoding="utf-8", errors="replace")
+        return (out.stdout or "") if out.returncode == 0 else ""
     except Exception:
         return ""
 
@@ -293,6 +296,25 @@ def main():
                            sum(1 for n in names if "worldgen" in n) > 0))
     else:
         checks.append(("构建产物存在（先跑 gradle clean build）", False))
+
+    # ★ 铁律 16（老板 2026-10-21）：每次提交务必提升模组版本号
+    #
+    # 判定（两种情况都算过）：
+    #   ① 工作区里的 mod_version 和 HEAD 里的不一样（还没提交，正是要提交的那次）；
+    #   ② 最近一次提交本身就是升版本号的那次（已提交，回头看历史）。
+    # 合并提交天然不会升版本号 → 跳过（否则每次合上游都红）。
+    def _ver(text):
+        import re as _re
+        m = _re.search(r"^mod_version=(.+)$", text or "", _re.MULTILINE)
+        return m.group(1).strip() if m else ""
+
+    _wt = _ver(read(ROOT, "gradle.properties"))
+    _head = _ver(_git("show", "HEAD:gradle.properties"))
+    _head2 = _ver(_git("show", "HEAD~1:gradle.properties"))
+    _is_merge = len(_git("rev-list", "--parents", "-n", "1", "HEAD").split()) > 2
+    _bumped_now = bool(_head) and bool(_head2) and _head != _head2
+    checks.append(("★ 铁律16：本次提交提升了版本号（当前 %s）" % (_wt or "?"),
+                   _is_merge or _wt != _head or _bumped_now))
 
     # ★ 铁律 15（老板 2026-10-18）：项目根目录必须有一份和 build/libs 一样的 jar
     #

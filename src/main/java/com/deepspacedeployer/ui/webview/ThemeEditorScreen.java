@@ -87,6 +87,10 @@ public class ThemeEditorScreen extends Screen {
     private Path importSource;
     /** 非 null = 正在改某个组件的文字 */
     private Comp textEditTarget;
+    /** 非 null = 正在改物品框的物品 id */
+    private Comp itemEditTarget;
+    /** 非 null = 正在改物品框的样式 */
+    private Comp styleEditTarget;
     /** 非 null = 正在改某条规则的条件 */
     private String[] conditionRule;
 
@@ -143,6 +147,13 @@ public class ThemeEditorScreen extends Screen {
          * 这样渲染器/宿主现有的点击派发**不用改就能用**。</p>
          */
         String action = "";
+        /** 物品框：显示哪个物品（minecraft:iron_ingot，空 = 空框） */
+        String item = "";
+        int count = 1;
+        /** 物品框旋转角度（度） */
+        float rotate;
+        /** 额外 CSS（样式…按钮编辑，如 border-color:#f00;border:2;border-radius:3） */
+        String styleExtra = "";
         /**
          * 逻辑规则：每条 {触发, 动作}。
          *
@@ -604,6 +615,26 @@ public class ThemeEditorScreen extends Screen {
                 drawMini(g, propRects[5], "改文字："
                         + (sel.text == null || sel.text.isBlank() ? "(空)" : sel.text));
 
+                if ("item".equals(sel.type)) {
+                    String[][] rows = {
+                            {"物品：" + (sel.item == null || sel.item.isBlank() ? "空" : sel.item),
+                                    "item"},
+                            {"数量：" + sel.count, "count"},
+                            {"旋转：" + Math.round(sel.rotate) + "°", "rotate"},
+                            {"样式：" + (sel.styleExtra == null || sel.styleExtra.isBlank()
+                                    ? "默认" : "已自定义"), "style"},
+                    };
+                    for (int i = 0; i < rows.length; i++) {
+                        cy += 16;
+                        int idx = 7 + i;
+                        propRects[idx][0] = x + 5;
+                        propRects[idx][1] = cy;
+                        propRects[idx][2] = RIGHT_W - 12;
+                        propRects[idx][3] = 14;
+                        drawMini(g, propRects[idx], rows[i][0]);
+                    }
+                }
+
                 cy += 18;
                 g.drawString(this.font, "逻辑", x + 5, cy, COL_ACCENT, false);
                 cy += 11;
@@ -635,10 +666,10 @@ public class ThemeEditorScreen extends Screen {
         }
     }
 
-    private static final String[] ADD_LABELS = {"+ 文本", "+ 按钮", "+ 物品框", "+ 图片"};
-    private static final String[] ADD_TYPES = {"text", "button", "slot", "image"};
+    private static final String[] ADD_LABELS = {"+ 文本", "+ 按钮", "+ 物品展示框", "+ 图片"};
+    private static final String[] ADD_TYPES = {"text", "button", "item", "image"};
     private final int[][] addRects = new int[4][4];
-    private final int[][] propRects = new int[7][4];
+    private final int[][] propRects = new int[11][4];
     private final java.util.List<int[]> ruleRects = new java.util.ArrayList<>();
 
     /** 撤销 / 重做栈（只记"画布上的组件"，最多 50 步） */
@@ -682,6 +713,27 @@ public class ThemeEditorScreen extends Screen {
             if (hit(propRects[5], mouseX, mouseY)) {
                 startTextEdit();
                 return true;
+            }
+
+            if ("item".equals(sel.type)) {
+                if (hit(propRects[7], mouseX, mouseY)) {
+                    startItemEdit();
+                    return true;
+                }
+                if (hit(propRects[8], mouseX, mouseY)) {
+                    pushUndo();
+                    sel.count = sel.count >= 64 ? 1 : sel.count + 1;
+                    return true;
+                }
+                if (hit(propRects[9], mouseX, mouseY)) {
+                    pushUndo();
+                    sel.rotate = (sel.rotate + 15f) % 360f;
+                    return true;
+                }
+                if (hit(propRects[10], mouseX, mouseY)) {
+                    startStyleEdit();
+                    return true;
+                }
             }
 
             if (hit(propRects[6], mouseX, mouseY)) {
@@ -1309,9 +1361,10 @@ public class ThemeEditorScreen extends Screen {
                 c.h = 18;
                 c.text = "按钮";
             }
-            case "slot" -> {
+            case "item" -> {
                 c.w = 18;
                 c.h = 18;
+                c.count = 1;
             }
             case "image" -> {
                 c.w = 32;
@@ -1349,6 +1402,10 @@ public class ThemeEditorScreen extends Screen {
                 c.text = m.group(3);
                 c.src = strAttr(attrs, "data-src");
                 c.action = strAttr(attrs, "data-action");
+                c.item = strAttr(attrs, "data-item");
+                c.count = intAttr(attrs, "data-count", 1);
+                c.rotate = intAttr(attrs, "data-rotate", 0);
+                c.styleExtra = stripLayoutStyle(strAttr(attrs, "style"));
 
                 String logic = strAttr(attrs, "data-logic");
                 for (String part : logic.split(";")) {
@@ -1403,6 +1460,10 @@ public class ThemeEditorScreen extends Screen {
                         .append(" data-layer=\"").append(c.layer).append('"')
                         .append(" data-src=\"").append(c.src == null ? "" : c.src).append('"')
                         .append(c.action == null || c.action.isBlank() ? "" : " data-action=\"" + c.action + "\"")
+                        .append(c.item == null || c.item.isBlank() ? ""
+                                : " data-item=\"" + c.item + "\"")
+                        .append(" data-count=\"").append(c.count).append('"')
+                        .append(" data-rotate=\"").append(Math.round(c.rotate)).append('"')
                         .append(logicAttr(c))
                         .append(" style=\"").append(styleOf(c)).append("\">")
                         .append(c.text == null ? "" : c.text)
@@ -1496,6 +1557,31 @@ public class ThemeEditorScreen extends Screen {
      * 图层用 {@code z-index}（渲染器支持的话就按它盖）——当前版本渲染器**不支持**
      * {@code z-index}，所以即使存了也不影响；等渲染器支持了立刻就生效。</p>
      */
+    /** 从 style 里剥掉我们自动生成的那几项，剩下的是用户自己写的样式 */
+    private static String stripLayoutStyle(String style) {
+        if (style == null || style.isBlank()) {
+            return "";
+        }
+        StringBuilder out = new StringBuilder();
+        for (String part : style.split(";")) {
+            String seg = part.trim();
+            if (seg.isEmpty()) {
+                continue;
+            }
+            String lower = seg.toLowerCase();
+            if (lower.startsWith("position") || lower.startsWith("left")
+                    || lower.startsWith("top") || lower.startsWith("width")
+                    || lower.startsWith("height") || lower.startsWith("z-index")) {
+                continue;
+            }
+            if (out.length() > 0) {
+                out.append(';');
+            }
+            out.append(seg);
+        }
+        return out.toString();
+    }
+
     /** 拼 {@code data-logic="click:close;open:switch_page"}（没有规则就返回空串） */
     private static String logicAttr(Comp c) {
         StringBuilder sb = new StringBuilder();
@@ -1522,7 +1608,12 @@ public class ThemeEditorScreen extends Screen {
         switch (c.type) {
             case "button" -> s.append(";background:#1B2233;border:1;border-color:#4C7DFF")
                     .append(";color:#E6ECF5");
-            case "slot" -> s.append(";background:#0C0C12;border:1;border-color:#2A3550");
+            case "item" -> {
+                s.append(";background:#0C0C12;border:1;border-color:#2A3550");
+                if (c.styleExtra != null && !c.styleExtra.isBlank()) {
+                    s.append(';').append(c.styleExtra.trim());
+                }
+            }
             case "image" -> {
                 if (c.src != null && !c.src.isBlank()) {
                     s.append(";background-image:url('").append(c.src).append("')");
@@ -1749,6 +1840,64 @@ public class ThemeEditorScreen extends Screen {
      *
      * <p>复用重命名对话框：{@code conditionRule} 不为 null 时，保存的是条件串。</p>
      */
+    /** 改物品框显示哪个物品（输入 {@code minecraft:iron_ingot}；留空 = 空框） */
+    private void startItemEdit() {
+        if (sel == null) {
+            return;
+        }
+        itemEditTarget = sel;
+        styleEditTarget = null;
+        textEditTarget = null;
+        importSource = null;
+        renameTarget = null;
+        renaming = true;
+        clearWidgets();
+        renameBox = new EditBox(this.font, 0, 0, 200, 18,
+                Component.translatable("gui.deepspacedeployer.editor_item_id"));
+        renameBox.setValue(sel.item == null ? "" : sel.item);
+        renameBox.setMaxLength(120);
+        addRenderableWidget(renameBox);
+        addRenderableWidget(Button.builder(Component.translatable("gui.deepspacedeployer.editor_save"),
+                        b -> finishRename())
+                .bounds(this.width / 2 - 100, this.height / 2 + 22, 96, 20).build());
+        addRenderableWidget(Button.builder(Component.translatable("gui.deepspacedeployer.editor_cancel"),
+                        b -> {
+                            renaming = false;
+                            itemEditTarget = null;
+                            rebuildFooter();
+                        })
+                .bounds(this.width / 2 + 4, this.height / 2 + 22, 96, 20).build());
+    }
+
+    /** 改物品框样式（直接写 CSS 片段） */
+    private void startStyleEdit() {
+        if (sel == null) {
+            return;
+        }
+        styleEditTarget = sel;
+        itemEditTarget = null;
+        textEditTarget = null;
+        importSource = null;
+        renameTarget = null;
+        renaming = true;
+        clearWidgets();
+        renameBox = new EditBox(this.font, 0, 0, 240, 18,
+                Component.translatable("gui.deepspacedeployer.editor_item_style"));
+        renameBox.setValue(sel.styleExtra == null ? "" : sel.styleExtra);
+        renameBox.setMaxLength(300);
+        addRenderableWidget(renameBox);
+        addRenderableWidget(Button.builder(Component.translatable("gui.deepspacedeployer.editor_save"),
+                        b -> finishRename())
+                .bounds(this.width / 2 - 100, this.height / 2 + 22, 96, 20).build());
+        addRenderableWidget(Button.builder(Component.translatable("gui.deepspacedeployer.editor_cancel"),
+                        b -> {
+                            renaming = false;
+                            styleEditTarget = null;
+                            rebuildFooter();
+                        })
+                .bounds(this.width / 2 + 4, this.height / 2 + 22, 96, 20).build());
+    }
+
     private void startConditionEdit(String[] rule) {
         if (rule == null) {
             return;
@@ -1779,7 +1928,11 @@ public class ThemeEditorScreen extends Screen {
     private void finishRename() {
         try {
             String name = renameBox == null ? "" : renameBox.getValue().trim();
-            if (conditionRule != null) {
+            if (itemEditTarget != null) {
+                itemEditTarget.item = name;
+            } else if (styleEditTarget != null) {
+                styleEditTarget.styleExtra = name;
+            } else if (conditionRule != null) {
                 if (conditionRule.length > 2) {
                     conditionRule[2] = name;
                 }
@@ -1803,6 +1956,8 @@ public class ThemeEditorScreen extends Screen {
         importSource = null;
         textEditTarget = null;
         conditionRule = null;
+        itemEditTarget = null;
+        styleEditTarget = null;
         renaming = false;
         renameBox = null;
         reloadEntries();

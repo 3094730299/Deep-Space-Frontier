@@ -42,6 +42,15 @@ public final class ThemeContext {
      */
     private final Map<HtmlNode, Float> scrollView;
 
+    /**
+     * <b>整页滚动量</b>（px）。主题内容比视口高时，滚轮滚的是这一整页 ——
+     * 主题画的框、物品格（data-slot）、点击命中的坐标，全都按它一起偏移。
+     *
+     * <p>为什么需要：以前只有"元素自己 overflow:scroll"能滚；
+     * 老板 2026-10-21 观察到"滚动时物品本该跟着走"，就是这个意思。</p>
+     */
+    private float globalScrollY;
+
     /** 布局时用的视口 */
     private float viewportW;
     private float viewportH;
@@ -98,6 +107,8 @@ public final class ThemeContext {
         this.viewportH = viewportH;
         try {
             this.contentHeight = engine.layout(doc.root, viewportW, viewportH);
+            // 布局变了（换主题 / 改分辨率 / 数据变化）→ 滚动量夹回合法范围
+            this.globalScrollY = Math.max(0f, Math.min(globalScrollY, maxGlobalScroll()));
         } catch (Throwable t) {
             DeepSpaceDeployer.LOGGER.warn("[深空铸造体][界面] 主题布局失败（{}）：{}",
                     doc.file, t.toString());
@@ -125,6 +136,7 @@ public final class ThemeContext {
     public void render(com.deepspacedeployer.ui.theme.Canvas frameCanvas) {
         try {
             renderer.setCanvas(frameCanvas);
+            renderer.setGlobalScrollY(globalScrollY);
             renderer.render(doc.root);
         } catch (Throwable t) {
             DeepSpaceDeployer.LOGGER.warn("[深空铸造体][界面] 主题绘制失败（{}）：{}",
@@ -179,7 +191,7 @@ public final class ThemeContext {
         if (doc == null || doc.root == null) {
             return null;
         }
-        return hitWalk(doc.root, px, py, 0f, 0f);
+        return hitWalk(doc.root, px, py + globalScrollY, 0f, 0f);
     }
 
     /**
@@ -207,6 +219,78 @@ public final class ThemeContext {
         }
         return null;
     }
+
+    /** 整页还能往下滚多少（内容不高于视口就是 0） */
+    public float maxGlobalScroll() {
+        return Math.max(0f, contentHeight - viewportH);
+    }
+
+    public float globalScrollY() {
+        return globalScrollY;
+    }
+
+    /**
+     * 整页滚动。
+     *
+     * @return true = 确实滚动了（调用方可以吃掉这次滚轮）
+     */
+    public boolean scrollPageBy(float delta) {
+        float max = maxGlobalScroll();
+        if (max <= 0f) {
+            return false;
+        }
+        float next = Math.max(0f, Math.min(max, globalScrollY + delta));
+        if (Math.abs(next - globalScrollY) < 0.5f) {
+            return false;
+        }
+        globalScrollY = next;
+        return true;
+    }
+
+    /**
+     * 鼠标位置是否落在"可滚动容器"里 —— <b>不看内容是否真的超出</b>。
+     *
+     * <p>为什么需要：老板 2026-10-22 反馈"不管鼠标在哪都是整页滚"。
+     * 原因是之前要求"内容必须超出容器"才认这个滚动区，
+     * 列表内容刚好没超出时就落到整页滚动上，手感完全不对。</p>
+     *
+     * <p>现在的规则很直接：<b>指针在列表里就归列表管</b>（哪怕没得滚），
+     * 指针在别处才滚整页。</p>
+     */
+    public HtmlNode scrollContainerAt(float px, float py) {
+        // ★ 不再走 hitNode 猜：直接把每个 overflow:scroll 元素的**矩形**拿来比。
+        //   （老板 2026-10-22："抛弃识别鼠标坐标，改为小滚动框碰到鼠标指针就触发"）
+        //   命中测试受可见性/层叠/滚动补偿影响，容易"差一点就选不中"；
+        //   矩形判定简单、可预测：指针落在框里 → 就是它。
+        if (doc == null || doc.root == null) {
+            return null;
+        }
+        HtmlNode[] best = {null};
+        float[] bestArea = {Float.MAX_VALUE};
+        doc.root.walk(n -> {
+            if (!n.isElement() || n.box == null || n.style == null) {
+                return;
+            }
+            if (!"scroll".equals(n.style.overflow)) {
+                return;
+            }
+            // ⚠️ 只减"整页滚动量"。
+            //    元素**自己**的滚动量只作用于它的**子元素**，不会挪动它自己的框 ——
+            //    以前这里多减了 scrollOf(n)，结果框滚几行后判定矩形就移走了，
+            //    指针"离开"框 → 掉回整页滚动（老板 2026-10-22 报的就是这个）。
+            float x = n.box.x;
+            float y = n.box.y - globalScrollY;
+            if (px >= x && px < x + n.box.w && py >= y && py < y + n.box.h) {
+                float area = n.box.w * n.box.h;
+                if (area < bestArea[0]) {      // 取最内层（面积最小）的那个
+                    bestArea[0] = area;
+                    best[0] = n;
+                }
+            }
+        });
+        return best[0];
+    }
+
 
     /** 某个元素自己的滚动量（命中测试递归时要往下传） */
     float scrollOf(HtmlNode node) {
@@ -259,7 +343,7 @@ public final class ThemeContext {
             return Map.of();
         }
         Map<String, Marker> out = new java.util.LinkedHashMap<>();
-        collectMarkers(doc.root, 0f, 0f, out);
+        collectMarkers(doc.root, 0f, -globalScrollY, out);
         return out;
     }
 
@@ -275,9 +359,12 @@ public final class ThemeContext {
         if (input != null && !input.isBlank()) {
             out.putIfAbsent("input:" + input.trim(), boxMarker(node, dx, dy));
         }
-        float ndx = dx + scrollOf(node);
+        // ⚠️ 渲染器只做纵向滚动（pushOffset(0, -scroll)），所以只累加 dy。
+        //    以前这里把滚动加到了 dx 上、dy 原样传下去 —— 结果：
+        //    元素滚动了，但 data-slot 标记不动 → 物品格不跟框走（错位）。
+        float ndy = dy + scrollOf(node);
         for (HtmlNode child : node.children) {
-            collectMarkers(child, ndx, dy, out);
+            collectMarkers(child, dx, ndy, out);
         }
     }
 

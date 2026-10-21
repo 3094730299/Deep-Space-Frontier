@@ -41,6 +41,21 @@ public interface Canvas {
      */
     void drawImage(byte[] png, float x, float y, float w, float h, boolean pixelated);
 
+    /**
+     * 在矩形里画一个<b>物品图标</b>（{@code minecraft:iron_ingot} 这种 id）。
+     *
+     * <p>这是"物品展示框"的核心：物品不是原版槽位，而是我们自己按
+     * 框的位置/大小/角度画出来的 —— 所以框怎么动，物品就怎么跟，不会错位。</p>
+     *
+     * <p>默认空实现：离线预览 / 只量不画的画布不需要真的画物品。</p>
+     *
+     * @param count     数量（&gt;1 时画右下角数字）
+     * @param rotateDeg 旋转角度（绕框中心，单位度）
+     */
+    default void drawItem(String itemId, int count, float x, float y, float w, float h,
+                          float rotateDeg) {
+    }
+
     /** 指定宽度下把文字折行（返回每一行的文本） */
     java.util.List<String> wrap(String text, float size, boolean bold, float maxWidth);
 

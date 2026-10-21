@@ -22,6 +22,8 @@ public final class ThemeRenderer {
      * 空无一物"。见 {@link com.deepspacedeployer.ui.webview.WebViewScreen#render}。</p>
      */
     private Canvas canvas;
+    /** 整页滚动量（由宿主界面设置；物品格/命中测试同步减掉） */
+    private float globalScrollY;
     /** 每个元素的滚动位置（key = 元素），交互层滚动时改它 */
     private final java.util.Map<HtmlNode, Float> scrollOffsets = new java.util.IdentityHashMap<>();
 
@@ -31,6 +33,10 @@ public final class ThemeRenderer {
     }
 
     /** 换一个画布（每帧渲染前由宿主调用；离线预览不用调） */
+    public void setGlobalScrollY(float v) {
+        this.globalScrollY = v;
+    }
+
     public void setCanvas(Canvas canvas) {
         if (canvas != null) {
             this.canvas = canvas;
@@ -46,8 +52,14 @@ public final class ThemeRenderer {
         if (root == null) {
             return;
         }
+        if (globalScrollY != 0f) {
+            canvas.pushOffset(0f, -globalScrollY);
+        }
         for (HtmlNode child : root.children) {
             renderNode(child, root.docDir == null ? "" : root.docDir);
+        }
+        if (globalScrollY != 0f) {
+            canvas.popOffset();
         }
     }
 
@@ -111,6 +123,14 @@ public final class ThemeRenderer {
                     applyOpacity(st.borderColor, st.opacity));
         }
 
+        // ②b 物品图标（物品展示框）：跟框的 位置 / 大小 / 角度 走
+        String itemId = node.attr("data-item");
+        if (itemId != null && !itemId.isBlank()) {
+            int count = parseIntAttr(node.attr("data-count"), 1);
+            float rotate = parseFloatAttr(node.attr("data-rotate"), 0f);
+            canvas.drawItem(itemId, count, box.x, box.y, box.w, box.h, rotate);
+        }
+
         // ③ 裁切 / 滚动
         boolean clip = "hidden".equals(st.overflow) || "scroll".equals(st.overflow);
         float scroll = 0f;
@@ -170,6 +190,22 @@ public final class ThemeRenderer {
         list.sort(java.util.Comparator.comparingInt(
                 c -> c.style == null ? 0 : c.style.zIndex));
         return list;
+    }
+
+    private static int parseIntAttr(String v, int fallback) {
+        try {
+            return v == null || v.isBlank() ? fallback : Integer.parseInt(v.trim());
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
+    }
+
+    private static float parseFloatAttr(String v, float fallback) {
+        try {
+            return v == null || v.isBlank() ? fallback : Float.parseFloat(v.trim());
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
     }
 
     /** 把透明度乘进颜色（画布只有纯色原语，不做整体合成） */

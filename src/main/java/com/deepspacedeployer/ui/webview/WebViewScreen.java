@@ -66,6 +66,8 @@ public final class WebViewScreen {
     private String loadedTheme = "";
     /** 上次加载时的"主题文件版本号"（UI 编辑器保存后要重载） */
     private int loadedRevision;
+    /** 整体缩放（1 = 原尺寸；屏幕装不下时由宿主传入） */
+    private float scale = 1f;
     /** 下次渲染前要执行的"打开时"逻辑动作（每个界面重载后只跑一次） */
     private final java.util.List<String> pendingOpen = new java.util.ArrayList<>();
     /** 是否允许使用主题（配置关掉 / 界面自己禁用时不加载） */
@@ -108,6 +110,16 @@ public final class WebViewScreen {
     }
 
     /** 允许/禁止使用主题 */
+    /** 设置整体缩放（画布绘制 + 鼠标坐标反算都用它） */
+    public WebViewScreen scale(float s) {
+        this.scale = s <= 0f ? 1f : s;
+        return this;
+    }
+
+    public float scale() {
+        return scale;
+    }
+
     public WebViewScreen setEnabled(boolean enabled) {
         this.enabled = enabled;
         if (!enabled) {
@@ -231,7 +243,7 @@ public final class WebViewScreen {
 
         GuiCanvas canvas = null;
         try {
-            canvas = new GuiCanvas(graphics, originX, originY);
+            canvas = new GuiCanvas(graphics, originX, originY, scale);
             // ★ 必须把"这一帧的画布"交给上下文 —— 加载时用的是只量不画的画布，
             //   不换的话主题永远画不到屏幕上（症状：只有一层压暗的灰色，空无一物）。
             ctx.render(canvas);
@@ -271,8 +283,8 @@ public final class WebViewScreen {
         if (ctx == null || button != 0) {
             return false;
         }
-        float px = (float) (mouseX - originX);
-        float py = (float) (mouseY - originY);
+        float px = (float) ((mouseX - originX) / scale);
+        float py = (float) ((mouseY - originY) / scale);
         try {
             var node = ctx.hitNode(px, py);
             if (node == null) {
@@ -320,12 +332,14 @@ public final class WebViewScreen {
         float px = (float) (mouseX - originX);
         float py = (float) (mouseY - originY);
         try {
-            var node = ctx.scrollableAt(px, py);
-            if (node == null) {
-                return false;
+            // ① 指针在某个 overflow:scroll 容器里 → 归它管（哪怕没得滚，也不翻页）
+            var container = ctx.scrollContainerAt(px, py);
+            if (container != null) {
+                ctx.scrollBy(container, (float) (-delta * 10f));
+                return true;
             }
-            ctx.scrollBy(node, (float) (-delta * 10f));
-            return true;
+            // ② 指针在别处 → 滚整页
+            return ctx.scrollPageBy((float) (-delta * 12f));
         } catch (Throwable t) {
             return false;
         }

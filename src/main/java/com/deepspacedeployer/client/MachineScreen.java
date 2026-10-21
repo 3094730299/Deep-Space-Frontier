@@ -118,6 +118,10 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
     // ---------------- 界面主题 ----------------
     /** 主题宿主：四个方块共用这个类，但读的 html 不一样（按 kind 挑） */
     private WebViewScreen webview;
+    /** F9：把"原版槽位在哪 / 主题标记在哪"直接画出来（排查错位用） */
+    private boolean debugSlots;
+    /** 整体缩放比例（主题逻辑 288×300 → 实际画布） */
+    private float themeScale = 1f;
     /** 上一次喂给主题的数据快照（变了才重新绑定，免得每帧重解析 HTML） */
     private String themeSnapshot = "";
 
@@ -159,7 +163,9 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
             this.webview.setActionSink(this::onThemeAction);
         }
         this.webview.setEnabled(WebViewManager.enabled());
-        this.webview.size(this.imageWidth, this.imageHeight);
+        // 逻辑尺寸固定 288×300；scale 负责把它缩到画布大小
+        this.webview.size(288, 300);
+        this.webview.scale(this.themeScale);
         this.webview.at(this.leftPos, this.topPos);
         this.themeSnapshot = "";
         syncTheme();
@@ -206,22 +212,22 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
         if (playerStart < 1) {
             return;
         }
-        ThemeSlotLayout.place(this.webview, slots.get(0), "card");
+        ThemeSlotLayout.place(this.webview, slots.get(0), "card", 0, 0, this.themeScale);
 
         if (playerStart >= 10) {
-            ThemeSlotLayout.grid(this.webview, slots.subList(1, 10), "input9", 3);
+            ThemeSlotLayout.grid(this.webview, slots.subList(1, 10), "input9", 3, this.themeScale);
         }
         switch (this.menu.kind()) {
             case CORE -> {
                 if (playerStart > 10) {
-                    ThemeSlotLayout.place(this.webview, slots.get(10), "clipboard");
+                    ThemeSlotLayout.place(this.webview, slots.get(10), "clipboard", 0, 0, this.themeScale);
                 }
             }
             case MARKET -> {
                 if (playerStart >= 13) {
-                    ThemeSlotLayout.place(this.webview, slots.get(10), "market_sell");
-                    ThemeSlotLayout.place(this.webview, slots.get(11), "market_barter");
-                    ThemeSlotLayout.place(this.webview, slots.get(12), "market_collect");
+                    ThemeSlotLayout.place(this.webview, slots.get(10), "market_sell", 0, 0, this.themeScale);
+                    ThemeSlotLayout.place(this.webview, slots.get(11), "market_barter", 0, 0, this.themeScale);
+                    ThemeSlotLayout.place(this.webview, slots.get(12), "market_collect", 0, 0, this.themeScale);
                 }
             }
             default -> {
@@ -231,7 +237,7 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
         var playerSlots = slots.subList(playerStart, slots.size());
         if (playerSlots.size() == 36) {
             ThemeSlotLayout.player(this.webview, playerSlots.subList(0, 27),
-                    playerSlots.subList(27, 36));
+                    playerSlots.subList(27, 36), this.themeScale);
         }
     }
 
@@ -284,6 +290,9 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
                 ? Component.translatable("gui.deepspacedeployer.idle_reason."
                         + this.menu.idleReason()).getString()
                 : "");
+        // 中间列表可用高度：画布高度减掉"头/信息/槽位行/按钮/玩家背包"占的部分
+        // 主题永远按 300 逻辑高布局 → 列表高度用**逻辑值**（50），不跟着缩放变
+        d.put("列表高", 50);
         d.put("创意模式", this.menu.creative());
         d.put("有公司", companyBound);
 
@@ -326,6 +335,7 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
         for (int i = 0; i < offers.size(); i++) {
             TradeEntry e = offers.get(i);
             Map<String, Object> row = new LinkedHashMap<>();
+            row.put("图标", e.itemId());
             row.put("名称", itemName(e.itemId()).getString());
             row.put("单价", String.valueOf(e.price()));
             boolean locked = !isUnlocked(e);
@@ -608,6 +618,15 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
 
     @Override
     protected void init() {
+        // ★ 先把画布尺寸夹进屏幕，再 super.init()（leftPos/topPos 是按 imageWidth/Height 算的）。
+        //   以前固定 300 高：GUI 高度小于 300 时（高 GUI 缩放/小窗口）界面会**超出屏幕上下边**，
+        //   老板 2026-10-21 报的"高度超出窗口"就是这个。
+        // ★ 不缩放、不夹尺寸：主题永远按 288×300 原始尺寸画。
+        //   屏幕装不下时靠**整页滚动**看下面（滚动量会同步进 data-slot 标记，
+        //   所以物品格跟着一起滚，不会错位）。
+        this.themeScale = 1f;
+        this.imageWidth = 288;
+        this.imageHeight = 300;
         super.init();
         int x = this.leftPos;
         int y = this.topPos;
@@ -799,6 +818,51 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
         setupTheme();
     }
 
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_F9) {
+            debugSlots = !debugSlots;
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    /**
+     * F9 调试：绿框 = 原版槽位实际位置；红十字 = 主题 {@code data-slot} 标记位置。
+     *
+     * <p>两者应该重合。错位时一眼就能看出差多少，不用再猜。</p>
+     */
+    private void drawSlotDebug(GuiGraphics g) {
+        // 槽位（绿）
+        for (int i = 0; i < this.menu.slots.size(); i++) {
+            var s = this.menu.slots.get(i);
+            int sx = this.leftPos + s.x;
+            int sy = this.topPos + s.y;
+            g.fill(sx, sy, sx + 17, sy + 1, 0xFF00FF00);
+            g.fill(sx, sy + 16, sx + 17, sy + 17, 0xFF00FF00);
+            g.fill(sx, sy, sx + 1, sy + 17, 0xFF00FF00);
+            g.fill(sx + 16, sy, sx + 17, sy + 17, 0xFF00FF00);
+        }
+        // 主题标记（红）
+        var markers = this.webview == null ? java.util.Map.<String, com.deepspacedeployer.ui.webview.ThemeContext.Marker>of()
+                : this.webview.markers();
+        for (var e : markers.entrySet()) {
+            int mx = this.leftPos + Math.round(e.getValue().x());
+            int my = this.topPos + Math.round(e.getValue().y());
+            g.fill(mx - 3, my, mx + 4, my + 1, 0xFFFF0000);
+            g.fill(mx, my - 3, mx + 1, my + 4, 0xFFFF0000);
+            g.drawString(this.font, e.getKey().replace("slot:", "").replace("input:", ""),
+                    mx + 4, my - 4, 0xFFFF5555, false);
+        }
+        // 一行信息
+        String info = "F9  h=" + this.height + " imgH=" + this.imageHeight
+                + " top=" + this.topPos + " slots=" + this.menu.slots.size()
+                + " markers=" + markers.size()
+                + " visible=" + (this.webview != null && this.webview.visible());
+        g.fill(2, 2, 2 + this.font.width(info) + 4, 14, 0xC0000000);
+        g.drawString(this.font, info, 4, 4, 0xFFFFFF00, false);
+    }
+
     // ---------------------------------------------------------------- 主题：接入渲染与输入
 
     /**
@@ -815,6 +879,9 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
         super.render(graphics, mouseX, mouseY, partialTick);
         if (this.webview != null && this.webview.visible()) {
             this.webview.render(graphics, mouseX, mouseY, partialTick);
+        }
+        if (debugSlots) {
+            drawSlotDebug(graphics);
         }
     }
 

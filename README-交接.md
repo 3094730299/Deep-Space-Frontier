@@ -8,10 +8,10 @@
 > - 标注 ❌ 的 = **已知失败的做法，不要重试**
 >
 > **本文档里的关键技术断言已被脚本验证**：跑
-> `python tools/verify_readme_claims.py` → **63 条全部符合 ✓**
+> `python tools/verify_readme_claims.py` → **64 条全部符合 ✓**
 > （它逐条检查本文档声称的代码结构是否真的还在。改完代码后请重跑，红了就更新本文档。）
 >
-> 最后更新：2026-10-18（对应模组 **0.1.11+mc1.21.1**）
+> 最后更新：2026-10-18（对应模组 **0.1.24+mc1.21.1**）
 > **0.1.4**：载具打印机以前只读 `Sable-Schematics`，玩家放在 **`schematics`**（机械动力图纸夹）
 > 里的载具看不到 —— 现在 `USER_DIRS` 数组里的文件夹都会扫（见 §7.8）。
 > **本轮（0.1.3）改动：收购投送机「为什么不工作」诊断** ——
@@ -38,7 +38,7 @@
 
 ---
 
-## 零、先读这一节：15 条铁律（违反必出事故）
+## 零、先读这一节：16 条铁律（违反必出事故）
 
 这十五条都是**实际踩出来的**（最后一条是老板 2026-10-18 亲口定的规矩）。
 
@@ -59,6 +59,7 @@
 | 13 | **geo 声明是"UV 坐标系"，PNG 尺寸必须是它的【整数倍】—— 声明绝不能改，只能改 PNG** | ① **改声明**（64→128）→ UV 空间变小、采样点整体错位 → **整片花屏**（真发生过，2026-10-15 通用终端）；② 为了"让声明对上"**把原图缩小** → 分辨率白丢（299 色→138 色，贴图变糊）。**正确做法：声明一个字不动，PNG 用高分辨率的那份（1×、2× 都合法）**。字节码依据：`GeoQuad.build` 里 `normalizedU = uv / texture_width`。改完跑 `python tools/check_gecko_textures.py` |
 | 14 | **资源按物品隔离：生成脚本默认只补缺、绝不覆盖已有文件；改一个物品只点名它自己** | `gen_textures.py` 全量是 **144 张方块贴图 + 18 模型 + 18 方块状态**（老板原话："改一个物品总会波及其他物品"）。规则：默认**不覆盖已存在**（要重生成必须显式 `--force`）；**只处理点名的物品**（`gen_textures.py buyer_threshold_mid`）；**`art/手绘定稿/` 里的文件名连 `--force` 都跳过**（清单自动扫目录，丢个图进去就受保护）。`--list` 可先看会涉及哪些物品。跑完用 `git status` 确认波及范围 |
 | **15** | **★ 每次更新后，必须构建一份 jar 放到【项目根目录】**（老板 2026-10-18 定） | 不这么做，装机/发人时还要去 `build/libs` 里翻，很容易**拿错版本**（旧 jar 装了半小时才发现的事真发生过）。**已自动化**：`gradlew build` 结束时 `copyJarToRoot` 自动把 `deepspacedeployer-<版本>+mc1.21.1.jar` 复制到项目根，并清掉根目录里旧版本的 jar；也可以单独跑 `gradlew copyJarToRoot`。根目录的 jar **不入库**（`.gitignore` 里的 `/*.jar`）|
+| **16** | **★ 每次提交务必提升模组版本号**（老板 2026-10-21 定） | 版本号不变 = jar 名字不变，装机/发人时分不清哪个是新的（"明明重装了却没变化"真发生过）。**用工具，别手改**：`python tools/bump_version.py`（补丁号 +1，并同步所有文档里的当前版本引用）；`python tools/verify_readme_claims.py` 有一条断言盯着"最近的提交有没有升版本号"（合并提交除外）|
 
 ---
 
@@ -72,7 +73,7 @@
 | 前置 | NeoForge 21.1.248；可选：**GeckoLib 4.9.3**（没装也能跑，只是自定义模型不显示）|
 | 语言 | Java 21 |
 | 规模 | **112 个 Java 文件**（含工具类）；467+ 个资源文件（`gradlew checkThemes` 会验主题）|
-| 当前版本 | **0.1.11+mc1.21.1**（新增内置 WebView 界面主题）|
+| 当前版本 | **0.1.24+mc1.21.1**（新增内置 WebView 界面主题）|
 
 ### 核心玩法
 
@@ -101,7 +102,7 @@ git 仓库     就是项目根目录本身（.git 在里面，分支 main）
                 浏览器正常，git 也能用（已实测推送成功）；不要以为"DNS 坏了"去乱改 hosts
 桌面副本     C:\Users\30947\Desktop\深空铸造   ← **已停用**（旧规矩遗留；别再去同步它）
 整合包版本   C:\Users\30947\Desktop\.minecraft\versions\孢子危机
-装机目录     …\versions\孢子危机\mods\deepspacedeployer-0.1.11+mc1.21.1.jar
+装机目录     …\versions\孢子危机\mods\deepspacedeployer-0.1.24+mc1.21.1.jar
 
 Java        C:\Program Files\Java\jdk-21.0.10          （必须设 JAVA_HOME）
 Gradle      C:\Users\30947\Documents\deepseek-harness\default-workspace\.tools\gradle-8.12\bin\gradle.bat
@@ -269,7 +270,7 @@ docs\    设计决策.md（★77KB，最有价值） 模组介绍 玩法手册 �
 | `install.py` | **安全装机**：复制 + SHA256 + 逐条目解压校验，失败重试 3 次 |
 | `validate.py` | 工程自检：模型/贴图引用、语言键、掉落表、工具标签、机器注册、世界生成、结构 NBT |
 | `check_mod_ids.py` | 校验引用的物品/方块 id 在整合包 194 个 jar 里真实存在 |
-| `verify_readme_claims.py` | **验证 `README-交接.md` 的技术断言是否仍与实际代码一致**（改代码后必跑；当前 63 条）|
+| `verify_readme_claims.py` | **验证 `README-交接.md` 的技术断言是否仍与实际代码一致**（改代码后必跑；当前 64 条）|
 | `make_github_repo.py` | 【**已停用**】以前用来同步桌面副本 `C:\Users\30947\Desktop\深空铸造`。老板 2026-10-15 改成"只提交 git 仓库"，**平时不要再跑**（脚本本体保留，需要导出干净副本时还能用）|
 
 ### 建模相关
@@ -597,7 +598,7 @@ sellAllSlots()       → if (blockedAbove()) return false;   // 手动「立即�
 ## 十、版本与许可
 
 ```
-版本        0.1.11+mc1.21.1
+版本        0.1.24+mc1.21.1
 License     见 LICENSE（All Rights Reserved）
 仓库        本地：项目根目录里的 git 仓库（分支 main）
              C:\Users\30947\Documents\deepseek-harness\default-workspace\deep-space-deployer
