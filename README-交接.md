@@ -11,7 +11,7 @@
 > `python tools/verify_readme_claims.py` → **64 条全部符合 ✓**
 > （它逐条检查本文档声称的代码结构是否真的还在。改完代码后请重跑，红了就更新本文档。）
 >
-> 最后更新：2026-10-18（对应模组 **0.1.20+mc1.21.1**）
+> 最后更新：2026-10-18（对应模组 **0.1.21+mc1.21.1**）
 > **0.1.4**：载具打印机以前只读 `Sable-Schematics`，玩家放在 **`schematics`**（机械动力图纸夹）
 > 里的载具看不到 —— 现在 `USER_DIRS` 数组里的文件夹都会扫（见 §7.8）。
 > **本轮（0.1.3）改动：收购投送机「为什么不工作」诊断** ——
@@ -73,7 +73,7 @@
 | 前置 | NeoForge 21.1.248；可选：**GeckoLib 4.9.3**（没装也能跑，只是自定义模型不显示）|
 | 语言 | Java 21 |
 | 规模 | **112 个 Java 文件**（含工具类）；467+ 个资源文件（`gradlew checkThemes` 会验主题）|
-| 当前版本 | **0.1.20+mc1.21.1**（新增内置 WebView 界面主题）|
+| 当前版本 | **0.1.21+mc1.21.1**（新增内置 WebView 界面主题）|
 
 ### 核心玩法
 
@@ -102,7 +102,7 @@ git 仓库     就是项目根目录本身（.git 在里面，分支 main）
                 浏览器正常，git 也能用（已实测推送成功）；不要以为"DNS 坏了"去乱改 hosts
 桌面副本     C:\Users\30947\Desktop\深空铸造   ← **已停用**（旧规矩遗留；别再去同步它）
 整合包版本   C:\Users\30947\Desktop\.minecraft\versions\孢子危机
-装机目录     …\versions\孢子危机\mods\deepspacedeployer-0.1.20+mc1.21.1.jar
+装机目录     …\versions\孢子危机\mods\deepspacedeployer-0.1.21+mc1.21.1.jar
 
 Java        C:\Program Files\Java\jdk-21.0.10          （必须设 JAVA_HOME）
 Gradle      C:\Users\30947\Documents\deepseek-harness\default-workspace\.tools\gradle-8.12\bin\gradle.bat
@@ -598,7 +598,7 @@ sellAllSlots()       → if (blockedAbove()) return false;   // 手动「立即�
 ## 十、版本与许可
 
 ```
-版本        0.1.20+mc1.21.1
+版本        0.1.21+mc1.21.1
 License     见 LICENSE（All Rights Reserved）
 仓库        本地：项目根目录里的 git 仓库（分支 main）
              C:\Users\30947\Documents\deepseek-harness\default-workspace\deep-space-deployer

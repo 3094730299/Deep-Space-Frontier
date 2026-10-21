@@ -621,12 +621,12 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
         // ★ 先把画布尺寸夹进屏幕，再 super.init()（leftPos/topPos 是按 imageWidth/Height 算的）。
         //   以前固定 300 高：GUI 高度小于 300 时（高 GUI 缩放/小窗口）界面会**超出屏幕上下边**，
         //   老板 2026-10-21 报的"高度超出窗口"就是这个。
-        // ★ 整体等比缩放：主题永远按 288×300 布局，屏幕装不下时缩小。
-        //   不再"夹画布尺寸"—— 夹尺寸会让玩家背包（按画布底边定位）顶到列表上。
-        this.themeScale = Math.min(1f,
-                Math.min((this.height - 8) / 300f, (this.width - 8) / 288f));
-        this.imageWidth = Math.max(120, Math.round(288 * this.themeScale));
-        this.imageHeight = Math.max(120, Math.round(300 * this.themeScale));
+        // ★ 不缩放、不夹尺寸：主题永远按 288×300 原始尺寸画。
+        //   屏幕装不下时靠**整页滚动**看下面（滚动量会同步进 data-slot 标记，
+        //   所以物品格跟着一起滚，不会错位）。
+        this.themeScale = 1f;
+        this.imageWidth = 288;
+        this.imageHeight = 300;
         super.init();
         int x = this.leftPos;
         int y = this.topPos;

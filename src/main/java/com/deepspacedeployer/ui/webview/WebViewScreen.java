@@ -337,9 +337,10 @@ public final class WebViewScreen {
                 ctx.scrollBy(node, (float) (-delta * 10f));
                 return true;
             }
-            // ⚠️ 整页滚动会复现"所有元素一起滚、物品格不跟、背包被顶上去"（真机三帧问题），
-            //    先禁用。要整页滚动必须同时做"整体缩放"，否则坐标体系对不上。
-            return false;
+            // 鼠标没落在可滚元素上 → 滚整页。
+            // 物品格（data-slot）会跟着整页滚动一起偏移（见 ThemeContext.markers），
+            // 所以"双滚动"下物品也不会脱框。
+            return ctx.scrollPageBy((float) (-delta * 12f));
         } catch (Throwable t) {
             return false;
         }
