@@ -325,8 +325,9 @@ public final class WebViewScreen {
                 ctx.scrollBy(node, (float) (-delta * 10f));
                 return true;
             }
-            // 鼠标没落在可滚元素上 → 滚整页（老板 2026-10-21 要求"两种滚动都要"）
-            return ctx.scrollPageBy((float) (-delta * 12f));
+            // ⚠️ 整页滚动会复现"所有元素一起滚、物品格不跟、背包被顶上去"（真机三帧问题），
+            //    先禁用。要整页滚动必须同时做"整体缩放"，否则坐标体系对不上。
+            return false;
         } catch (Throwable t) {
             return false;
         }
