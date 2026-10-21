@@ -16,10 +16,13 @@ gradlew.bat build        # Windows
 ./gradlew build          # Linux / macOS
 
 # 3. 产物
-build/libs/deepspacedeployer-0.1.11+mc1.21.1.jar
-deepspacedeployer-0.1.11+mc1.21.1.jar          # ★ build 结束会自动复制到项目根目录
+build/libs/deepspacedeployer-0.1.12+mc1.21.1.jar
+deepspacedeployer-0.1.12+mc1.21.1.jar          # ★ build 结束会自动复制到项目根目录
 ```
 
+>
+> **★ 铁律 16（老板 2026-10-21 定）**：**每次提交务必提升模组版本号**。
+> 用 `python tools/bump_version.py` 自增（会同步文档里的版本引用），别手改、容易漏。
 > **★ 铁律（老板 2026-10-18 定）**：**每次更新后，构建一份 jar 放到项目根目录**。
 > `gradlew build` 结束时 `copyJarToRoot` 任务会自动做这件事（并清掉根目录里旧版本的 jar），
 > 不需要手动 `Copy-Item`。根目录的 jar 不入库（`.gitignore` 的 `/*.jar`），只是方便随手取用。
