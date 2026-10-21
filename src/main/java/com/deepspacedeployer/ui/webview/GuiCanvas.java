@@ -50,6 +50,14 @@ public final class GuiCanvas implements Canvas {
     /** 整个主题画布在屏幕上的位置（主题坐标 → 屏幕坐标的平移量） */
     private final float originX;
     private final float originY;
+    /**
+     * <b>整体缩放</b>（1 = 原尺寸）。
+     *
+     * <p>主题永远按 288×300 的逻辑尺寸布局；屏幕装不下时宿主传一个 &lt;1 的比例，
+     * 这里把所有坐标乘上去。这样界面永远完整可见，不用再"夹画布尺寸" ——
+     * 夹尺寸会让玩家背包（按画布底边定位）顶到列表上。</p>
+     */
+    private final float scale;
 
     private final Deque<float[]> offsets = new ArrayDeque<>();
     private float offX, offY;
@@ -63,9 +71,23 @@ public final class GuiCanvas implements Canvas {
     private static int textureSeq;
 
     public GuiCanvas(GuiGraphics graphics, float originX, float originY) {
+        this(graphics, originX, originY, 1f);
+    }
+
+    public GuiCanvas(GuiGraphics graphics, float originX, float originY, float scale) {
         this.graphics = graphics;
         this.originX = originX;
         this.originY = originY;
+        this.scale = scale <= 0f ? 1f : scale;
+    }
+
+    /** 逻辑坐标 → 屏幕坐标（含整体缩放） */
+    private float sx(float v) {
+        return v * scale + offX * scale + originX;
+    }
+
+    private float sy(float v) {
+        return v * scale + offY * scale + originY;
     }
 
     /**
@@ -117,10 +139,10 @@ public final class GuiCanvas implements Canvas {
         if (w <= 0f || h <= 0f || alphaOf(argb) == 0) {
             return;
         }
-        int x0 = Math.round(x + offX + originX);
-        int y0 = Math.round(y + offY + originY);
-        int x1 = Math.round(x + offX + originX + w);
-        int y1 = Math.round(y + offY + originY + h);
+        int x0 = Math.round(sx(x));
+        int y0 = Math.round(sy(y));
+        int x1 = Math.round(sx(x + w));
+        int y1 = Math.round(sy(y + h));
         graphics.fill(x0, y0, x1, y1, argb);
     }
 
@@ -158,13 +180,13 @@ public final class GuiCanvas implements Canvas {
         PoseStack pose = graphics.pose();
         pose.pushPose();
         // 字号换算成原版字体缩放：size 9 → 1.0，9 的整数倍最清晰（18 → 2.0）
-        float scale = size / BASE_SIZE;
-        if (Math.abs(scale - 1f) > 0.01f) {
-            pose.scale(scale, scale, 1f);
+        float fontScale = (size * this.scale) / BASE_SIZE;
+        if (Math.abs(fontScale - 1f) > 0.01f) {
+            pose.scale(fontScale, fontScale, 1f);
         }
         // 缩放之后坐标要除回去，这样调用方仍然按"主题坐标"思考
-        float px = (x + offX + originX) / scale;
-        float py = (y + offY + originY) / scale;
+        float px = sx(x) / fontScale;
+        float py = sy(y) / fontScale;
         graphics.drawString(font(), text, px, py, argb, false);
         pose.popPose();
     }
@@ -178,10 +200,10 @@ public final class GuiCanvas implements Canvas {
         if (tex == null) {
             return;
         }
-        int x0 = Math.round(x + offX + originX);
-        int y0 = Math.round(y + offY + originY);
-        int x1 = Math.round(x + offX + originX + w);
-        int y1 = Math.round(y + offY + originY + h);
+        int x0 = Math.round(sx(x));
+        int y0 = Math.round(sy(y));
+        int x1 = Math.round(sx(x + w));
+        int y1 = Math.round(sy(y + h));
         graphics.blit(tex.location(), x0, y0, 0f, 0f, x1 - x0, y1 - y0,
                 tex.width(), tex.height());
     }
@@ -207,16 +229,16 @@ public final class GuiCanvas implements Canvas {
             var stack = new net.minecraft.world.item.ItemStack(item, Math.max(1, count));
 
             PoseStack pose = graphics.pose();
-            float cx = x + w / 2f + offX + originX;
-            float cy = y + h / 2f + offY + originY;
-            float scale = Math.min(w, h) / 16f;
+            float cx = sx(x + w / 2f);
+            float cy = sy(y + h / 2f);
+            float iconScale = Math.min(w, h) * this.scale / 16f;
 
             pose.pushPose();
             pose.translate(cx, cy, 0);
             if (rotateDeg != 0f) {
                 pose.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(rotateDeg));
             }
-            pose.scale(scale, scale, 1f);
+            pose.scale(iconScale, iconScale, 1f);
             pose.translate(-8, -8, 0);
             graphics.renderItem(stack, 0, 0);
             if (count > 1) {
@@ -265,10 +287,10 @@ public final class GuiCanvas implements Canvas {
 
     @Override
     public void pushClip(float x, float y, float w, float h) {
-        int x0 = Math.round(x + offX + originX);
-        int y0 = Math.round(y + offY + originY);
-        int x1 = Math.round(x + offX + originX + w);
-        int y1 = Math.round(y + offY + originY + h);
+        int x0 = Math.round(sx(x));
+        int y0 = Math.round(sy(y));
+        int x1 = Math.round(sx(x + w));
+        int y1 = Math.round(sy(y + h));
         clipStack.push(new float[]{x0, y0, x1, y1});
         graphics.enableScissor(x0, y0, x1, y1);
     }

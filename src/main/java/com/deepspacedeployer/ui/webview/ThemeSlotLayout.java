@@ -37,6 +37,12 @@ public final class ThemeSlotLayout {
 
     /** 单个槽位摆到标记 + (dx,dy) */
     public static boolean place(WebViewScreen webview, Slot slot, String marker, int dx, int dy) {
+        return place(webview, slot, marker, dx, dy, 1f);
+    }
+
+    /** 带整体缩放的版本 */
+    public static boolean place(WebViewScreen webview, Slot slot, String marker, int dx, int dy,
+                                float scale) {
         if (webview == null || slot == null) {
             return false;
         }
@@ -45,8 +51,8 @@ public final class ThemeSlotLayout {
         if (m == null) {
             return false;
         }
-        slot.x = Math.round(m.x()) + dx;
-        slot.y = Math.round(m.y()) + dy;
+        slot.x = Math.round(m.x() * scale) + dx;
+        slot.y = Math.round(m.y() * scale) + dy;
         return true;
     }
 
@@ -57,6 +63,12 @@ public final class ThemeSlotLayout {
      * @param cols  每行几个
      */
     public static boolean grid(WebViewScreen webview, List<Slot> slots, String marker, int cols) {
+        return grid(webview, slots, marker, cols, 1f);
+    }
+
+    /** 带整体缩放的版本 */
+    public static boolean grid(WebViewScreen webview, List<Slot> slots, String marker, int cols,
+                               float scale) {
         if (webview == null || slots == null || slots.isEmpty()) {
             return false;
         }
@@ -65,12 +77,13 @@ public final class ThemeSlotLayout {
         if (m == null) {
             return false;
         }
-        int startX = Math.round(m.x());
-        int startY = Math.round(m.y());
+        int startX = Math.round(m.x() * scale);
+        int startY = Math.round(m.y() * scale);
+        int step = Math.max(1, Math.round(SLOT * scale));
         for (int i = 0; i < slots.size(); i++) {
             Slot s = slots.get(i);
-            s.x = startX + (i % cols) * SLOT;
-            s.y = startY + (i / cols) * SLOT;
+            s.x = startX + (i % cols) * step;
+            s.y = startY + (i / cols) * step;
         }
         return true;
     }
@@ -102,6 +115,12 @@ public final class ThemeSlotLayout {
      * @param hotbar  快捷栏 9 格
      */
     public static boolean player(WebViewScreen webview, List<Slot> mainInv, List<Slot> hotbar) {
+        return player(webview, mainInv, hotbar, 1f);
+    }
+
+    /** 带整体缩放的版本 */
+    public static boolean player(WebViewScreen webview, List<Slot> mainInv, List<Slot> hotbar,
+                                 float scale) {
         if (webview == null) {
             return false;
         }
@@ -109,17 +128,19 @@ public final class ThemeSlotLayout {
         if (m == null) {
             return false;
         }
-        int x0 = Math.round(m.x());
-        int y0 = Math.round(m.y());
+        int x0 = Math.round(m.x() * scale);
+        int y0 = Math.round(m.y() * scale);
+        int step = Math.max(1, Math.round(SLOT * scale));
         for (int i = 0; i < mainInv.size(); i++) {
             Slot s = mainInv.get(i);
-            s.x = x0 + (i % 9) * SLOT;
-            s.y = y0 + (i / 9) * SLOT;
+            s.x = x0 + (i % 9) * step;
+            s.y = y0 + (i / 9) * step;
         }
+        int gap = Math.max(1, Math.round(HOTBAR_GAP * scale));
         for (int i = 0; i < hotbar.size(); i++) {
             Slot s = hotbar.get(i);
-            s.x = x0 + i * SLOT;
-            s.y = y0 + HOTBAR_GAP;
+            s.x = x0 + i * step;
+            s.y = y0 + gap;
         }
         return true;
     }

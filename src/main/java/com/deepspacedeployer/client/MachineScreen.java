@@ -120,6 +120,8 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
     private WebViewScreen webview;
     /** F9：把"原版槽位在哪 / 主题标记在哪"直接画出来（排查错位用） */
     private boolean debugSlots;
+    /** 整体缩放比例（主题逻辑 288×300 → 实际画布） */
+    private float themeScale = 1f;
     /** 上一次喂给主题的数据快照（变了才重新绑定，免得每帧重解析 HTML） */
     private String themeSnapshot = "";
 
@@ -161,7 +163,9 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
             this.webview.setActionSink(this::onThemeAction);
         }
         this.webview.setEnabled(WebViewManager.enabled());
-        this.webview.size(this.imageWidth, this.imageHeight);
+        // 逻辑尺寸固定 288×300；scale 负责把它缩到画布大小
+        this.webview.size(288, 300);
+        this.webview.scale(this.themeScale);
         this.webview.at(this.leftPos, this.topPos);
         this.themeSnapshot = "";
         syncTheme();
@@ -208,22 +212,22 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
         if (playerStart < 1) {
             return;
         }
-        ThemeSlotLayout.place(this.webview, slots.get(0), "card");
+        ThemeSlotLayout.place(this.webview, slots.get(0), "card", 0, 0, this.themeScale);
 
         if (playerStart >= 10) {
-            ThemeSlotLayout.grid(this.webview, slots.subList(1, 10), "input9", 3);
+            ThemeSlotLayout.grid(this.webview, slots.subList(1, 10), "input9", 3, this.themeScale);
         }
         switch (this.menu.kind()) {
             case CORE -> {
                 if (playerStart > 10) {
-                    ThemeSlotLayout.place(this.webview, slots.get(10), "clipboard");
+                    ThemeSlotLayout.place(this.webview, slots.get(10), "clipboard", 0, 0, this.themeScale);
                 }
             }
             case MARKET -> {
                 if (playerStart >= 13) {
-                    ThemeSlotLayout.place(this.webview, slots.get(10), "market_sell");
-                    ThemeSlotLayout.place(this.webview, slots.get(11), "market_barter");
-                    ThemeSlotLayout.place(this.webview, slots.get(12), "market_collect");
+                    ThemeSlotLayout.place(this.webview, slots.get(10), "market_sell", 0, 0, this.themeScale);
+                    ThemeSlotLayout.place(this.webview, slots.get(11), "market_barter", 0, 0, this.themeScale);
+                    ThemeSlotLayout.place(this.webview, slots.get(12), "market_collect", 0, 0, this.themeScale);
                 }
             }
             default -> {
@@ -233,7 +237,7 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
         var playerSlots = slots.subList(playerStart, slots.size());
         if (playerSlots.size() == 36) {
             ThemeSlotLayout.player(this.webview, playerSlots.subList(0, 27),
-                    playerSlots.subList(27, 36));
+                    playerSlots.subList(27, 36), this.themeScale);
         }
     }
 
@@ -287,7 +291,8 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
                         + this.menu.idleReason()).getString()
                 : "");
         // 中间列表可用高度：画布高度减掉"头/信息/槽位行/按钮/玩家背包"占的部分
-        d.put("列表高", Math.max(24, this.imageHeight - 250));
+        // 主题永远按 300 逻辑高布局 → 列表高度用**逻辑值**（50），不跟着缩放变
+        d.put("列表高", 50);
         d.put("创意模式", this.menu.creative());
         d.put("有公司", companyBound);
 
@@ -616,9 +621,12 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
         // ★ 先把画布尺寸夹进屏幕，再 super.init()（leftPos/topPos 是按 imageWidth/Height 算的）。
         //   以前固定 300 高：GUI 高度小于 300 时（高 GUI 缩放/小窗口）界面会**超出屏幕上下边**，
         //   老板 2026-10-21 报的"高度超出窗口"就是这个。
-        this.imageHeight = Math.max(180, Math.min(300, this.height - 12));
-        // 宽屏时允许画布更宽（元素多的主题不至于横向溢出）；窄屏兜底 240
-        this.imageWidth = Math.max(240, Math.min(360, this.width - 12));
+        // ★ 整体等比缩放：主题永远按 288×300 布局，屏幕装不下时缩小。
+        //   不再"夹画布尺寸"—— 夹尺寸会让玩家背包（按画布底边定位）顶到列表上。
+        this.themeScale = Math.min(1f,
+                Math.min((this.height - 8) / 300f, (this.width - 8) / 288f));
+        this.imageWidth = Math.max(120, Math.round(288 * this.themeScale));
+        this.imageHeight = Math.max(120, Math.round(300 * this.themeScale));
         super.init();
         int x = this.leftPos;
         int y = this.topPos;
