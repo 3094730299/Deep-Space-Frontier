@@ -614,7 +614,8 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
         //   以前固定 300 高：GUI 高度小于 300 时（高 GUI 缩放/小窗口）界面会**超出屏幕上下边**，
         //   老板 2026-10-21 报的"高度超出窗口"就是这个。
         this.imageHeight = Math.max(180, Math.min(300, this.height - 12));
-        this.imageWidth = Math.max(240, Math.min(288, this.width - 12));
+        // 宽屏时允许画布更宽（元素多的主题不至于横向溢出）；窄屏兜底 240
+        this.imageWidth = Math.max(240, Math.min(360, this.width - 12));
         super.init();
         int x = this.leftPos;
         int y = this.topPos;

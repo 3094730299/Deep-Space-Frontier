@@ -42,6 +42,15 @@ public final class ThemeContext {
      */
     private final Map<HtmlNode, Float> scrollView;
 
+    /**
+     * <b>整页滚动量</b>（px）。主题内容比视口高时，滚轮滚的是这一整页 ——
+     * 主题画的框、物品格（data-slot）、点击命中的坐标，全都按它一起偏移。
+     *
+     * <p>为什么需要：以前只有"元素自己 overflow:scroll"能滚；
+     * 老板 2026-10-21 观察到"滚动时物品本该跟着走"，就是这个意思。</p>
+     */
+    private float globalScrollY;
+
     /** 布局时用的视口 */
     private float viewportW;
     private float viewportH;
@@ -125,6 +134,7 @@ public final class ThemeContext {
     public void render(com.deepspacedeployer.ui.theme.Canvas frameCanvas) {
         try {
             renderer.setCanvas(frameCanvas);
+            renderer.setGlobalScrollY(globalScrollY);
             renderer.render(doc.root);
         } catch (Throwable t) {
             DeepSpaceDeployer.LOGGER.warn("[深空铸造体][界面] 主题绘制失败（{}）：{}",
@@ -179,7 +189,7 @@ public final class ThemeContext {
         if (doc == null || doc.root == null) {
             return null;
         }
-        return hitWalk(doc.root, px, py, 0f, 0f);
+        return hitWalk(doc.root, px, py + globalScrollY, 0f, 0f);
     }
 
     /**
@@ -206,6 +216,33 @@ public final class ThemeContext {
             return node;
         }
         return null;
+    }
+
+    /** 整页还能往下滚多少（内容不高于视口就是 0） */
+    public float maxGlobalScroll() {
+        return Math.max(0f, contentHeight - viewportH);
+    }
+
+    public float globalScrollY() {
+        return globalScrollY;
+    }
+
+    /**
+     * 整页滚动。
+     *
+     * @return true = 确实滚动了（调用方可以吃掉这次滚轮）
+     */
+    public boolean scrollPageBy(float delta) {
+        float max = maxGlobalScroll();
+        if (max <= 0f) {
+            return false;
+        }
+        float next = Math.max(0f, Math.min(max, globalScrollY + delta));
+        if (Math.abs(next - globalScrollY) < 0.5f) {
+            return false;
+        }
+        globalScrollY = next;
+        return true;
     }
 
     /** 某个元素自己的滚动量（命中测试递归时要往下传） */
@@ -259,7 +296,7 @@ public final class ThemeContext {
             return Map.of();
         }
         Map<String, Marker> out = new java.util.LinkedHashMap<>();
-        collectMarkers(doc.root, 0f, 0f, out);
+        collectMarkers(doc.root, 0f, -globalScrollY, out);
         return out;
     }
 
@@ -275,9 +312,12 @@ public final class ThemeContext {
         if (input != null && !input.isBlank()) {
             out.putIfAbsent("input:" + input.trim(), boxMarker(node, dx, dy));
         }
-        float ndx = dx + scrollOf(node);
+        // ⚠️ 渲染器只做纵向滚动（pushOffset(0, -scroll)），所以只累加 dy。
+        //    以前这里把滚动加到了 dx 上、dy 原样传下去 —— 结果：
+        //    元素滚动了，但 data-slot 标记不动 → 物品格不跟框走（错位）。
+        float ndy = dy + scrollOf(node);
         for (HtmlNode child : node.children) {
-            collectMarkers(child, ndx, dy, out);
+            collectMarkers(child, dx, ndy, out);
         }
     }
 

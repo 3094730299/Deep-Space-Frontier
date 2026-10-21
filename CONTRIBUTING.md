@@ -16,8 +16,8 @@ gradlew.bat build        # Windows
 ./gradlew build          # Linux / macOS
 
 # 3. 产物
-build/libs/deepspacedeployer-0.1.14+mc1.21.1.jar
-deepspacedeployer-0.1.14+mc1.21.1.jar          # ★ build 结束会自动复制到项目根目录
+build/libs/deepspacedeployer-0.1.15+mc1.21.1.jar
+deepspacedeployer-0.1.15+mc1.21.1.jar          # ★ build 结束会自动复制到项目根目录
 ```
 
 >

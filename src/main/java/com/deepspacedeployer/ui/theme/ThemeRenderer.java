@@ -22,6 +22,8 @@ public final class ThemeRenderer {
      * 空无一物"。见 {@link com.deepspacedeployer.ui.webview.WebViewScreen#render}。</p>
      */
     private Canvas canvas;
+    /** 整页滚动量（由宿主界面设置；物品格/命中测试同步减掉） */
+    private float globalScrollY;
     /** 每个元素的滚动位置（key = 元素），交互层滚动时改它 */
     private final java.util.Map<HtmlNode, Float> scrollOffsets = new java.util.IdentityHashMap<>();
 
@@ -31,6 +33,10 @@ public final class ThemeRenderer {
     }
 
     /** 换一个画布（每帧渲染前由宿主调用；离线预览不用调） */
+    public void setGlobalScrollY(float v) {
+        this.globalScrollY = v;
+    }
+
     public void setCanvas(Canvas canvas) {
         if (canvas != null) {
             this.canvas = canvas;
@@ -46,8 +52,14 @@ public final class ThemeRenderer {
         if (root == null) {
             return;
         }
+        if (globalScrollY != 0f) {
+            canvas.pushOffset(0f, -globalScrollY);
+        }
         for (HtmlNode child : root.children) {
             renderNode(child, root.docDir == null ? "" : root.docDir);
+        }
+        if (globalScrollY != 0f) {
+            canvas.popOffset();
         }
     }
 

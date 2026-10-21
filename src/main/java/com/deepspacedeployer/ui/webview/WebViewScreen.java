@@ -321,11 +321,12 @@ public final class WebViewScreen {
         float py = (float) (mouseY - originY);
         try {
             var node = ctx.scrollableAt(px, py);
-            if (node == null) {
-                return false;
+            if (node != null) {
+                ctx.scrollBy(node, (float) (-delta * 10f));
+                return true;
             }
-            ctx.scrollBy(node, (float) (-delta * 10f));
-            return true;
+            // 没点到可滚元素 → 滚"整页"（主题比视口高时才有得滚）
+            return ctx.scrollPageBy((float) (-delta * 12f));
         } catch (Throwable t) {
             return false;
         }
