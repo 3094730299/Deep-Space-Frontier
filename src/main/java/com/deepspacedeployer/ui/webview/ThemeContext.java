@@ -274,9 +274,12 @@ public final class ThemeContext {
             if (!"scroll".equals(n.style.overflow)) {
                 return;
             }
-            // 整页滚动会让内容整体上移 → 判定时把滚动量补上（和绘制一致）
+            // ⚠️ 只减"整页滚动量"。
+            //    元素**自己**的滚动量只作用于它的**子元素**，不会挪动它自己的框 ——
+            //    以前这里多减了 scrollOf(n)，结果框滚几行后判定矩形就移走了，
+            //    指针"离开"框 → 掉回整页滚动（老板 2026-10-22 报的就是这个）。
             float x = n.box.x;
-            float y = n.box.y - globalScrollY - scrollOf(n);
+            float y = n.box.y - globalScrollY;
             if (px >= x && px < x + n.box.w && py >= y && py < y + n.box.h) {
                 float area = n.box.w * n.box.h;
                 if (area < bestArea[0]) {      // 取最内层（面积最小）的那个
