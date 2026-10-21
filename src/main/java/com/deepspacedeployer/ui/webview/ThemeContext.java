@@ -258,16 +258,36 @@ public final class ThemeContext {
      * 指针在别处才滚整页。</p>
      */
     public HtmlNode scrollContainerAt(float px, float py) {
-        HtmlNode hit = hitNode(px, py);
-        HtmlNode n = hit;
-        while (n != null) {
-            if (n.style != null && "scroll".equals(n.style.overflow)) {
-                return n;
-            }
-            n = n.parent;
+        // ★ 不再走 hitNode 猜：直接把每个 overflow:scroll 元素的**矩形**拿来比。
+        //   （老板 2026-10-22："抛弃识别鼠标坐标，改为小滚动框碰到鼠标指针就触发"）
+        //   命中测试受可见性/层叠/滚动补偿影响，容易"差一点就选不中"；
+        //   矩形判定简单、可预测：指针落在框里 → 就是它。
+        if (doc == null || doc.root == null) {
+            return null;
         }
-        return null;
+        HtmlNode[] best = {null};
+        float[] bestArea = {Float.MAX_VALUE};
+        doc.root.walk(n -> {
+            if (!n.isElement() || n.box == null || n.style == null) {
+                return;
+            }
+            if (!"scroll".equals(n.style.overflow)) {
+                return;
+            }
+            // 整页滚动会让内容整体上移 → 判定时把滚动量补上（和绘制一致）
+            float x = n.box.x;
+            float y = n.box.y - globalScrollY - scrollOf(n);
+            if (px >= x && px < x + n.box.w && py >= y && py < y + n.box.h) {
+                float area = n.box.w * n.box.h;
+                if (area < bestArea[0]) {      // 取最内层（面积最小）的那个
+                    bestArea[0] = area;
+                    best[0] = n;
+                }
+            }
+        });
+        return best[0];
     }
+
 
     /** 某个元素自己的滚动量（命中测试递归时要往下传） */
     float scrollOf(HtmlNode node) {
