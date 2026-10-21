@@ -286,6 +286,8 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
                 ? Component.translatable("gui.deepspacedeployer.idle_reason."
                         + this.menu.idleReason()).getString()
                 : "");
+        // 中间列表可用高度：画布高度减掉"头/信息/槽位行/按钮/玩家背包"占的部分
+        d.put("列表高", Math.max(24, this.imageHeight - 250));
         d.put("创意模式", this.menu.creative());
         d.put("有公司", companyBound);
 
@@ -328,6 +330,7 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
         for (int i = 0; i < offers.size(); i++) {
             TradeEntry e = offers.get(i);
             Map<String, Object> row = new LinkedHashMap<>();
+            row.put("图标", e.itemId());
             row.put("名称", itemName(e.itemId()).getString());
             row.put("单价", String.valueOf(e.price()));
             boolean locked = !isUnlocked(e);

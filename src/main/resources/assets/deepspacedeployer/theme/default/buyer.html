@@ -59,8 +59,10 @@
       <!-- 资金转化已删（老板 2026-10-19：改到货币银行里） -->
     </div>
 
-    <div class="list short">
+    <!-- 中间列表：外部高度由宿主按可用空间给（{{列表高}}），内部自己滚 -->
+    <div class="list short" style="height:{{列表高}}">
       <div class="row" data-repeat="收购价">
+        <div class="icon" data-item="{{图标}}"></div>
         <div class="name">{{名称}}</div>
         <div class="price">{{单价}}</div>
       </div>
