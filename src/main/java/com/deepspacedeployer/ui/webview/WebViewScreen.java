@@ -332,14 +332,13 @@ public final class WebViewScreen {
         float px = (float) (mouseX - originX);
         float py = (float) (mouseY - originY);
         try {
-            var node = ctx.scrollableAt(px, py);
-            if (node != null) {
-                ctx.scrollBy(node, (float) (-delta * 10f));
+            // ① 指针在某个 overflow:scroll 容器里 → 归它管（哪怕没得滚，也不翻页）
+            var container = ctx.scrollContainerAt(px, py);
+            if (container != null) {
+                ctx.scrollBy(container, (float) (-delta * 10f));
                 return true;
             }
-            // 鼠标没落在可滚元素上 → 滚整页。
-            // 物品格（data-slot）会跟着整页滚动一起偏移（见 ThemeContext.markers），
-            // 所以"双滚动"下物品也不会脱框。
+            // ② 指针在别处 → 滚整页
             return ctx.scrollPageBy((float) (-delta * 12f));
         } catch (Throwable t) {
             return false;

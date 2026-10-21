@@ -247,6 +247,28 @@ public final class ThemeContext {
         return true;
     }
 
+    /**
+     * 鼠标位置是否落在"可滚动容器"里 —— <b>不看内容是否真的超出</b>。
+     *
+     * <p>为什么需要：老板 2026-10-22 反馈"不管鼠标在哪都是整页滚"。
+     * 原因是之前要求"内容必须超出容器"才认这个滚动区，
+     * 列表内容刚好没超出时就落到整页滚动上，手感完全不对。</p>
+     *
+     * <p>现在的规则很直接：<b>指针在列表里就归列表管</b>（哪怕没得滚），
+     * 指针在别处才滚整页。</p>
+     */
+    public HtmlNode scrollContainerAt(float px, float py) {
+        HtmlNode hit = hitNode(px, py);
+        HtmlNode n = hit;
+        while (n != null) {
+            if (n.style != null && "scroll".equals(n.style.overflow)) {
+                return n;
+            }
+            n = n.parent;
+        }
+        return null;
+    }
+
     /** 某个元素自己的滚动量（命中测试递归时要往下传） */
     float scrollOf(HtmlNode node) {
         return scrollView.getOrDefault(node, 0f);
