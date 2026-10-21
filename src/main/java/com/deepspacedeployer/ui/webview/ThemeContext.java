@@ -107,6 +107,8 @@ public final class ThemeContext {
         this.viewportH = viewportH;
         try {
             this.contentHeight = engine.layout(doc.root, viewportW, viewportH);
+            // 布局变了（换主题 / 改分辨率 / 数据变化）→ 滚动量夹回合法范围
+            this.globalScrollY = Math.max(0f, Math.min(globalScrollY, maxGlobalScroll()));
         } catch (Throwable t) {
             DeepSpaceDeployer.LOGGER.warn("[深空铸造体][界面] 主题布局失败（{}）：{}",
                     doc.file, t.toString());

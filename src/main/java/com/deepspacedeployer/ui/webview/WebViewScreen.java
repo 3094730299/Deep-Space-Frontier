@@ -325,8 +325,10 @@ public final class WebViewScreen {
                 ctx.scrollBy(node, (float) (-delta * 10f));
                 return true;
             }
-            // 没点到可滚元素 → 滚"整页"（主题比视口高时才有得滚）
-            return ctx.scrollPageBy((float) (-delta * 12f));
+            // ⚠️ 不做"整页滚动"：真机上它的副作用是"所有元素一起滚、物品格不跟"，
+            //    老板要的是**只有中间那块列表滚**（村民交易那种）。
+            //    所以这里只滚元素自己（主题把列表设成 overflow:scroll 即可）。
+            return false;
         } catch (Throwable t) {
             return false;
         }
