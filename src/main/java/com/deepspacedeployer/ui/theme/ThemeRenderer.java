@@ -111,6 +111,14 @@ public final class ThemeRenderer {
                     applyOpacity(st.borderColor, st.opacity));
         }
 
+        // ②b 物品图标（物品展示框）：跟框的 位置 / 大小 / 角度 走
+        String itemId = node.attr("data-item");
+        if (itemId != null && !itemId.isBlank()) {
+            int count = parseIntAttr(node.attr("data-count"), 1);
+            float rotate = parseFloatAttr(node.attr("data-rotate"), 0f);
+            canvas.drawItem(itemId, count, box.x, box.y, box.w, box.h, rotate);
+        }
+
         // ③ 裁切 / 滚动
         boolean clip = "hidden".equals(st.overflow) || "scroll".equals(st.overflow);
         float scroll = 0f;
@@ -170,6 +178,22 @@ public final class ThemeRenderer {
         list.sort(java.util.Comparator.comparingInt(
                 c -> c.style == null ? 0 : c.style.zIndex));
         return list;
+    }
+
+    private static int parseIntAttr(String v, int fallback) {
+        try {
+            return v == null || v.isBlank() ? fallback : Integer.parseInt(v.trim());
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
+    }
+
+    private static float parseFloatAttr(String v, float fallback) {
+        try {
+            return v == null || v.isBlank() ? fallback : Float.parseFloat(v.trim());
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
     }
 
     /** 把透明度乘进颜色（画布只有纯色原语，不做整体合成） */

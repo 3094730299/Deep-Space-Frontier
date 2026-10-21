@@ -421,5 +421,7 @@
   "gui.deepspacedeployer.editor_pick_image": "Change image…",
   "gui.deepspacedeployer.editor_import_title": "Import into theme (rename)",
   "gui.deepspacedeployer.editor_edit_text": "Edit text",
-  "gui.deepspacedeployer.editor_condition": "Condition (e.g. balance>100)"
+  "gui.deepspacedeployer.editor_condition": "Condition (e.g. balance>100)",
+  "gui.deepspacedeployer.editor_item_id": "Item id (e.g. minecraft:iron_ingot)",
+  "gui.deepspacedeployer.editor_item_style": "Style (CSS snippet)"
 }

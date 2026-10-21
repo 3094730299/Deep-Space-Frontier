@@ -421,5 +421,7 @@
   "gui.deepspacedeployer.editor_pick_image": "换图片…",
   "gui.deepspacedeployer.editor_import_title": "导入到主题（改名）",
   "gui.deepspacedeployer.editor_edit_text": "修改文字",
-  "gui.deepspacedeployer.editor_condition": "条件（如 余额>100）"
+  "gui.deepspacedeployer.editor_condition": "条件（如 余额>100）",
+  "gui.deepspacedeployer.editor_item_id": "物品 id（如 minecraft:iron_ingot）",
+  "gui.deepspacedeployer.editor_item_style": "样式（CSS 片段）"
 }

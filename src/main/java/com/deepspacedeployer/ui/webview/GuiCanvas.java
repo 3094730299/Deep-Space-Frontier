@@ -186,6 +186,50 @@ public final class GuiCanvas implements Canvas {
                 tex.width(), tex.height());
     }
 
+    /**
+     * 画物品图标（{@code data-item} 用）。
+     *
+     * <p>用原版 {@code renderItem} 画 16×16 图标，再按框的大小缩放、按角度旋转 ——
+     * 所以"框多大、转到哪、放哪儿"，物品就完全跟着走，不会出现槽位错位。</p>
+     */
+    @Override
+    public void drawItem(String itemId, int count, float x, float y, float w, float h,
+                         float rotateDeg) {
+        if (itemId == null || itemId.isBlank() || w <= 0 || h <= 0) {
+            return;
+        }
+        try {
+            ResourceLocation rl = ResourceLocation.tryParse(itemId.trim());
+            if (rl == null || !net.minecraft.core.registries.BuiltInRegistries.ITEM.containsKey(rl)) {
+                return;
+            }
+            var item = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(rl);
+            var stack = new net.minecraft.world.item.ItemStack(item, Math.max(1, count));
+
+            PoseStack pose = graphics.pose();
+            float cx = x + w / 2f + offX + originX;
+            float cy = y + h / 2f + offY + originY;
+            float scale = Math.min(w, h) / 16f;
+
+            pose.pushPose();
+            pose.translate(cx, cy, 0);
+            if (rotateDeg != 0f) {
+                pose.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(rotateDeg));
+            }
+            pose.scale(scale, scale, 1f);
+            pose.translate(-8, -8, 0);
+            graphics.renderItem(stack, 0, 0);
+            if (count > 1) {
+                graphics.renderItemDecorations(font(), stack, 0, 0);
+            }
+            pose.popPose();
+        } catch (Throwable t) {
+            // 物品 id 写错 / 注册表还没起来：跳过，不影响界面
+            DeepSpaceDeployer.LOGGER.debug("[深空铸造体][界面] 物品图标绘制失败（{}）：{}",
+                    itemId, t.toString());
+        }
+    }
+
     @Override
     public List<String> wrap(String text, float size, boolean bold, float maxWidth) {
         List<String> out = new ArrayList<>();
