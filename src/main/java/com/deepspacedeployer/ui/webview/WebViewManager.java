@@ -113,6 +113,23 @@ public final class WebViewManager {
     }
 
     /**
+     * 主题文件被改过（UI 编辑器保存）时 +1。
+     *
+     * <p>界面每帧用 {@link WebViewScreen#themeChanged()} 比对它：光比"主题名"不够 ——
+     * 编辑的是同一个主题的文件时名字没变，但画出来应该变。</p>
+     */
+    private static volatile int revision;
+
+    /** 通知所有界面"主题文件变了，下次渲染重新加载" */
+    public static void markThemesDirty() {
+        revision++;
+    }
+
+    public static int revision() {
+        return revision;
+    }
+
+    /**
      * 每 tick 检查一次主题有没有被换掉（玩家在主题菜单里点了别的主题）。
      *
      * <p>这里只更新"上一次见到的主题名"，真正让界面重载由各界面自己看

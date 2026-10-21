@@ -9,6 +9,7 @@ import com.deepspacedeployer.factory.BlueprintInfo;
 import com.deepspacedeployer.menu.MachineMenu;
 import com.deepspacedeployer.shop.TradeEntry;
 import com.deepspacedeployer.ui.webview.ThemeData;
+import com.deepspacedeployer.ui.webview.ThemeSlotLayout;
 import com.deepspacedeployer.ui.webview.WebScreenId;
 import com.deepspacedeployer.ui.webview.WebViewManager;
 import com.deepspacedeployer.ui.webview.WebViewScreen;
@@ -182,6 +183,56 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
         }
         this.themeSnapshot = snapshot;
         this.webview.reload(this::buildThemeData);
+        applyThemeSlotLayout();
+    }
+
+    /**
+     * 把原版物品格摆到主题标记的位置上（{@code data-slot="…"}）。
+     *
+     * <p>⚠️ <b>不调这个就会错位</b>：主题画自己的框，原版槽位却停在 {@link MachineMenu}
+     * 里写死的坐标，两边差几十像素 —— 物品飘在框外、3×3 格子和画的框对不齐
+     * （老板 2026-10-19 实机截图里的"错位"就是这个）。</p>
+     *
+     * <p>槽位索引布局见 {@code MachineMenu.setupSlots()}：
+     * 0 = 银行卡；1..9 = 3×3 投料格；CORE 的 10 = 剪贴板；
+     * MARKET 的 10/11/12 = 待售/以物易物/取货；最后 36 格固定是玩家背包（3×9 + 快捷栏）。</p>
+     */
+    private void applyThemeSlotLayout() {
+        if (this.webview == null || !this.webview.visible()) {
+            return;
+        }
+        var slots = this.menu.slots;
+        int playerStart = slots.size() - 36;
+        if (playerStart < 1) {
+            return;
+        }
+        ThemeSlotLayout.place(this.webview, slots.get(0), "card");
+
+        if (playerStart >= 10) {
+            ThemeSlotLayout.grid(this.webview, slots.subList(1, 10), "input9", 3);
+        }
+        switch (this.menu.kind()) {
+            case CORE -> {
+                if (playerStart > 10) {
+                    ThemeSlotLayout.place(this.webview, slots.get(10), "clipboard");
+                }
+            }
+            case MARKET -> {
+                if (playerStart >= 13) {
+                    ThemeSlotLayout.place(this.webview, slots.get(10), "market_sell");
+                    ThemeSlotLayout.place(this.webview, slots.get(11), "market_barter");
+                    ThemeSlotLayout.place(this.webview, slots.get(12), "market_collect");
+                }
+            }
+            default -> {
+            }
+        }
+
+        var playerSlots = slots.subList(playerStart, slots.size());
+        if (playerSlots.size() == 36) {
+            ThemeSlotLayout.player(this.webview, playerSlots.subList(0, 27),
+                    playerSlots.subList(27, 36));
+        }
     }
 
     /** 快照：把所有会显示出来的数据拼成一行（变了就重新绑定主题） */
@@ -760,6 +811,7 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         syncTheme();
+        applyThemeSlotLayout();   // 每帧对齐（便宜；保证主题加载时机不影响）
         super.render(graphics, mouseX, mouseY, partialTick);
         if (this.webview != null && this.webview.visible()) {
             this.webview.render(graphics, mouseX, mouseY, partialTick);
@@ -1514,3 +1566,4 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
         }
     }
 }
+

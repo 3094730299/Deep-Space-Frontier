@@ -52,8 +52,10 @@ neoForge {
     // NeoForge 版本在 gradle.properties 里改
     version = project.neo_version
 
-    // 访问转换器（暂时不需要，留空即可）
-    // accessTransformers.from 'src/main/resources/META-INF/accesstransformer.cfg'
+    // 访问转换器：把 Slot.x / Slot.y 的 final 去掉 ——
+    // 主题用 data-slot 标记位置，加载后必须能把原版物品格搬过去（否则永远错位）。
+    // 文件：src/main/resources/META-INF/accesstransformer.cfg
+    accessTransformers.from 'src/main/resources/META-INF/accesstransformer.cfg'
 
     runs {
         client {
@@ -204,6 +206,17 @@ tasks.register('renderThemes', JavaExec) {
 
 // 布局分解：排查"某个界面内容高得离谱"时用
 //   gradlew dumpTheme -Pfile=buyer.html
+tasks.register('slots', JavaExec) {
+    group = themeTaskGroup
+    description = '打印某个界面里所有 data-slot / data-input 标记的坐标'
+    dependsOn tasks.named('classes')
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.deepspacedeployer.tools.ThemePreview'
+    workingDir = projectDir
+    jvmArgs = themeJvmArgs
+    doFirst { args = ['--slots', chosenThemeDir(), project.findProperty('file') ?: 'factory_terminal.html'] }
+}
+
 tasks.register('dumpTheme', JavaExec) {
     group = themeTaskGroup
     description = '打印某个界面每个元素的 y/高度（-Pfile=buyer.html），排查排版溢出'

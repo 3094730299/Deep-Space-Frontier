@@ -34,6 +34,15 @@ public final class HtmlNode {
     /** 引用它的那个文件所在目录（相对 theme 根，用于解析相对路径） */
     public String docDir = "";
 
+    /**
+     * 这个元素的**开始标签**在源文件里的位置（{@code [srcTagStart, srcTagEnd)}）。
+     *
+     * <p>给 UI 编辑器用：改了元素的位置/大小之后，要能把它写回源文件的那一行。
+     * {@code -1} = 不是从源码解析出来的（比如 data-repeat 克隆的节点），不能回写。</p>
+     */
+    public int srcTagStart = -1;
+    public int srcTagEnd = -1;
+
     /** {@code data-if="..."} 求值结果：true = 这次不显示（等价于 display:none） */
     public boolean dataHidden;
 

@@ -6,6 +6,7 @@ import com.deepspacedeployer.menu.MachineMenu;
 import com.deepspacedeployer.menu.TransferMenu;
 import com.deepspacedeployer.net.TransferPayload;
 import com.deepspacedeployer.ui.webview.ThemeData;
+import com.deepspacedeployer.ui.webview.ThemeSlotLayout;
 import com.deepspacedeployer.ui.webview.WebScreenId;
 import com.deepspacedeployer.ui.webview.WebViewManager;
 import com.deepspacedeployer.ui.webview.WebViewScreen;
@@ -131,6 +132,39 @@ public class TransferScreen extends AbstractContainerScreen<TransferMenu> {
         this.webview.setActionSink(this::onThemeAction);
         this.themeSnapshot = "";
         syncTheme();
+        applyThemeSlotLayout();
+    }
+
+    /**
+     * 把原版物品格 / 输入框摆到主题标记的位置。
+     *
+     * <p>这个菜单的槽位顺序和别的界面不一样：**玩家背包在前 36 格，两张银行卡在后面**
+     * （见 {@code TransferMenu}），所以卡的索引是 {@code size-2 / size-1}。</p>
+     */
+    private void applyThemeSlotLayout() {
+        if (!this.webview.visible()) {
+            return;
+        }
+        var slots = this.menu.slots;
+        int cardsStart = slots.size() - 2;
+        if (cardsStart < 36) {
+            return;
+        }
+        ThemeSlotLayout.place(this.webview, slots.get(cardsStart), "card_a");
+        ThemeSlotLayout.place(this.webview, slots.get(cardsStart + 1), "card_b");
+        ThemeSlotLayout.player(this.webview, slots.subList(0, 27), slots.subList(27, 36));
+
+        // 原生输入框：按 data-input="金额" / "目标" 摆
+        var amount = ThemeSlotLayout.input(this.webview, "金额");
+        if (amount != null && this.amountBox != null) {
+            this.amountBox.setX(this.leftPos + Math.round(amount.x()));
+            this.amountBox.setY(this.topPos + Math.round(amount.y()));
+        }
+        var target = ThemeSlotLayout.input(this.webview, "目标");
+        if (target != null && this.targetBox != null) {
+            this.targetBox.setX(this.leftPos + Math.round(target.x()));
+            this.targetBox.setY(this.topPos + Math.round(target.y()));
+        }
     }
 
     // ---------------------------------------------------------------- 界面主题
@@ -149,6 +183,7 @@ public class TransferScreen extends AbstractContainerScreen<TransferMenu> {
         }
         this.themeSnapshot = snapshot;
         this.webview.reload(this::buildThemeData);
+        applyThemeSlotLayout();
     }
 
     private String themeSignature() {
@@ -391,6 +426,7 @@ public class TransferScreen extends AbstractContainerScreen<TransferMenu> {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         syncTheme();
+        applyThemeSlotLayout();   // 每帧对齐（便宜；保证主题加载时机不影响）
         super.render(graphics, mouseX, mouseY, partialTick);
 
         int x = this.leftPos;

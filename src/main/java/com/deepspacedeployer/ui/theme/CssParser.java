@@ -225,6 +225,7 @@ public final class CssParser {
             case "color" -> st.color = parseColor(v, st.color);
             case "background", "background-color" -> st.background = parseColor(v, st.background);
             case "background-image" -> st.backgroundImage = parseUrl(v);
+            case "z-index" -> st.zIndex = (int) length(v, st.zIndex);
             case "background-size" -> st.backgroundSize = v.toLowerCase(Locale.ROOT);
             case "width" -> st.width = Dim.parse(v, st.width);
             case "height" -> st.height = Dim.parse(v, st.height);
