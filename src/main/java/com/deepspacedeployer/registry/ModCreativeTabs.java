@@ -23,8 +23,8 @@ public final class ModCreativeTabs {
                     .icon(() -> new ItemStack(ModItems.BANK_CARD.get()))
                     .displayItems((parameters, output) -> {
                         // 卡：主卡 / 副卡（老板说"卡保留"）
+                        // 卡：唯一一种（旧副卡只保留注册 id 做存档迁移，不在创造栏发放）
                         output.accept(ModItems.BANK_CARD.get());
-                        output.accept(ModItems.BANK_CARD_SUB.get());
                         output.accept(ModItems.BLUEPRINT_VOUCHER.get());
                         output.accept(ModItems.TIER_UPGRADE_KIT.get());
                         for (Company company : Company.VALUES) {
@@ -34,6 +34,8 @@ public final class ModCreativeTabs {
                         output.accept(ModItems.UNIVERSAL_TERMINAL.get());
                         // 精构仪：装饰方块（老板 2026-10-19 新建模，暂时只当摆设）
                         output.accept(ModItems.PRECISION_FABRICATOR.get());
+                        // 深空货币银行：全局功能方块（无公司、无等级）
+                        output.accept(ModItems.CURRENCY_BANK.get());
                         // 功能方块：有归属的机器 6 家公司各一件、无归属的（寄售市场）就一件。
                         // 老板要求"无法切换"，所以这里列出来是什么就是什么。
                         for (MachineKind kind : MachineKind.values()) {

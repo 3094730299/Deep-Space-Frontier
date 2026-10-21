@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "deepspacedeployer:block/currency_bank"
+    }
+  }
+}

@@ -8,6 +8,7 @@
     "deepspacedeployer:universal_terminal",
     "deepspacedeployer:printer_part",
     "deepspacedeployer:precision_fabricator",
-    "deepspacedeployer:precision_fabricator_part"
+    "deepspacedeployer:precision_fabricator_part",
+    "deepspacedeployer:currency_bank"
   ]
 }

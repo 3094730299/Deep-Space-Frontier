@@ -43,6 +43,12 @@ public final class ModBlockEntities {
                     com.deepspacedeployer.blockentity.PrecisionFabricatorBlockEntity::new,
                     ModBlocks.PRECISION_FABRICATOR.get()).build(null));
 
+    /** 深空货币银行：两个共享卡槽。 */
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<com.deepspacedeployer.blockentity.CurrencyBankBlockEntity>>
+            CURRENCY_BANK = BLOCK_ENTITIES.register("currency_bank", () -> BlockEntityType.Builder.of(
+                    com.deepspacedeployer.blockentity.CurrencyBankBlockEntity::new,
+                    ModBlocks.CURRENCY_BANK.get()).build(null));
+
     public static void register(IEventBus modEventBus) {
         BLOCK_ENTITIES.register(modEventBus);
     }

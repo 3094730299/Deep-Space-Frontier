@@ -4,6 +4,7 @@ import com.deepspacedeployer.Company;
 import com.deepspacedeployer.economy.CardData;
 import com.deepspacedeployer.economy.CompanyFunds;
 import com.deepspacedeployer.economy.ReputationData;
+import com.deepspacedeployer.economy.WalletService;
 import com.deepspacedeployer.registry.ModBlockEntities;
 import com.deepspacedeployer.shop.ShopData;
 import com.deepspacedeployer.shop.TradeEntry;
@@ -148,12 +149,24 @@ public class UniversalTerminalBlockEntity extends BlockEntity implements GeoBloc
             player.displayClientMessage(Component.translatable("msg.deepspacedeployer.terminal_need_company"), true);
             return false;
         }
+        // 未绑定的新卡：先查 2 张上限
+        if (!CardData.hasAccount(card) && !WalletService.canAdd(player)) {
+            WalletService.limitMessage(player);
+            return false;
+        }
         CardData.bindIfMissing(card, player);
         UUID account = CardData.ownerAccount(card);
         if (account == null) {
             player.displayClientMessage(Component.translatable("msg.deepspacedeployer.no_account"), false);
             return false;
         }
+        if (WalletService.isVoided(player.server, card)) {
+            player.displayClientMessage(Component.translatable("msg.deepspacedeployer.card_voided"), false);
+            return false;
+        }
+        // 老卡的便携余额迁进账户，并补登记卡表
+        CardData.migrateToAccount(card, CompanyFunds.get(player.server), account);
+        WalletService.ensureRegistered(player, card);
         List<TradeEntry> list = offers();
         if (index < 0 || index >= list.size()) {
             return false;
@@ -169,11 +182,12 @@ public class UniversalTerminalBlockEntity extends BlockEntity implements GeoBloc
                     entry.reputation(), reputation), true);
             return false;
         }
+        if (CompanyFunds.get(player.server).balance(account, company) < entry.price()) {
+            WalletService.companyInsufficientMessage(player);
+            return false;
+        }
         if (!pay(card, account, entry.price())) {
-            player.displayClientMessage(Component.translatable("msg.deepspacedeployer.cannot_pay",
-                    entry.price(), CardData.accountName(card),
-                    CompanyFunds.get(player.server).balance(account, company),
-                    CardData.getBalance(card, company)), true);
+            WalletService.companyInsufficientMessage(player);
             return false;
         }
         ReputationData.get(player.server).addSpent(account, company, entry.price());
@@ -187,25 +201,17 @@ public class UniversalTerminalBlockEntity extends BlockEntity implements GeoBloc
         return true;
     }
 
-    /** 扣款：先扣世界账户的公司余额，不够再扣卡上的 */
+    /** 扣款：从世界账户的公司余额扣（卡上不再有便携余额） */
     private boolean pay(ItemStack card, UUID account, long amount) {
         if (amount <= 0L) {
             return true;
         }
         net.minecraft.server.MinecraftServer server = level == null ? null : level.getServer();
         CompanyFunds funds = server == null ? null : CompanyFunds.get(server);
-        long local = funds == null ? 0L : funds.balance(account, company);
-        long fromLocal = Math.min(local, amount);
-        long rest = amount - fromLocal;
-        if (rest > CardData.getBalance(card, company)) {
+        if (funds == null || funds.balance(account, company) < amount) {
             return false;
         }
-        if (funds != null && fromLocal > 0L) {
-            funds.add(account, company, -fromLocal);
-        }
-        if (rest > 0L) {
-            CardData.addBalance(card, company, -rest);
-        }
+        funds.add(account, company, -amount);
         return true;
     }
 

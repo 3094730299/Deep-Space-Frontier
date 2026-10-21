@@ -220,7 +220,6 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
         d.put("公司", companyBound ? company.displayName().getString() : "中立设施");
         d.put("账户", CardData.accountName(card));
         d.put("余额", this.menu.localBalance());
-        d.put("卡余额", CardData.getBalance(card, company));
         d.put("等级", Tier.byIndex(this.menu.tierRank()).displayName().getString());
         d.put("声望", this.menu.reputation());
         d.put("在线", this.menu.online());
@@ -1159,7 +1158,6 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
         ItemStack card = this.menu.getSlot(0).getItem();
         Company company = company();
         boolean online = this.menu.online();
-        long cardBalance = CardData.getBalance(card, company);
         String account = CardData.accountName(card);
         Tier tier = Tier.byIndex(this.menu.tierRank());
 
@@ -1177,12 +1175,12 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
         graphics.drawString(this.font,
                 Component.translatable("gui.deepspacedeployer.local_balance", this.menu.localBalance()),
                 infoX, 43, TEXT, false);
-        // 等级那一行：寄售市场没有等级，就只显示声望与卡上余额
+        // 等级那一行：寄售市场没有等级，就只显示声望
         graphics.drawString(this.font, this.menu.kind().hasTier()
                         ? Component.translatable("gui.deepspacedeployer.tier_and_rep",
-                        tier.displayName(), this.menu.reputation(), cardBalance)
+                        tier.displayName(), this.menu.reputation())
                         : Component.translatable("gui.deepspacedeployer.rep_and_card",
-                        this.menu.reputation(), cardBalance),
+                        this.menu.reputation()),
                 infoX, 55, TEXT, false);
         graphics.drawString(this.font,
                 Component.translatable(online

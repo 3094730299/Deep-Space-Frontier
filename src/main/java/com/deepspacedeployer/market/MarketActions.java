@@ -3,6 +3,7 @@ package com.deepspacedeployer.market;
 import com.deepspacedeployer.Company;
 import com.deepspacedeployer.blockentity.MachineBlockEntity;
 import com.deepspacedeployer.economy.CompanyFunds;
+import com.deepspacedeployer.economy.WalletService;
 import com.deepspacedeployer.factory.PhysicsBlueprintLibrary;
 import com.deepspacedeployer.menu.MachineMenu;
 import com.deepspacedeployer.net.MarketPayload;
@@ -166,8 +167,7 @@ public final class MarketActions {
             // 以币：买方要在**这张挂单的公司**里有余额（市场本身无归属，所以公司跟着挂单走）
             long price = listing.price();
             if (funds.balance(player.getUUID(), company) < price) {
-                player.displayClientMessage(Component.translatable("msg.deepspacedeployer.market_no_money",
-                        price, company.displayName()), true);
+                WalletService.companyInsufficientMessage(player);
                 return;
             }
             funds.add(player.getUUID(), company, -price);

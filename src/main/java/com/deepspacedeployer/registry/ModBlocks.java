@@ -53,10 +53,9 @@ public final class ModBlocks {
      * 所以主体方块是隐形的；没装 GeckoLib 时会显示成普通方块。
      * 主体左右各 2 格是 {@link #PRECISION_FABRICATOR_PART}（见 {@code PrecisionFabricatorStructure}）。</p>
      *
-     * <p><b>贴图</b>：建模计划里那张 512×512 是 <b>UV 布局图</b>（13 种平涂色），
-     * 直接当材质会像调色板；现在用 {@code tools/gen_precision_fabricator_texture.py}
-     * 按 .bbmodel 骨骼分组上材质（白色机身 / 金色滑轨 / 深灰机械臂 / 深色蓝图屏）。
-     * 源模型和 UV 布局同步在 {@code art/建模计划/}。</p>
+     * <p><b>贴图</b>：老板已在 .bbmodel 里画好成品贴图（512×512），
+     * 从 bbmodel 的内嵌贴图导出到 {@code textures/block/precision_fabricator.png}；
+     * geo 声明 256、PNG 取 2 倍。源模型与贴图同步在 {@code art/建模计划/}。</p>
      */
     public static final DeferredHolder<Block, com.deepspacedeployer.block.PrecisionFabricatorBlock>
             PRECISION_FABRICATOR = BLOCKS.register("precision_fabricator",
@@ -84,6 +83,19 @@ public final class ModBlocks {
                             .strength(3.0F)
                             .sound(SoundType.METAL)
                             .noOcclusion()));
+
+    /**
+     * 深空货币银行：全局方块，不绑公司、无等级。
+     *
+     * <p>没有方块实体：手持银行卡右键，卡留在手里，服务端按手找到卡再操作。</p>
+     */
+    public static final DeferredHolder<Block, com.deepspacedeployer.block.CurrencyBankBlock>
+            CURRENCY_BANK = BLOCKS.register("currency_bank",
+                    () -> new com.deepspacedeployer.block.CurrencyBankBlock(Block.Properties.of()
+                            .mapColor(net.minecraft.world.level.material.MapColor.METAL)
+                            .strength(4.0F)
+                            .sound(SoundType.METAL)
+                            .requiresCorrectToolForDrops()));
 
     private static DeferredHolder<Block, MachineBlock> register(MachineKind kind) {
         return BLOCKS.register(kind.id(), () -> new MachineBlock(kind));

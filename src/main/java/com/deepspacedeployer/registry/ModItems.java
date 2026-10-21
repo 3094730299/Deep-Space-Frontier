@@ -30,20 +30,22 @@ import java.util.Map;
  * 物品注册表：银行卡 + 六家公司授权铭牌 + 蓝图凭证 + 升级套件 + 三个功能方块的方块物品。
  *
  * <p>注意：<b>六种"票据"已经删掉了</b>（老板要求：钱只保留"账户数字"一套）。
- * 现在钱只存在两个地方 —— 世界存档里的公司账户余额、以及银行卡上的便携余额，都没有实体物品。</p>
+ * 现在钱只存在世界存档的 {@code CompanyFunds} 里，银行卡只是账户指针，卡上不放余额。</p>
  */
 public final class ModItems {
 
     public static final DeferredRegister<Item> ITEMS =
             DeferredRegister.create(Registries.ITEM, DeepSpaceDeployer.MOD_ID);
 
-    /** 主卡：走账户、兑换、绑定账户都靠它；余额记在"主账户"上 */
+    /** 唯一一种银行卡：走账户、兑换、绑定账户都靠它；余额在世界存档的账户里 */
     public static final DeferredHolder<Item, BankCardItem> BANK_CARD =
-            ITEMS.register("bank_card", () -> new BankCardItem(new Item.Properties().stacksTo(1), false));
+            ITEMS.register("bank_card", () -> new BankCardItem(new Item.Properties().stacksTo(1)));
 
     /**
-     * 副卡：余额与主卡<b>不通用</b> —— 有自己的账户池，只能靠"转账"从主卡或别的副卡收钱；
-     * 插进机器时花钱/收购收入仍然走卡主的主账户（见 MachineBlockEntity 里的注释）。
+     * 旧副卡（0.1.10 之前存档里可能还有）。
+     *
+     * <p><b>只在注册表里留一个 id 防止老存档掉物品</b>：不在创造物品栏发放，
+     * 右键时自动转成 {@link #BANK_CARD}。新系统只有一种卡，没有副卡账户。</p>
      */
     public static final DeferredHolder<Item, BankCardItem> BANK_CARD_SUB =
             ITEMS.register("bank_card_sub", () -> new BankCardItem(new Item.Properties().stacksTo(1), true));
@@ -173,6 +175,11 @@ public final class ModItems {
             ITEMS.register("precision_fabricator",
                     () -> new BlockItem(ModBlocks.PRECISION_FABRICATOR.get(), new Item.Properties()));
 
+    /** 深空货币银行：全局银行方块（无公司、无等级） */
+    public static final DeferredHolder<Item, BlockItem> CURRENCY_BANK =
+            ITEMS.register("currency_bank",
+                    () -> new BlockItem(ModBlocks.CURRENCY_BANK.get(), new Item.Properties()));
+
     /**
      * 精构仪多方块的部件格物品。
      *
@@ -195,12 +202,13 @@ public final class ModItems {
             ITEMS.register("printer_part",
                     () -> new BlockItem(ModBlocks.PRINTER_PART.get(), new Item.Properties()));
 
-    /** 是不是银行卡（主卡或副卡都算） */
+    /** 是不是银行卡（唯一卡 / 老存档里的旧副卡都算） */
     public static boolean isBankCard(ItemStack stack) {
         return !stack.isEmpty() && (stack.is(BANK_CARD.get()) || stack.is(BANK_CARD_SUB.get()));
     }
 
-    /** 是不是副卡（余额独立的那个） */
+    /** @deprecated 旧副卡只剩迁移用途；新代码不要再区分主卡/副卡 */
+    @Deprecated
     public static boolean isSubCard(ItemStack stack) {
         return !stack.isEmpty() && stack.is(BANK_CARD_SUB.get());
     }

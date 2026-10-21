@@ -8,6 +8,7 @@ import com.deepspacedeployer.block.MachineBlock;
 import com.deepspacedeployer.economy.CardData;
 import com.deepspacedeployer.economy.CompanyFunds;
 import com.deepspacedeployer.economy.ReputationData;
+import com.deepspacedeployer.economy.WalletService;
 import com.deepspacedeployer.menu.MachineMenu;
 import com.deepspacedeployer.menu.TransferMenu;
 import com.deepspacedeployer.net.BlueprintThumbnailsPayload;
@@ -480,15 +481,22 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
     }
 
     /**
-     * 这台机器当前用的账户 = <b>卡主的主账户</b>（副卡也不例外）。
+     * 这台机器当前用的账户 = <b>卡指向的账户</b>（一张卡 = 一个账户）。
      *
-     * <p>老板要求副卡"余额不跟主卡通用，只能通过收购台和转账获取资金"，
-     * 所以副卡自己那份余额是一笔独立的钱；而<b>花钱和收购收入都走主账户</b> ——
-     * 这样副卡插进机器照样能买东西、收购台也照常给它打钱，
-     * 副卡里那笔钱只有"转账"能进出。</p>
+     * <p>挂失后的废卡只作装饰：这里返回 null，机器会显示未插卡/无账户，
+     * 不能再消费，也不能再靠收购台给废卡打钱。</p>
      */
     public UUID activeAccount() {
-        return CardData.ownerAccount(items.get(SLOT_CARD));
+        ItemStack card = items.get(SLOT_CARD);
+        UUID account = CardData.ownerAccount(card);
+        if (account == null) {
+            return null;
+        }
+        MinecraftServer server = server();
+        if (server != null && WalletService.isVoided(server, card)) {
+            return null;
+        }
+        return account;
     }
 
     /** 当前插着的卡"指向的池子"（副卡=独立池，主卡=主池）；查卡内余额时用 */
@@ -545,7 +553,21 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
     public void insertCard(ItemStack held, Player player) {
         ItemStack previous = items.get(SLOT_CARD);
         ItemStack stored = held.copyWithCount(1);
+        // 未绑定的新卡：先查 2 张上限，别让“插机器”绕过卡界面
+        if (player instanceof ServerPlayer sp && !CardData.hasAccount(stored) && !WalletService.canAdd(sp)) {
+            WalletService.limitMessage(sp);
+            return;
+        }
         CardData.bindIfMissing(stored, player);
+        UUID account = CardData.accountId(stored);
+        if (account != null) {
+            if (player instanceof ServerPlayer serverPlayer) {
+                // 先登记/迁移：ensureRegistered 会挡住废卡，并把老卡便携余额迁进账户
+                WalletService.ensureRegistered(serverPlayer, stored);
+            } else {
+                CardData.migrateToAccount(stored, funds(), account);
+            }
+        }
         items.set(SLOT_CARD, stored);
         held.shrink(1);
         if (!previous.isEmpty()) {
@@ -870,6 +892,10 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
         }
         // 卡没绑定就顺手绑到操作者（原来这段在 handleButton 的公共路径上，
         // 现在只有"真要花钱"的动作才需要账户）
+        if (!CardData.hasAccount(card) && !WalletService.canAdd(player)) {
+            WalletService.limitMessage(player);
+            return false;
+        }
         CardData.bindIfMissing(card, player);
         afterChange();
         if (activeAccount() == null) {
@@ -898,10 +924,12 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
                     entry.reputation(), reputation), true);
             return false;
         }
+        if (companyBalance(account, company()) < entry.price()) {
+            WalletService.companyInsufficientMessage(player);
+            return false;
+        }
         if (!tryPay(entry.price(), card)) {
-            player.displayClientMessage(Component.translatable("msg.deepspacedeployer.cannot_pay",
-                    entry.price(), activeAccountName(), activeLocalBalance(),
-                    CardData.getBalance(card, company())), true);
+            WalletService.companyInsufficientMessage(player);
             return false;
         }
         if (account != null) {
@@ -919,7 +947,10 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
     }
 
     /**
-     * 扣款：先扣方块里当前账户的本地余额，不够再扣卡上余额。
+     * 扣款：从<b>当前账户</b>在本公司的余额扣。
+     *
+     * <p>老板 2026-10-19 的钱包定稿：卡只是账户指针，卡上不再放便携余额；
+     * 所以这里不再有"方块里不够再扣卡上"的第二层。</p>
      *
      * @return 是否扣款成功
      */
@@ -937,16 +968,10 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
             return true;
         }
         UUID account = activeAccount();
-        long local = companyBalance(account, payCompany);
-        long fromLocal = Math.min(local, amount);
-        long rest = amount - fromLocal;
-        if (rest > CardData.getBalance(card, payCompany)) {
+        if (account == null || companyBalance(account, payCompany) < amount) {
             return false;
         }
-        addCompany(account, payCompany, -fromLocal);
-        if (rest > 0L) {
-            CardData.addBalance(card, payCompany, -rest);
-        }
+        addCompany(account, payCompany, -amount);
         afterChange();
         return true;
     }
@@ -1132,6 +1157,10 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
             return false;
         }
         if (!creative) {
+            if (!CardData.hasAccount(card) && !WalletService.canAdd(player)) {
+                WalletService.limitMessage(player);
+                return false;
+            }
             CardData.bindIfMissing(card, player);
             afterChange();
             if (activeAccount() == null) {
@@ -1190,8 +1219,7 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
         long fee = creative ? 0L : (long) Config.ASSEMBLY_FEE_PER_BLOCK.get() * info.totalBlocks();
         if (fee > 0L && !tryPay(fee, card, payCompany)) {
             player.displayClientMessage(Component.translatable("msg.deepspacedeployer.cannot_pay", fee,
-                    activeAccountName(), companyBalance(activeAccount(), payCompany),
-                    CardData.getBalance(card, payCompany)), true);
+                    activeAccountName(), companyBalance(activeAccount(), payCompany)), true);
             return false;
         }
         // 4) 扣材料 → 预留（创造板条箱模式不扣：材料无限）

@@ -435,7 +435,7 @@ public class TransferScreen extends AbstractContainerScreen<TransferMenu> {
     private void drawCardInfo(GuiGraphics graphics, int index, int tx, int ty) {
         ItemStack stack = card(index);
         String who = CardData.accountName(stack);
-        boolean sub = CardData.isSubCard(stack);
+        boolean sub = false;    // 副卡已退役；旧界面统一按普通卡显示
         long balance = CardData.getBalance(stack, company());
         String owner = who.isEmpty() ? "-" : who + (sub ? "(副)" : "");
         Component line = Component.literal(owner + "  ")

@@ -22,7 +22,7 @@ import java.util.UUID;
  *       <b>只有挂失才会减少数量</b> —— 所以"数卡"只数<b>没被挂失</b>的；</li>
  *   <li><b>同一个玩家不能有两张同名卡</b>（不同玩家可以同名）；</li>
  *   <li><b>空卡在游戏内 30 天后自动按"第三张卡"处理</b>（即自动挂失 →
- *       账户清空、卡变废卡 {@code §7§l废卡}），见 {@link #EMPTY_DAYS_BEFORE_VOID}；</li>
+ *       余额退回卡主账户、卡变废卡 {@code §7§l废卡}），见 {@link #EMPTY_DAYS_BEFORE_VOID}；</li>
  *   <li>卡就算被放进箱子，也记在这里（所以"数量上限"是跟玩家走的，不是跟背包走的）。</li>
  * </ol>
  *
@@ -30,7 +30,8 @@ import java.util.UUID;
  * （卡可能在别人的箱子里、可能掉在地上）。有了注册表，判定和自动挂失都不用去搜世界。</p>
  *
  * <p>⚠️ 卡物品只是"把手"：真正的余额在 {@link CompanyFunds}（按账户 UUID 存），
- * 这里的 {@code account} 就是那个 UUID。挂失 = 清账户 + 把记录标成废卡。</p>
+ * 这里的 {@code account} 就是那个 UUID。<b>挂失 = 余额退回卡主账户（不清空）
+ * + 记录标废卡</b>。</p>
  */
 public class CardRegistry extends SavedData {
 
@@ -179,6 +180,21 @@ public class CardRegistry extends SavedData {
         return ownerOf.get(cardId);
     }
 
+    /** 同一玩家内生成一个不重名的卡名（默认「银行卡」「银行卡 2」…） */
+    public String uniqueName(UUID owner, String base) {
+        String prefix = (base == null || base.isBlank()) ? "银行卡" : base.trim();
+        if (!nameTaken(owner, prefix)) {
+            return prefix;
+        }
+        for (int i = 2; i < 1000; i++) {
+            String candidate = prefix + " " + i;
+            if (!nameTaken(owner, candidate)) {
+                return candidate;
+            }
+        }
+        return prefix + " " + UUID.randomUUID().toString().substring(0, 4);
+    }
+
     // ---------------- 变更 ----------------
 
     /** 登记一张新卡；超过上限或重名返回 false */
@@ -199,6 +215,23 @@ public class CardRegistry extends SavedData {
         return true;
     }
 
+    /** 解绑/换主时把记录摘掉（卡 id 还留在卡物品上，重新绑定会重新登记） */
+    public boolean remove(UUID cardId) {
+        UUID owner = ownerOf.remove(cardId);
+        if (owner == null) {
+            return false;
+        }
+        List<CardRecord> list = byOwner.get(owner);
+        if (list != null) {
+            list.removeIf(rec -> rec.cardId().equals(cardId));
+            if (list.isEmpty()) {
+                byOwner.remove(owner);
+            }
+        }
+        setDirty();
+        return true;
+    }
+
     /** 改名（重名/废卡/找不到都会失败） */
     public boolean rename(UUID cardId, String newName) {
         UUID owner = ownerOf.get(cardId);
@@ -214,7 +247,10 @@ public class CardRegistry extends SavedData {
     }
 
     /**
-     * 挂失：清掉账户余额、把记录标成废卡（卡物品还在，变成装饰品）。
+     * 挂失：<b>余额退回卡主账户，不清空</b>，记录标成废卡（卡物品还在，变成装饰品）。
+     *
+     * <p>一张卡 = 一个账户，正常卡的 account 就是卡主 UUID，所以余额原地留在卡主账户里；
+     * 只有 account 和卡主不一致（旧副卡/换主残留）时，才把 7 个槽位搬回卡主账户。</p>
      *
      * @return 是否真的挂失了（已经是废卡/找不到 → false）
      */
@@ -224,7 +260,16 @@ public class CardRegistry extends SavedData {
         if (owner == null || rec == null || rec.voided()) {
             return false;
         }
-        CompanyFunds.get(server).wipe(rec.account());     // 余额一并清掉（老板：挂失清数据）
+        CompanyFunds funds = CompanyFunds.get(server);
+        if (!rec.account().equals(owner)) {
+            long[] values = funds.snapshot(rec.account());
+            for (int slot = 0; slot < values.length; slot++) {
+                if (values[slot] != 0L) {
+                    funds.addSlot(owner, slot, values[slot]);
+                }
+            }
+            funds.wipe(rec.account());
+        }
         replace(owner, rec.withVoided(true).withEmptySince(-1L));
         return true;
     }
@@ -259,9 +304,21 @@ public class CardRegistry extends SavedData {
      */
     public int sweepExpired(MinecraftServer server, long day) {
         int voided = 0;
+        CompanyFunds funds = CompanyFunds.get(server);
         for (UUID owner : new ArrayList<>(byOwner.keySet())) {
             for (CardRecord rec : new ArrayList<>(cards(owner))) {
-                if (rec.voided() || rec.emptySinceDay() < 0) {
+                if (rec.voided()) {
+                    continue;
+                }
+                // 余额以 CompanyFunds 为唯一来源：不空 → 清空计时；空了 → 从今天开始计
+                if (!funds.isEmpty(rec.account())) {
+                    if (rec.emptySinceDay() >= 0) {
+                        markFunded(rec.cardId());
+                    }
+                    continue;
+                }
+                if (rec.emptySinceDay() < 0) {
+                    markEmpty(rec.cardId(), day);
                     continue;
                 }
                 if (day - rec.emptySinceDay() >= EMPTY_DAYS_BEFORE_VOID) {

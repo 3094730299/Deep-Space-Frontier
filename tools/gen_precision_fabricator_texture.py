@@ -1,16 +1,18 @@
 # -*- coding: utf-8 -*-
 """
-给「精构仪」生成正式贴图：按 .bbmodel 的骨骼分组上材质（不手画）。
+给「精构仪」的【旧 UV 布局占位版】生成贴图（2026-10-19 的临时方案，现在已不用）。
 
     python tools/gen_precision_fabricator_texture.py
-    python tools/gen_precision_fabricator_texture.py --force   # 已存在时也覆盖
+    python tools/gen_precision_fabricator_texture.py --force
 
-⚠️ 默认**不覆盖已存在**的 `precision_fabricator.png`：
-   以后手绘了正式贴图，跑这个脚本也不会把它冲掉；确实要重生成再加 `--force`。
+⚠️ 现在老板已经在 .bbmodel 里画好了成品贴图（红色涂装，4146 色），
+   成品贴图是从 bbmodel 的内嵌贴图直接导出的，**不要再跑这个脚本**。
+   本脚本只认识旧的 13 色 UV 布局图；源图检测到 >64 色会直接拒绝。
+   默认也不覆盖已存在的 precision_fabricator.png（除非 --force）。
 
-## 为什么不能直接用建模计划里的那张 PNG
+## 历史：为什么当初不能直接用那张 PNG
 
-`art/建模计划/建模贴图/精构仪.png` 是 **UV 布局图**：13 种平涂颜色，
+`art/建模计划/建模贴图/精构仪.png` 当时是 **UV 布局图**：13 种平涂颜色，
 一种颜色代表一组 UV 面，不是画好的材质。直接贴上去，机械臂/底座会像彩虹。
 
 ## 做法
@@ -89,7 +91,13 @@ def main():
         return
 
     bb = json.load(open(BB, encoding="utf-8"))
-    uv = Image.open(UV).convert("RGBA")
+    probe = Image.open(UV).convert("RGBA")
+    colors = len(probe.getcolors(1 << 24) or [])
+    if colors > 64:
+        print("源图是成品贴图（%d 色），不是 UV 布局；不生成。" % colors)
+        print("成品贴图直接用 .bbmodel 内嵌的那张，不要再跑这个脚本。")
+        return
+    uv = probe
     w, h = uv.size
     scale = w / 256.0                     # UV 空间 256 -> PNG 像素
     uvpx = uv.load()
@@ -116,6 +124,8 @@ def main():
     shade = np.ones((h, w), np.float32)
     border = np.zeros((h, w), np.uint8)
     for uuid, element in elements.items():
+        if element.get("name") == "cube_outline":
+            continue                       # Blockbench 编辑辅助，不是模型
         group_id = kind_of(elem_group.get(uuid))
         for face, data in (element.get("faces") or {}).items():
             rect = data.get("uv")

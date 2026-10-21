@@ -10,38 +10,36 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 
-import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 /**
- * 银行卡数据。
+ * 银行卡数据（<b>卡的元数据</b>，不是余额本身）。
  *
- * <p>一张卡 = 一个「账户指针」：绑定某个玩家（UUID + 名字）+ 卡上的便携余额（六家公司各一份）。</p>
- *
- * <p>几条关键规则（老板定的）：</p>
+ * <p>老板 2026-10-19 的定稿：<b>一张卡 = 一个账户指针</b>。
+ * 卡上只记：</p>
  * <ul>
- *   <li>右键银行卡可以填写玩家名/UUID 把卡绑到那个玩家的账户</li>
- *   <li>卡插进商店方块后，方块里那个账户的余额<b>优先</b>被花掉</li>
- *   <li>卡留在方块里没取走时，<b>其他玩家也能用</b>这张卡花卡主的钱买东西</li>
+ *   <li>{@link #ACCOUNT}：账户 UUID（余额在 {@link CompanyFunds} 里按它存 7 个槽位）；</li>
+ *   <li>{@link #CARD_ID}：这张卡自己的唯一 id（{@link CardRegistry} 用）；</li>
+ *   <li>{@link #ACCOUNT_NAME}：卡主显示名；</li>
+ *   <li>物品的 {@code CUSTOM_NAME}：卡名（给玩家区分多张卡）。</li>
  * </ul>
+ *
+ * <p>旧版卡上直接存了"便携余额"（6 家公司各一份）；新系统里这些钱在
+ * {@link #migrateToAccount} 里一次性搬进账户，之后卡上不再放钱。
+ * 老的 {@link #getBalance} / {@link #addBalance} 只留给还没删掉的旧「资金转化」界面，
+ * <b>新代码不要再用</b>。</p>
  */
 public final class CardData {
 
     private static final String ROOT = "DSD_Card";
     private static final String ACCOUNT = "Account";
     private static final String ACCOUNT_NAME = "AccountName";
+    private static final String CARD_ID = "CardId";
+    /** 旧版卡上的便携余额（6 家公司各一份）；只用于迁移/旧界面 */
     private static final String BALANCES = "Balances";
-    /** 副卡自己的账户池编号（主卡不写这个字段） */
-    private static final String ACCOUNT_ID = "AccountId";
-    /** 副卡序号：同一张主卡名下可以有 副卡1 / 副卡2 …（决定 AccountId） */
-    private static final String SUB_INDEX = "SubIndex";
 
     public static boolean isCard(ItemStack stack) {
         return ModItems.isBankCard(stack);
-    }
-
-    public static boolean isSubCard(ItemStack stack) {
-        return ModItems.isSubCard(stack);
     }
 
     private static CompoundTag readRoot(ItemStack card) {
@@ -51,15 +49,6 @@ public final class CardData {
 
     private static void writeRoot(ItemStack card, CompoundTag tag) {
         card.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
-    }
-
-    private static CompoundTag balancesOf(CompoundTag root) {
-        if (root.contains(BALANCES, Tag.TAG_COMPOUND)) {
-            return root.getCompound(BALANCES);
-        }
-        CompoundTag created = new CompoundTag();
-        root.put(BALANCES, created);
-        return created;
     }
 
     // ---------------- 账户绑定 ----------------
@@ -96,56 +85,6 @@ public final class CardData {
         writeRoot(card, root);
     }
 
-    // ---------------- 账户池：主账户 / 副卡独立账户 ----------------
-
-    /**
-     * <b>主账户</b>（也就是"卡主在这家公司的钱"）：永远是卡主的 UUID。
-     *
-     * <p>花钱、收购收入、声望都走这个 —— 副卡也不例外，
-     * 这样副卡插进机器时才有钱可花、也才收得到收购款。</p>
-     */
-    public static UUID ownerAccount(ItemStack card) {
-        return accountUuid(card);
-    }
-
-    /**
-     * <b>这张卡指向的账户池</b>：主卡 = 主账户；副卡 = 它自己那个独立账户。
-     *
-     * <p>副卡的独立账户用"卡主 UUID + 序号"合成一个确定性 UUID（见 {@link #subAccount}），
-     * 所以不需要额外存表，存档里那套"UUID → 六家公司余额"直接复用。</p>
-     */
-    public static UUID accountId(ItemStack card) {
-        if (!isSubCard(card)) {
-            return accountUuid(card);
-        }
-        UUID owner = accountUuid(card);
-        if (owner == null) {
-            return null;
-        }
-        return subAccount(owner, subIndex(card));
-    }
-
-    /** 副卡的独立账户：由"卡主 UUID + 序号"确定性地合成一个 UUID */
-    public static UUID subAccount(UUID owner, int index) {
-        return UUID.nameUUIDFromBytes(("dsd-sub-card:" + owner + ":" + index).getBytes(StandardCharsets.UTF_8));
-    }
-
-    /** 副卡序号（没写过就是 1） */
-    public static int subIndex(ItemStack card) {
-        int raw = readRoot(card).getInt(SUB_INDEX);
-        return raw <= 0 ? 1 : raw;
-    }
-
-    /** 给副卡分配一个序号（做成物品时/第一次绑定账户时用） */
-    public static void setSubIndex(ItemStack card, int index) {
-        if (!isCard(card) || !isSubCard(card)) {
-            return;
-        }
-        CompoundTag root = readRoot(card);
-        root.putInt(SUB_INDEX, Math.max(1, index));
-        writeRoot(card, root);
-    }
-
     public static void clearAccount(ItemStack card) {
         if (!isCard(card)) {
             return;
@@ -156,35 +95,21 @@ public final class CardData {
         writeRoot(card, root);
     }
 
-    /** 没绑定就绑到当前玩家（第一次插卡时的默认行为）；副卡顺带分配一个账号序号 */
+    /** 一张卡 = 一个账户；现在不再有"副卡独立账户" */
+    public static UUID ownerAccount(ItemStack card) {
+        return accountUuid(card);
+    }
+
+    public static UUID accountId(ItemStack card) {
+        return accountUuid(card);
+    }
+
+    /** 没绑定就绑到当前玩家（第一次插卡时的默认行为） */
     public static void bindIfMissing(ItemStack card, Player player) {
-        if (!isCard(card)) {
-            return;
-        }
-        if (hasAccount(card)) {
-            // 已经绑定过的副卡：保证序号存在（老版本做出来的副卡可能没有这个字段）
-            if (isSubCard(card) && readRoot(card).getInt(SUB_INDEX) <= 0) {
-                setSubIndex(card, 1);
-            }
+        if (!isCard(card) || hasAccount(card)) {
             return;
         }
         setAccount(card, player.getUUID(), player.getGameProfile().getName());
-        if (isSubCard(card)) {
-            // 第 N 张副卡 → 序号 N（决定它那个独立账户池是哪一个）
-            setSubIndex(card, 1 + countSubCards(player));
-        }
-    }
-
-    /** 这个玩家背包里已经有的副卡数量（不算手上这张还没绑的） */
-    private static int countSubCards(Player player) {
-        int count = 0;
-        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            ItemStack stack = player.getInventory().getItem(i);
-            if (isSubCard(stack) && hasAccount(stack) && player.getUUID().equals(accountUuid(stack))) {
-                count++;
-            }
-        }
-        return count;
     }
 
     public static boolean isBoundTo(ItemStack card, Player player) {
@@ -192,15 +117,47 @@ public final class CardData {
         return uuid != null && uuid.equals(player.getUUID());
     }
 
+    // ---------------- 卡 id（CardRegistry 用） ----------------
+
+    /** 这张卡的唯一 id；老卡还没分配时返回 null */
+    public static UUID cardId(ItemStack card) {
+        if (!isCard(card)) {
+            return null;
+        }
+        String raw = readRoot(card).getString(CARD_ID);
+        if (raw.isEmpty()) {
+            return null;
+        }
+        try {
+            return UUID.fromString(raw);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    /** 老卡第一次进系统时分配一个卡 id；已经有的直接返回 */
+    public static UUID ensureCardId(ItemStack card) {
+        UUID id = cardId(card);
+        if (id != null) {
+            return id;
+        }
+        if (!isCard(card)) {
+            return null;
+        }
+        id = UUID.randomUUID();
+        CompoundTag root = readRoot(card);
+        root.putString(CARD_ID, id.toString());
+        writeRoot(card, root);
+        return id;
+    }
+
     // ---------------- 卡名（给卡起个名字，多人时好用） ----------------
 
-    /** 卡名（没起名返回空字符串） */
     public static String cardLabel(ItemStack card) {
         Component name = card.get(DataComponents.CUSTOM_NAME);
         return name == null ? "" : name.getString();
     }
 
-    /** 设置卡名；传空字符串表示恢复默认名字 */
     public static void setCardLabel(ItemStack card, String label) {
         if (!isCard(card)) {
             return;
@@ -212,12 +169,44 @@ public final class CardData {
         }
     }
 
-    // ---------------- 卡自己的余额池（六家公司各一份）----------------
-    //
-    // 注意：这里只读写"这张卡物品自己的"那份余额（副卡就是副卡独立的那份）。
-    // 主卡在机器里花钱时用的是"卡主的主账户"（见 ownerAccount / accountId 的说明），
-    // 所以这两套数据是分开的：卡上的那份是"便携余额"，世界存档里的是"公司账户"。
+    // ---------------- 旧卡余额 → 账户（一次性迁移） ----------------
 
+    /**
+     * 把旧版卡物品 NBT 里的 6 家公司余额搬进 {@link CompanyFunds} 账户，然后清掉。
+     * 幂等：没有余额字段时什么也不做。
+     */
+    public static void migrateToAccount(ItemStack card, CompanyFunds funds, UUID account) {
+        if (!isCard(card) || funds == null || account == null) {
+            return;
+        }
+        CompoundTag root = readRoot(card);
+        if (!root.contains(BALANCES, Tag.TAG_COMPOUND)) {
+            return;
+        }
+        CompoundTag balances = root.getCompound(BALANCES);
+        for (Company company : Company.VALUES) {
+            long value = balances.getLong(company.id());
+            if (value > 0L) {
+                funds.add(account, company, value);
+            }
+        }
+        root.remove(BALANCES);
+        writeRoot(card, root);
+    }
+
+    // ---------------- 兼容：旧「资金转化」界面读的卡上便携余额 ----------------
+
+    private static CompoundTag balancesOf(CompoundTag root) {
+        if (root.contains(BALANCES, Tag.TAG_COMPOUND)) {
+            return root.getCompound(BALANCES);
+        }
+        CompoundTag created = new CompoundTag();
+        root.put(BALANCES, created);
+        return created;
+    }
+
+    /** @deprecated 新代码用 {@link CompanyFunds#balance}；这里只给未删的旧界面用 */
+    @Deprecated
     public static long getBalance(ItemStack card, Company company) {
         if (!isCard(card)) {
             return 0L;
@@ -225,6 +214,8 @@ public final class CardData {
         return balancesOf(readRoot(card)).getLong(company.id());
     }
 
+    /** @deprecated 新代码用 {@link CompanyFunds#add} */
+    @Deprecated
     public static void setBalance(ItemStack card, Company company, long value) {
         if (!isCard(card)) {
             return;
@@ -234,12 +225,16 @@ public final class CardData {
         writeRoot(card, root);
     }
 
+    /** @deprecated 新代码用 {@link CompanyFunds#add} */
+    @Deprecated
     public static long addBalance(ItemStack card, Company company, long delta) {
         long now = getBalance(card, company) + delta;
         setBalance(card, company, now);
         return Math.max(0L, now);
     }
 
+    /** @deprecated 新代码用 {@link CompanyFunds#snapshot} */
+    @Deprecated
     public static long[] getBalances(ItemStack card) {
         long[] out = new long[Company.COUNT];
         if (!isCard(card)) {
@@ -252,6 +247,8 @@ public final class CardData {
         return out;
     }
 
+    /** @deprecated 新代码用 {@link CompanyFunds#addSlot} */
+    @Deprecated
     public static void setBalances(ItemStack card, long[] values) {
         if (!isCard(card)) {
             return;
