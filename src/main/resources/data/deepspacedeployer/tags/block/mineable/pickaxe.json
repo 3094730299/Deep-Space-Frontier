@@ -3,6 +3,7 @@
   "values": [
     "deepspacedeployer:factory_terminal",
     "deepspacedeployer:factory_core",
+    "deepspacedeployer:module_printer",
     "deepspacedeployer:buyer",
     "deepspacedeployer:market",
     "deepspacedeployer:universal_terminal",

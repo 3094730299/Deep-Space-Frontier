@@ -63,6 +63,8 @@ public class MachineMenu extends AbstractContainerMenu {
     public static final int ACTION_BUY_BASE = 100;
     /** 选择蓝图：1000 + 下标（数量不限，不受界面动作区间影响） */
     public static final int ACTION_BLUEPRINT_BASE = 1000;
+    /** 模块打印机：直接打印第 index 个预设模块 */
+    public static final int ACTION_MODULE_PRINT_BASE = 1200;
     /**
      * 一键组装（id = 2）。
      *
@@ -124,7 +126,7 @@ public class MachineMenu extends AbstractContainerMenu {
      *  寄售市场 = 卡 + 待售格 + 以物易物需求格 + 取货格 */
     private static int slotCountFor(MachineKind kind) {
         return switch (kind) {
-            case TERMINAL -> 1;
+            case TERMINAL, MODULE_PRINTER -> 1;
             case BUYER -> MachineBlockEntity.SLOT_INPUT_START + MachineBlockEntity.INPUT_SLOTS;
             case CORE, MARKET -> MachineBlockEntity.SLOT_COUNT;
         };

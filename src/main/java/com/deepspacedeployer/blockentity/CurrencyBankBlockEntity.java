@@ -6,6 +6,7 @@ import com.deepspacedeployer.economy.CompanyFunds;
 import com.deepspacedeployer.economy.WalletService;
 import com.deepspacedeployer.net.BankStatePayload;
 import com.deepspacedeployer.registry.ModBlockEntities;
+import com.deepspacedeployer.registry.ModItems;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
@@ -13,7 +14,9 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Container;
 import net.minecraft.world.ContainerHelper;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -30,7 +33,7 @@ import java.util.UUID;
  * <p>两个玩家可以把各自的卡插进同一台银行，打开同一个界面；界面里的
  * “我的卡”由卡主 UUID 判断。转换/转账都从自己的卡出，转移到对方卡（或名字）进。</p>
  */
-public class CurrencyBankBlockEntity extends BlockEntity {
+public class CurrencyBankBlockEntity extends BlockEntity implements Container {
 
     public static final int SLOTS = 2;
 
@@ -58,18 +61,25 @@ public class CurrencyBankBlockEntity extends BlockEntity {
             return false;
         }
         if (WalletService.isVoided(player.server, held)) {
-            player.displayClientMessage(Component.translatable(
-                    "msg.deepspacedeployer.card_voided"), true);
-            return false;
-        }
-        if (!CardData.hasAccount(held) && !WalletService.canAdd(player)) {
-            WalletService.limitMessage(player);
-            return false;
+            // 废卡也允许暂存/取回，只是不能作为转账来源；界面会标灰
+            ItemStack stored = held.copyWithCount(1);
+            cards.set(slot, stored);
+            held.shrink(1);
+            setChanged();
+            sendNearby();
+            return true;
         }
         ItemStack stored = held.copyWithCount(1);
-        CardData.bindIfMissing(stored, player);
-        if (!WalletService.ensureRegistered(player, stored)) {
-            return false;
+        if (!CardData.hasAccount(stored)) {
+            if (WalletService.canAdd(player)) {
+                CardData.bindIfMissing(stored, player);
+                WalletService.ensureRegistered(player, stored);
+            } else {
+                player.displayClientMessage(Component.translatable(
+                        "msg.deepspacedeployer.bank_slot_unbound_limit"), true);
+            }
+        } else {
+            WalletService.ensureRegistered(player, stored);
         }
         cards.set(slot, stored);
         held.shrink(1);
@@ -83,7 +93,11 @@ public class CurrencyBankBlockEntity extends BlockEntity {
         int moved = 0;
         for (int i = 0; i < SLOTS; i++) {
             ItemStack card = cards.get(i);
-            if (card.isEmpty() || !CardData.isBoundTo(card, player)) {
+            if (card.isEmpty()) {
+                continue;
+            }
+            // 未绑定的暂存卡谁都能取回；已绑定的只有卡主能取
+            if (CardData.hasAccount(card) && !CardData.isBoundTo(card, player)) {
                 continue;
             }
             if (!player.getInventory().add(card.copy())) {
@@ -131,20 +145,33 @@ public class CurrencyBankBlockEntity extends BlockEntity {
     // ---------------- 状态同步 ----------------
 
     public void sendTo(ServerPlayer player) {
+        CompanyFunds funds = CompanyFunds.get(player.server);
         List<BankStatePayload.Slot> slots = new ArrayList<>(SLOTS);
         for (ItemStack card : cards) {
             boolean empty = card.isEmpty();
             boolean mine = !empty && CardData.isBoundTo(card, player);
             boolean voided = !empty && WalletService.isVoided(player.server, card);
             UUID account = empty ? null : CardData.accountId(card);
+            String ownerName = "";
+            if (!empty) {
+                ownerName = account == null
+                        ? Component.translatable("gui.deepspacedeployer.bank_unbound").getString()
+                        : CardData.accountName(card);
+            }
+            long slotTotal = account != null && !voided ? funds.totalAssets(account) : 0L;
+            long[] slotBalances = account != null && !voided
+                    ? funds.snapshot(account)
+                    : new long[CompanyFunds.SLOT_COUNT];
             slots.add(new BankStatePayload.Slot(
                     empty,
                     empty ? ItemStack.EMPTY : card.copyWithCount(1),
                     empty ? "" : displayName(card),
-                    empty ? "" : CardData.accountName(card),
+                    ownerName,
                     account == null ? "" : account.toString(),
                     mine,
-                    voided));
+                    voided,
+                    slotTotal,
+                    slotBalances));
         }
 
         ItemStack mineCard = cardFor(player);
@@ -159,7 +186,6 @@ public class CurrencyBankBlockEntity extends BlockEntity {
             UUID account = CardData.accountId(mineCard);
             voided = WalletService.isVoided(player.server, mineCard);
             if (account != null && !voided) {
-                CompanyFunds funds = CompanyFunds.get(player.server);
                 balances = funds.snapshot(account);
                 total = funds.totalAssets(account);
             }
@@ -228,5 +254,75 @@ public class CurrencyBankBlockEntity extends BlockEntity {
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         ContainerHelper.loadAllItems(tag, cards, registries);
+    }
+
+    // ---------------- Container：给 CurrencyBankMenu 的两个卡槽用 ----------------
+
+    @Override
+    public int getContainerSize() {
+        return SLOTS;
+    }
+
+    @Override
+    public boolean isEmpty() {
+        for (ItemStack card : cards) {
+            if (!card.isEmpty()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    public ItemStack getItem(int slot) {
+        return slot >= 0 && slot < SLOTS ? cards.get(slot) : ItemStack.EMPTY;
+    }
+
+    @Override
+    public ItemStack removeItem(int slot, int amount) {
+        return ContainerHelper.removeItem(cards, slot, amount);
+    }
+
+    @Override
+    public ItemStack removeItemNoUpdate(int slot) {
+        return ContainerHelper.takeItem(cards, slot);
+    }
+
+    @Override
+    public void setItem(int slot, ItemStack stack) {
+        if (slot < 0 || slot >= SLOTS) {
+            return;
+        }
+        cards.set(slot, stack);
+        setChanged();
+        // 菜单拖卡/Shift 快速移动不会经过 insertCard；这里补一次状态同步，
+        // 否则刚放进去时槽位名/卡内总资产要等下一次操作才刷新。
+        if (level != null && !level.isClientSide) {
+            sendNearby();
+        }
+    }
+
+    @Override
+    public boolean stillValid(Player player) {
+        return level != null
+                && level.getBlockEntity(worldPosition) == this
+                && player.distanceToSqr(worldPosition.getX() + 0.5D,
+                worldPosition.getY() + 0.5D, worldPosition.getZ() + 0.5D) <= 64.0D;
+    }
+
+    @Override
+    public void clearContent() {
+        cards.clear();
+        setChanged();
+    }
+
+    @Override
+    public boolean canPlaceItem(int slot, ItemStack stack) {
+        return ModItems.isBankCard(stack);
+    }
+
+    @Override
+    public int getMaxStackSize() {
+        return 1;
     }
 }

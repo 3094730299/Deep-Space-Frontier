@@ -19,6 +19,7 @@ public final class ModBlocks {
 
     public static final DeferredHolder<Block, MachineBlock> FACTORY_TERMINAL = register(MachineKind.TERMINAL);
     public static final DeferredHolder<Block, MachineBlock> FACTORY_CORE = register(MachineKind.CORE);
+    public static final DeferredHolder<Block, MachineBlock> MODULE_PRINTER = register(MachineKind.MODULE_PRINTER);
     public static final DeferredHolder<Block, MachineBlock> BUYER = register(MachineKind.BUYER);
     public static final DeferredHolder<Block, MachineBlock> MARKET = register(MachineKind.MARKET);
 
@@ -106,6 +107,7 @@ public final class ModBlocks {
         return switch (kind) {
             case TERMINAL -> FACTORY_TERMINAL.get();
             case CORE -> FACTORY_CORE.get();
+            case MODULE_PRINTER -> MODULE_PRINTER.get();
             case BUYER -> BUYER.get();
             case MARKET -> MARKET.get();
         };

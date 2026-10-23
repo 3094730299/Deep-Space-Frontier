@@ -7,6 +7,7 @@ import com.deepspacedeployer.blockentity.MachineKind;
 import com.deepspacedeployer.economy.CardData;
 import com.deepspacedeployer.factory.BlueprintInfo;
 import com.deepspacedeployer.menu.MachineMenu;
+import com.deepspacedeployer.net.ModuleListPayload;
 import com.deepspacedeployer.shop.TradeEntry;
 import com.deepspacedeployer.ui.webview.ThemeData;
 import com.deepspacedeployer.ui.webview.ThemeSlotLayout;
@@ -114,6 +115,13 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
     /** 收购站的"自动收购"开关按钮：它的文字要跟着服务端状态变，所以得留引用 */
     private Button autoSellButton;
     private boolean lastAutoSell;
+    /** 上一次见到的价目表版本（库存变化也要重建购买按钮） */
+    private int lastShopVersion = -1;
+    /** 模块打印机预设列表版本 */
+    private int lastModuleVersion = -1;
+    /** 收购站的"结算公司"按钮：3 个等级都不归公司，界面里选按哪家结算 */
+    private Button buyerCompanyButton;
+    private int lastBuyerCompany = -1;
 
     // ---------------- 界面主题 ----------------
     /** 主题宿主：四个方块共用这个类，但读的 html 不一样（按 kind 挑） */
@@ -125,6 +133,13 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
         return autoSell
                 ? "gui.deepspacedeployer.buyer_auto_on_label"
                 : "gui.deepspacedeployer.buyer_auto_off_label";
+    }
+
+    /** 收购机的“按哪家公司结算”按钮：文案不写死，服务端切换后要能更新。 */
+    private Component buyerCompanyLabel() {
+        String text = Component.translatable("gui.deepspacedeployer.buyer_company",
+                company().displayName()).getString();
+        return Component.literal(fit(text, 110));
     }
 
     public MachineScreen(MachineMenu menu, Inventory inventory, Component title) {
@@ -147,6 +162,7 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
             case TERMINAL -> WebScreenId.FACTORY_TERMINAL;
             case BUYER -> WebScreenId.BUYER;
             case CORE -> WebScreenId.FACTORY_CORE;
+            case MODULE_PRINTER -> WebScreenId.MODULE_PRINTER;
             case MARKET -> WebScreenId.MARKET;
         };
     }
@@ -154,6 +170,10 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
     // ---------------------------------------------------------------- 主题：装配
 
     private void setupTheme() {
+        // 模块打印机暂时用原生界面；没有 module_printer.html 时不要让主题层盖住原生控件
+        if (this.menu.kind() == MachineKind.MODULE_PRINTER) {
+            return;
+        }
         if (this.webview == null) {
             this.webview = new WebViewScreen(screenId());
             this.webview.setActionSink(this::onThemeAction);
@@ -268,7 +288,9 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
         Company company = company();
         boolean companyBound = kind.isCompanyBound();
 
-        d.put("公司", companyBound ? company.displayName().getString() : "中立设施");
+        d.put("公司", kind == MachineKind.BUYER
+                ? company.displayName().getString()
+                : (companyBound ? company.displayName().getString() : "中立设施"));
         d.put("账户", CardData.accountName(card));
         d.put("余额", this.menu.localBalance());
         d.put("等级", Tier.byIndex(this.menu.tierRank()).displayName().getString());
@@ -285,7 +307,7 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
                         + this.menu.idleReason()).getString()
                 : "");
         d.put("创意模式", this.menu.creative());
-        d.put("有公司", companyBound);
+        d.put("有公司", companyBound || kind == MachineKind.BUYER);
 
         switch (kind) {
             case TERMINAL -> {
@@ -305,6 +327,10 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
                 d.put("投放点", this.menu.hasAssemblyTarget() ? "已选" : "默认（机器正面）");
                 d.list("蓝图", blueprintRows());
                 d.list("材料", materialRows());
+            }
+            case MODULE_PRINTER -> {
+                d.put("投放点", this.menu.hasAssemblyTarget() ? "已选" : "默认（机器正面）");
+                d.list("模块", moduleRows());
             }
             case MARKET -> {
                 d.put("市场页", this.marketPage == 0);
@@ -351,23 +377,27 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
         return Component.translatable(tier.displayName().getString()).getString();
     }
 
-    /** 收购价 = 价目表价格 × 等级倍率（低级 0.8 / 中级 1.0 / 高级 1.2） */
-    private static double tierMultiplier(int tierRank) {
-        return switch (tierRank) {
-            case 0 -> 0.8D;
-            case 2 -> 1.2D;
-            default -> 1.0D;
-        };
-    }
-
     private List<Map<String, ?>> sellRows() {
         List<Map<String, ?>> rows = new ArrayList<>();
         List<TradeEntry> offers = sellOffers();
-        double mul = tierMultiplier(this.menu.tierRank());
         for (TradeEntry e : offers) {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("名称", itemName(e.itemId()).getString());
-            row.put("单价", String.valueOf(Math.round(e.price() * mul)));
+            row.put("单价", String.valueOf(Math.max(1,
+                    Math.round((double) e.price() / Math.max(1, e.count())))));
+            row.put("库存", ClientShopCache.stockAt(company(), rows.size()));
+            rows.add(row);
+        }
+        return rows;
+    }
+
+    private List<Map<String, ?>> moduleRows() {
+        List<Map<String, ?>> rows = new ArrayList<>();
+        for (ModuleListPayload.ModuleEntry module : moduleEntries()) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("名称", module.display());
+            row.put("价格", module.price());
+            row.put("尺寸", module.sizeX() + "×" + module.sizeY() + "×" + module.sizeZ());
             rows.add(row);
         }
         return rows;
@@ -628,11 +658,32 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
                                     b -> sendAction(MachineMenu.ACTION_BUY_BASE + index))
                             .bounds(x + 248, rowY, 32, 18)
                             .build();
-                    button.active = isUnlocked(entry);
+                    button.active = isUnlocked(entry)
+                            && ClientShopCache.stockAt(company(), index) > 0;
                     addRenderableWidget(button);
                 }
                 // 资金转化入口已经搬到收购站（老板要求）；商店这里不再放
                 // 滑条模式：不再需要翻页按钮
+            }
+            case MODULE_PRINTER -> {
+                addRenderableWidget(Button.builder(Component.translatable("gui.deepspacedeployer.pick_target"),
+                                b -> openAssemblyMap())
+                        .bounds(x + 8, y + 50, 108, 18).build());
+                List<ModuleListPayload.ModuleEntry> modules = moduleEntries();
+                for (int row = 0; row < 5; row++) {
+                    int index = this.scroll + row;
+                    if (index >= modules.size()) {
+                        break;
+                    }
+                    ModuleListPayload.ModuleEntry module = modules.get(index);
+                    int rowY = y + 76 + row * 22;
+                    Button print = Button.builder(Component.translatable(
+                                    "gui.deepspacedeployer.module_print"),
+                                    b -> sendAction(MachineMenu.ACTION_MODULE_PRINT_BASE + index))
+                            .bounds(x + 240, rowY + 2, 40, 18).build();
+                    print.active = this.menu.localBalance() >= module.price();
+                    addRenderableWidget(print);
+                }
             }
             case CORE -> {
                 // 顶部横条（y+18..y+56）：页签 + 重读图纸。
@@ -641,8 +692,7 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
                 addRenderableWidget(Button.builder(Component.translatable(this.corePage == 0
                                 ? "gui.deepspacedeployer.core_tab_material"
                                 : "gui.deepspacedeployer.core_tab_blueprint"), b -> switchCorePage())
-                        .bounds(x + 8, y + 18, 96, 16).build());
-                if (this.corePage == 0) {
+                        .bounds(x + 8, y + 18, 96, 16).build());                if (this.corePage == 0) {
                     // 「重读图纸」放顶部横条右边
                     addRenderableWidget(Button.builder(
                                     Component.translatable("gui.deepspacedeployer.blueprint_reload"),
@@ -691,6 +741,12 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
             }
 
             case BUYER -> {
+                // 收购机不归公司：3 个等级物品是固定的，按哪家公司结算在这里选。
+                this.buyerCompanyButton = Button.builder(buyerCompanyLabel(),
+                                b -> sendAction(3))
+                        .bounds(x + 164, y + 18, 116, 18).build();
+                addRenderableWidget(this.buyerCompanyButton);
+
                 // 三个按钮必须分开摆：早先三个都放在 y+112，矩形互相包含，
                 // 而原版命中是按"加入顺序"取第一个 → 视觉上最上层的「查看账户余额」点不到
                 // （点下去落到自动收购开关上）。
@@ -923,6 +979,27 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
                 return;
             }
         }
+        if (this.menu.kind() == MachineKind.MODULE_PRINTER
+                && ModulePresetClient.version() != this.lastModuleVersion) {
+            this.lastModuleVersion = ModulePresetClient.version();
+            this.scroll = 0;
+            rebuildWidgets();
+            return;
+        }
+        if (this.menu.kind() == MachineKind.TERMINAL
+                && ClientShopCache.version() != this.lastShopVersion) {
+            this.lastShopVersion = ClientShopCache.version();
+            this.scroll = Math.max(0, Math.min(this.scroll, maxScroll()));
+            rebuildWidgets();
+            return;
+        }
+        if (this.menu.kind() == MachineKind.BUYER && this.buyerCompanyButton != null) {
+            int companyIndex = this.menu.dataValue(MachineMenu.DATA_COMPANY);
+            if (companyIndex != this.lastBuyerCompany) {
+                this.lastBuyerCompany = companyIndex;
+                this.buyerCompanyButton.setMessage(buyerCompanyLabel());
+            }
+        }
         if (this.menu.kind() != MachineKind.BUYER || this.autoSellButton == null) {
             // 市场：挂单列表变了（别人挂/买/撤）就重建一次列表按钮
             if (this.menu.kind() == MachineKind.MARKET
@@ -974,6 +1051,7 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
         int size = switch (this.menu.kind()) {
             case TERMINAL -> buyOffers().size();
             case BUYER -> sellOffers().size();
+            case MODULE_PRINTER -> moduleEntries().size();
             case CORE -> this.corePage == 0 ? blueprints().size() : materialRowCount();
             // 市场：0 = 逛市场（挂单列表），1 = 我要卖（可选图纸列表）
             case MARKET -> this.marketPage == 0 ? marketListings().size() : marketPickerRows();
@@ -991,6 +1069,7 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
         return switch (this.menu.kind()) {
             case TERMINAL -> LIST_ROWS;
             case BUYER -> SELL_ROWS;
+            case MODULE_PRINTER -> 5;
             case CORE -> this.corePage == 0 ? BP_ROWS : MAT_ROWS;
             case MARKET -> this.marketPage == 0 ? MARKET_ROWS : MARKET_ROWS;
         };
@@ -1063,6 +1142,10 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
 
     private List<TradeEntry> buyOffers() {
         return ClientShopCache.buyOffers(company());
+    }
+
+    private List<ModuleListPayload.ModuleEntry> moduleEntries() {
+        return ModulePresetClient.visible(company(), Tier.byIndex(this.menu.tierRank()));
     }
 
     private List<TradeEntry> sellOffers() {
@@ -1215,8 +1298,9 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
 
         boolean leftGrid = this.menu.kind() == MachineKind.BUYER || this.menu.kind() == MachineKind.CORE;
         int infoX = leftGrid ? 70 : 30;
-        // 有归属的机器显示公司名；无归属的（寄售市场）显示"中立设施"
-        graphics.drawString(this.font, this.menu.kind().isCompanyBound()
+        // 有归属的机器显示公司名；收购机显示当前结算公司；寄售市场显示"中立设施"
+        graphics.drawString(this.font,
+                (this.menu.kind().isCompanyBound() || this.menu.kind() == MachineKind.BUYER)
                         ? company.displayName()
                         : Component.translatable("gui.deepspacedeployer.market_unowned"),
                 infoX, 19, ACCENT, false);
@@ -1256,6 +1340,7 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
 
         switch (this.menu.kind()) {
             case TERMINAL -> renderShopRows(graphics);
+            case MODULE_PRINTER -> renderModules(graphics);
             case BUYER -> renderSellList(graphics);
             case CORE -> {
                 renderCore(graphics);
@@ -1279,8 +1364,38 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
                 sx - 106, sy + 32, ACCENT, false);
     }
 
-    private void renderShopRows(GuiGraphics graphics) {
-        List<TradeEntry> offers = buyOffers();
+    private void renderModules(GuiGraphics graphics) {
+        graphics.drawString(this.font, Component.translatable("gui.deepspacedeployer.target")
+                        .append(": ")
+                        .append(Component.translatable(this.menu.hasAssemblyTarget()
+                                ? "gui.deepspacedeployer.target_chosen"
+                                : "gui.deepspacedeployer.target_default")),
+                122, 55, this.menu.hasAssemblyTarget() ? GOOD : TEXT_DIM, false);
+        List<ModuleListPayload.ModuleEntry> modules = moduleEntries();
+        if (modules.isEmpty()) {
+            graphics.drawString(this.font, Component.translatable(
+                    "gui.deepspacedeployer.module_empty"), 32, 82, TEXT_DIM, false);
+            return;
+        }
+        for (int row = 0; row < 5; row++) {
+            int index = this.scroll + row;
+            if (index >= modules.size()) {
+                break;
+            }
+            ModuleListPayload.ModuleEntry module = modules.get(index);
+            int rowY = 76 + row * 22;
+            boolean affordable = this.menu.localBalance() >= module.price();
+            graphics.drawString(this.font, fit(module.display(), 116), 32, rowY + 3,
+                    affordable ? TEXT : TEXT_DIM, false);
+            graphics.drawString(this.font, module.sizeX() + "×" + module.sizeY() + "×" + module.sizeZ(),
+                    148, rowY + 3, TEXT_DIM, false);
+            drawRight(graphics, Component.translatable(
+                    "gui.deepspacedeployer.price_tag", module.price()), 236, rowY + 3,
+                    affordable ? GOLD : TEXT_DIM);
+        }
+    }
+
+    private void renderShopRows(GuiGraphics graphics) {        List<TradeEntry> offers = buyOffers();
         if (offers.isEmpty()) {
             graphics.drawString(this.font, Component.translatable("gui.deepspacedeployer.shop_loading"),
                     8, 98, TEXT_DIM, false);
@@ -1303,6 +1418,11 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
                     unlocked ? TEXT : TEXT_DIM, false);
             drawRight(graphics, Component.translatable("gui.deepspacedeployer.price_tag", entry.price()),
                     244, rowY + 6, unlocked ? GOLD : TEXT_DIM);
+            int stock = ClientShopCache.stockAt(company(), index);
+            graphics.drawString(this.font,
+                    Component.translatable("gui.deepspacedeployer.shop_stock", stock,
+                            com.deepspacedeployer.blockentity.MachineBlockEntity.SHOP_STOCK_MAX),
+                    190, rowY + 15, stock > 0 ? TEXT_DIM : WARN, false);
 
             if (!unlocked) {
                 Component reason = entry.tier().rank() > this.menu.tierRank()
@@ -1341,8 +1461,7 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
             TradeEntry entry = offers.get(index);
             ItemStack stack = entry.createStack();
             int lineY = 154 + row * 14;
-            int unitPrice = Math.max(1, (int) Math.round((double) entry.price() / Math.max(1, entry.count())
-                    * Tier.byIndex(this.menu.tierRank()).sellMultiplier()));
+            int unitPrice = Math.max(1, (int) Math.round((double) entry.price() / Math.max(1, entry.count())));
             graphics.renderItem(stack, 8, lineY - 2);
             graphics.drawString(this.font, fit(stack.getHoverName().getString(), 96), 28, lineY, TEXT, false);
             graphics.drawString(this.font, Component.translatable("gui.deepspacedeployer.price_tag", unitPrice),

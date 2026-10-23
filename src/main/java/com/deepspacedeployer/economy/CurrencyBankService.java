@@ -2,6 +2,7 @@ package com.deepspacedeployer.economy;
 
 import com.deepspacedeployer.Company;
 import com.deepspacedeployer.blockentity.CurrencyBankBlockEntity;
+import com.deepspacedeployer.item.CurrencyItem;
 import com.deepspacedeployer.net.CardListPayload;
 import com.deepspacedeployer.net.CurrencyBankPayload;
 import com.deepspacedeployer.registry.ModBlocks;
@@ -14,6 +15,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.GameProfileCache;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -43,7 +45,10 @@ public final class CurrencyBankService {
         switch (p.action()) {
             case CurrencyBankPayload.ACTION_FREE_CARD -> freeCard(player);
             case CurrencyBankPayload.ACTION_VOID -> voidSelected(player, p, bank);
+            case CurrencyBankPayload.ACTION_VOID_SLOT -> voidSlot(player, p, bank);
             case CurrencyBankPayload.ACTION_CONFIRM -> confirm(player, bank, p);
+            case CurrencyBankPayload.ACTION_DEPOSIT_CASH -> depositCash(player, p, bank);
+            case CurrencyBankPayload.ACTION_WITHDRAW_CASH -> withdrawCash(player, p, bank);
             default -> error(player, "msg.deepspacedeployer.bank_bad_action");
         }
     }
@@ -53,6 +58,21 @@ public final class CurrencyBankService {
     private static void confirm(ServerPlayer player, CurrencyBankBlockEntity bank, CurrencyBankPayload p) {
         ItemStack sourceCard = bank.cardFor(player);
         if (sourceCard.isEmpty()) {
+            // 卡已经放进槽里，但没绑定/是废卡时给明确原因，别只说“先插卡”
+            for (int i = 0; i < CurrencyBankBlockEntity.SLOTS; i++) {
+                ItemStack card = bank.getItem(i);
+                if (card.isEmpty()) {
+                    continue;
+                }
+                if (!CardData.hasAccount(card)) {
+                    error(player, "msg.deepspacedeployer.bank_unbound_card");
+                    return;
+                }
+                if (WalletService.isVoided(player.server, card)) {
+                    error(player, "msg.deepspacedeployer.card_voided");
+                    return;
+                }
+            }
             error(player, "msg.deepspacedeployer.bank_insert_card_first");
             return;
         }
@@ -254,6 +274,12 @@ public final class CurrencyBankService {
             error(player, "msg.deepspacedeployer.bank_no_card");
             return;
         }
+        // 新挂失页只有一个卡槽：被挂失的卡必须真的在槽 0 里
+        ItemStack slotCard = bank.getItem(0);
+        if (slotCard.isEmpty() || !cardId.equals(CardData.cardId(slotCard))) {
+            error(player, "msg.deepspacedeployer.bank_void_slot_empty");
+            return;
+        }
         CardRegistry registry = CardRegistry.get(player.server);
         UUID owner = registry.ownerOf(cardId);
         if (owner == null || !owner.equals(player.getUUID())) {
@@ -278,13 +304,268 @@ public final class CurrencyBankService {
         }
     }
 
-    /** 把玩家名下的卡列表发给银行界面（挂失选卡） */
+    /**
+     * 新挂失：卡槽里的卡是<b>接收余额的卡</b>；要挂失的是玩家选的“其他卡”（不在卡槽里）。
+     *
+     * <p>卡槽空 → 拒绝；要挂失的卡在卡槽里 → 拒绝；被挂失卡的 7 个账户全部转进卡槽卡。</p>
+     */
+    private static void voidSlot(ServerPlayer player, CurrencyBankPayload p, CurrencyBankBlockEntity bank) {
+        int receiverSlot = p.from();
+        if (receiverSlot < 0 || receiverSlot >= CurrencyBankBlockEntity.SLOTS) {
+            error(player, "msg.deepspacedeployer.bank_bad_action");
+            return;
+        }
+        ItemStack receiver = bank.getItem(receiverSlot);
+        if (receiver.isEmpty()) {
+            error(player, "msg.deepspacedeployer.bank_void_need_receiver");
+            return;
+        }
+        if (WalletService.isVoided(player.server, receiver)) {
+            error(player, "msg.deepspacedeployer.card_voided");
+            return;
+        }
+        if (!CardData.isBoundTo(receiver, player)) {
+            error(player, "msg.deepspacedeployer.card_not_yours");
+            return;
+        }
+        UUID receiverAccount = CardData.accountId(receiver);
+        UUID receiverCardId = CardData.cardId(receiver);
+        if (receiverAccount == null || receiverCardId == null) {
+            error(player, "msg.deepspacedeployer.no_account");
+            return;
+        }
+
+        String raw = p.cardId() == null ? "" : p.cardId().trim();
+        UUID lostId;
+        try {
+            lostId = raw.isEmpty() ? null : UUID.fromString(raw);
+        } catch (IllegalArgumentException ignored) {
+            lostId = null;
+        }
+        if (lostId == null) {
+            error(player, "msg.deepspacedeployer.bank_no_card");
+            return;
+        }
+        if (lostId.equals(receiverCardId)) {
+            error(player, "msg.deepspacedeployer.bank_void_same_card");
+            return;
+        }
+        for (int i = 0; i < CurrencyBankBlockEntity.SLOTS; i++) {
+            if (lostId.equals(CardData.cardId(bank.getItem(i)))) {
+                error(player, "msg.deepspacedeployer.bank_void_card_in_slot");
+                return;
+            }
+        }
+
+        CardRegistry registry = CardRegistry.get(player.server);
+        UUID owner = registry.ownerOf(lostId);
+        if (owner == null || !owner.equals(player.getUUID())) {
+            error(player, "msg.deepspacedeployer.card_not_yours");
+            return;
+        }
+        CardRegistry.CardRecord record = registry.find(lostId);
+        if (record == null) {
+            error(player, "msg.deepspacedeployer.bank_void_missing");
+            return;
+        }
+        if (record.voided()) {
+            error(player, "msg.deepspacedeployer.card_voided");
+            return;
+        }
+        UUID lostAccount = record.account();
+        if (lostAccount == null) {
+            error(player, "msg.deepspacedeployer.no_account");
+            return;
+        }
+
+        CompanyFunds funds = CompanyFunds.get(player.server);
+        if (!lostAccount.equals(receiverAccount)) {
+            long[] values = funds.snapshot(lostAccount);
+            for (int i = 0; i < values.length; i++) {
+                if (values[i] != 0L) {
+                    funds.addSlot(receiverAccount, i, values[i]);
+                }
+            }
+            funds.wipe(lostAccount);
+        }
+
+        if (registry.voidCard(lostId, player.server)) {
+            success(player, "msg.deepspacedeployer.bank_void_to_slot_done");
+            bank.sendNearby();
+            sendCardList(player);
+        } else {
+            error(player, "msg.deepspacedeployer.bank_void_missing");
+        }
+    }
+
+    // ---------------- 实体币存取 ----------------
+
+    /** 存/取实体币用的账户卡：固定取 0 号卡槽，必须是本人有效卡。 */
+    private static UUID cashAccount(ServerPlayer player, CurrencyBankBlockEntity bank) {
+        ItemStack card = bank.getItem(0);
+        if (card.isEmpty()) {
+            error(player, "msg.deepspacedeployer.bank_cash_need_card");
+            return null;
+        }
+        if (WalletService.isVoided(player.server, card)) {
+            error(player, "msg.deepspacedeployer.card_voided");
+            return null;
+        }
+        if (!CardData.isBoundTo(card, player)) {
+            error(player, "msg.deepspacedeployer.card_not_yours");
+            return null;
+        }
+        UUID account = CardData.accountId(card);
+        if (account == null) {
+            error(player, "msg.deepspacedeployer.no_account");
+            return null;
+        }
+        return account;
+    }
+
+    /**
+     * 存实体币：amount &gt; 0 = 只存选中的公司/面额；amount &lt;= 0 = 背包里所有实体币都存。
+     */
+    private static void depositCash(ServerPlayer player, CurrencyBankPayload p,
+                                    CurrencyBankBlockEntity bank) {
+        UUID account = cashAccount(player, bank);
+        if (account == null) {
+            return;
+        }
+        Inventory inventory = player.getInventory();
+        CompanyFunds funds = CompanyFunds.get(player.server);
+
+        if (p.amount() <= 0L) {
+            int totalItems = 0;
+            long totalValue = 0L;
+            long[] perCompany = new long[Company.COUNT];
+            for (int i = 0; i < inventory.getContainerSize(); i++) {
+                ItemStack stack = inventory.getItem(i);
+                CurrencyItem currency = ModItems.currencyOf(stack);
+                if (currency == null || stack.getCount() <= 0) {
+                    continue;
+                }
+                int count = stack.getCount();
+                long value = (long) count * currency.value();
+                perCompany[currency.company().ordinal()] += value;
+                totalItems += count;
+                totalValue += value;
+                inventory.removeItem(i, count);
+            }
+            if (totalItems <= 0) {
+                error(player, "msg.deepspacedeployer.bank_cash_no_items");
+                return;
+            }
+            for (Company company : Company.VALUES) {
+                long value = perCompany[company.ordinal()];
+                if (value != 0L) {
+                    funds.add(account, company, value);
+                }
+            }
+            success(player, "msg.deepspacedeployer.bank_cash_deposit_all", totalItems, totalValue);
+        } else {
+            int companyIndex = p.from();
+            int denomIndex = p.to();
+            if (companyIndex < 0 || companyIndex >= Company.COUNT
+                    || denomIndex < 0 || denomIndex >= CurrencyDenomination.COUNT) {
+                error(player, "msg.deepspacedeployer.bank_cash_bad_denom");
+                return;
+            }
+            int count = (int) Math.min(100L, p.amount());
+            if (count <= 0) {
+                error(player, "msg.deepspacedeployer.bank_cash_invalid");
+                return;
+            }
+            Company company = Company.byIndex(companyIndex);
+            CurrencyDenomination denomination = CurrencyDenomination.byIndex(denomIndex);
+            var item = ModItems.currencyItem(company, denomination);
+
+            int remaining = count;
+            for (int i = 0; i < inventory.getContainerSize() && remaining > 0; i++) {
+                ItemStack stack = inventory.getItem(i);
+                if (stack.isEmpty() || !stack.is(item)) {
+                    continue;
+                }
+                int take = Math.min(remaining, stack.getCount());
+                inventory.removeItem(i, take);
+                remaining -= take;
+            }
+            int deposited = count - remaining;
+            if (deposited <= 0) {
+                error(player, "msg.deepspacedeployer.bank_cash_no_items");
+                return;
+            }
+            long value = (long) deposited * denomination.value();
+            funds.add(account, company, value);
+            success(player, "msg.deepspacedeployer.bank_cash_deposit",
+                    deposited, company.displayName(), denomination.value(), value);
+        }
+
+        bank.sendNearby();
+        player.containerMenu.broadcastChanges();
+        player.inventoryMenu.broadcastChanges();
+    }
+
+    /**
+     * 取实体币：按选中的公司/面额发券；单次最多 100 张（一叠）。
+     */
+    private static void withdrawCash(ServerPlayer player, CurrencyBankPayload p,
+                                     CurrencyBankBlockEntity bank) {
+        UUID account = cashAccount(player, bank);
+        if (account == null) {
+            return;
+        }
+        int companyIndex = p.from();
+        int denomIndex = p.to();
+        if (companyIndex < 0 || companyIndex >= Company.COUNT
+                || denomIndex < 0 || denomIndex >= CurrencyDenomination.COUNT) {
+            error(player, "msg.deepspacedeployer.bank_cash_bad_denom");
+            return;
+        }
+        int count = (int) Math.min(100L, p.amount());
+        if (count <= 0) {
+            error(player, "msg.deepspacedeployer.bank_cash_invalid");
+            return;
+        }
+        Company company = Company.byIndex(companyIndex);
+        CurrencyDenomination denomination = CurrencyDenomination.byIndex(denomIndex);
+        long total = (long) count * denomination.value();
+        CompanyFunds funds = CompanyFunds.get(player.server);
+        if (funds.balanceSlot(account, company.ordinal()) < total) {
+            error(player, "msg.deepspacedeployer.bank_cash_insufficient");
+            return;
+        }
+        if (player.getInventory().getFreeSlot() < 0) {
+            error(player, "msg.deepspacedeployer.bank_cash_no_space");
+            return;
+        }
+        ItemStack cash = new ItemStack(ModItems.currencyItem(company, denomination), count);
+        if (!player.getInventory().add(cash)) {
+            error(player, "msg.deepspacedeployer.bank_cash_no_space");
+            return;
+        }
+        funds.add(account, company, -total);
+        success(player, "msg.deepspacedeployer.bank_cash_withdraw",
+                count, company.displayName(), denomination.value());
+        bank.sendNearby();
+        player.containerMenu.broadcastChanges();
+        player.inventoryMenu.broadcastChanges();
+    }
+
+    /** 把玩家名下的卡列表（带 7 账户/总资产）发给银行界面。 */
     public static void sendCardList(ServerPlayer player) {
         CardRegistry registry = CardRegistry.get(player.server);
+        CompanyFunds funds = CompanyFunds.get(player.server);
         List<CardListPayload.CardEntry> list = new ArrayList<>();
         for (CardRegistry.CardRecord record : registry.cards(player.getUUID())) {
+            long[] balances = new long[CompanyFunds.SLOT_COUNT];
+            long total = 0L;
+            if (!record.voided() && record.account() != null) {
+                balances = funds.snapshot(record.account());
+                total = funds.totalAssets(record.account());
+            }
             list.add(new CardListPayload.CardEntry(
-                    record.cardId().toString(), record.name(), record.voided()));
+                    record.cardId().toString(), record.name(), record.voided(), balances, total));
         }
         PacketDistributor.sendToPlayer(player, new CardListPayload(List.copyOf(list)));
     }

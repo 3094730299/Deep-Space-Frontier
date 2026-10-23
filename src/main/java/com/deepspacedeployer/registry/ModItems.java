@@ -5,9 +5,12 @@ import com.deepspacedeployer.DeepSpaceDeployer;
 import com.deepspacedeployer.Tier;
 import com.deepspacedeployer.block.MachineBlock;
 import com.deepspacedeployer.blockentity.MachineKind;
+import com.deepspacedeployer.economy.CurrencyDenomination;
 import com.deepspacedeployer.item.BankCardItem;
 import com.deepspacedeployer.item.BlueprintVoucherItem;
+import com.deepspacedeployer.item.BuyerBlockItem;
 import com.deepspacedeployer.item.CompanyLicenseItem;
+import com.deepspacedeployer.item.CurrencyItem;
 import com.deepspacedeployer.item.TierUpgradeKitItem;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.item.BlockItem;
@@ -27,10 +30,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 物品注册表：银行卡 + 六家公司授权铭牌 + 蓝图凭证 + 升级套件 + 三个功能方块的方块物品。
+ * 物品注册表：银行卡 + 六家公司授权铭牌 + 蓝图凭证 + 升级套件 + 36 种实体货币 + 功能方块的方块物品。
  *
- * <p>注意：<b>六种"票据"已经删掉了</b>（老板要求：钱只保留"账户数字"一套）。
- * 现在钱只存在世界存档的 {@code CompanyFunds} 里，银行卡只是账户指针，卡上不放余额。</p>
+ * <p>旧版"六种票据"已经删掉；2026-10-22 按 P0-3 新增 <b>6 家公司 × 6 种面额 = 36 种实体货币</b>，
+ * 堆叠上限 100，可在货币银行存取。钱仍然存在世界存档的 {@code CompanyFunds} 里，
+ * 实体券只是账户余额的外壳。</p>
  */
 public final class ModItems {
 
@@ -75,6 +79,57 @@ public final class ModItems {
     }
 
     /**
+     * 36 种实体货币：6 家公司 × 6 种面额（1/5/10/20/50/100）。
+     *
+     * <p>注册名 {@code <公司>_scrip_<面额>}，例如 {@code threshold_scrip_20}；
+     * 堆叠上限 100。钱仍然存在账户里，实体券只是可以在银行存取的外壳。</p>
+     */
+    public static final List<DeferredHolder<Item, CurrencyItem>> CURRENCIES;
+
+    static {
+        List<DeferredHolder<Item, CurrencyItem>> currencies = new ArrayList<>(
+                Company.COUNT * CurrencyDenomination.COUNT);
+        for (Company company : Company.VALUES) {
+            for (CurrencyDenomination denomination : CurrencyDenomination.VALUES) {
+                String name = company.id() + "_scrip_" + denomination.suffix();
+                currencies.add(ITEMS.register(name,
+                        () -> new CurrencyItem(company, denomination,
+                                new Item.Properties().stacksTo(100))));
+            }
+        }
+        CURRENCIES = Collections.unmodifiableList(currencies);
+    }
+
+    public static List<DeferredHolder<Item, CurrencyItem>> currencies() {
+        return CURRENCIES;
+    }
+
+    public static Item currencyItem(Company company, CurrencyDenomination denomination) {
+        int index = company.ordinal() * CurrencyDenomination.COUNT + denomination.ordinal();
+        return CURRENCIES.get(index).get();
+    }
+
+    /** 创造栏/发钱用：指定公司、面额、张数（单叠最多 100）。 */
+    public static ItemStack currencyStack(Company company, CurrencyDenomination denomination, int count) {
+        int clamped = Math.max(1, Math.min(100, count));
+        return new ItemStack(currencyItem(company, denomination), clamped);
+    }
+
+    /** 这张物品栈是不是实体货币；不是返回 null。 */
+    public static CurrencyItem currencyOf(ItemStack stack) {
+        if (stack == null || stack.isEmpty() || !(stack.getItem() instanceof CurrencyItem currency)) {
+            return null;
+        }
+        return currency;
+    }
+
+    /** 一张实体券的面额；不是货币返回 0。 */
+    public static int currencyValue(ItemStack stack) {
+        CurrencyItem currency = currencyOf(stack);
+        return currency == null ? 0 : currency.value();
+    }
+
+    /**
      * 功能方块的方块物品。
      *
      * <p>规则（老板定的）：<b>每个公司各一件，不能再切换</b> ——</p>
@@ -109,7 +164,9 @@ public final class ModItems {
                 () -> new BlockItem(ModBlocks.get(MachineKind.MARKET), new Item.Properties())));
         MACHINE_VARIANT_ORDER.add(MACHINE_VARIANTS.get(MachineKind.MARKET.id() + "|"));
 
-        // 有归属的方块（工厂核心 / 商店 / 收购台）：6 家公司各一件
+        // 有归属的方块（工厂核心 / 商店）：6 家公司各一件。
+        // 收购台不归公司，旧 6 个物品仍注册（隐藏）用于老存档/老背包迁移；
+        // 新的 3 个等级物品在下面单独注册。
         for (MachineKind kind : MachineKind.values()) {
             if (kind == MachineKind.MARKET) {
                 continue;
@@ -118,9 +175,34 @@ public final class ModItems {
                 String name = kind.id() + "_" + company.id();
                 MACHINE_VARIANTS.put(key(kind, company),
                         ITEMS.register(name, () -> new BlockItem(ModBlocks.get(kind), new Item.Properties())));
-                MACHINE_VARIANT_ORDER.add(MACHINE_VARIANTS.get(key(kind, company)));
+                if (kind != MachineKind.BUYER) {
+                    MACHINE_VARIANT_ORDER.add(MACHINE_VARIANTS.get(key(kind, company)));
+                }
             }
         }
+    }
+
+    /**
+     * 收购投送机的 3 个等级物品：{@code buyer_low / buyer_mid / buyer_high}。
+     *
+     * <p>老存档里的 6 个 {@code buyer_<公司>} 物品仍注册但不在创造栏发放；
+     * 放下去后统一变成中立收购机，等级按老物品的 BLOCK_STATE 保留。</p>
+     */
+    public static final List<DeferredHolder<Item, BlockItem>> BUYER_ITEMS;
+
+    static {
+        List<DeferredHolder<Item, BlockItem>> buyers = new ArrayList<>(Tier.COUNT);
+        for (Tier tier : Tier.VALUES) {
+            String name = MachineKind.BUYER.id() + "_" + tier.id();
+            buyers.add(ITEMS.register(name, () -> new BuyerBlockItem(
+                    ModBlocks.get(MachineKind.BUYER), tier, new Item.Properties())));
+        }
+        BUYER_ITEMS = Collections.unmodifiableList(buyers);
+    }
+
+    /** 收购投送机某个等级的物品。 */
+    public static Item buyerItem(Tier tier) {
+        return BUYER_ITEMS.get(Math.max(0, Math.min(Tier.COUNT - 1, tier.rank()))).get();
     }
 
     private static String key(MachineKind kind, Company company) {
@@ -134,6 +216,9 @@ public final class ModItems {
      * 一律返回那一件中立物品。</p>
      */
     public static Item machineItem(MachineKind kind, Company company) {
+        if (kind == MachineKind.BUYER) {
+            return buyerItem(Tier.LOW);
+        }
         DeferredHolder<Item, BlockItem> holder = kind.isCompanyBound()
                 ? MACHINE_VARIANTS.get(key(kind, company))
                 : MACHINE_VARIANTS.get(kind.id() + "|");
@@ -147,6 +232,9 @@ public final class ModItems {
      * 无归属的方块不写公司属性。</p>
      */
     public static ItemStack machineStack(MachineKind kind, Company company) {
+        if (kind == MachineKind.BUYER) {
+            return machineStack(kind, Tier.LOW);
+        }
         Item item = machineItem(kind, company);
         if (item == Items.AIR) {
             return ItemStack.EMPTY;
@@ -157,6 +245,17 @@ public final class ModItems {
             state = state.with(MachineBlock.COMPANY, company);
         }
         stack.set(DataComponents.BLOCK_STATE, state);
+        return stack;
+    }
+
+    /** 收购投送机的等级物品栈（创造栏/指令用）。 */
+    public static ItemStack machineStack(MachineKind kind, Tier tier) {
+        if (kind != MachineKind.BUYER) {
+            return machineStack(kind, Company.VALUES[0]);
+        }
+        ItemStack stack = new ItemStack(buyerItem(tier));
+        stack.set(DataComponents.BLOCK_STATE,
+                BlockItemStateProperties.EMPTY.with(MachineBlock.TIER, tier));
         return stack;
     }
 

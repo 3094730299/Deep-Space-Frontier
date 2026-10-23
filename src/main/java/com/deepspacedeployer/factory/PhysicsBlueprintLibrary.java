@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -322,6 +323,32 @@ public final class PhysicsBlueprintLibrary {
         }
     }
 
+    /** 服务端预制载具目录：config/deepspacedeployer/vehicles/*.nbt */
+    private static void scanVehiclePresetFolder() {
+        Path dir = FMLPaths.CONFIGDIR.get().resolve("deepspacedeployer").resolve("vehicles");
+        try {
+            Files.createDirectories(dir);
+        } catch (IOException e) {
+            LOGGER.warn("[深空铸造体] 建不了预制载具目录 {}：{}", dir, e.toString());
+            return;
+        }
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir, "*.nbt")) {
+            for (Path path : stream) {
+                String name = path.getFileName().toString().replaceFirst("(?i)\\.nbt$", "");
+                if (ENTRIES.containsKey(name)) {
+                    continue;
+                }
+                Entry entry = loadExternal(name, path);
+                if (entry != null) {
+                    ENTRIES.put(name, entry);
+                    LOGGER.info("[深空铸造体] 预制载具 {} 已读取：{} 方块", name, entry.blocks());
+                }
+            }
+        } catch (IOException e) {
+            LOGGER.warn("[深空铸造体] 扫描预制载具目录失败：{}", e.toString());
+        }
+    }
+
     @SuppressWarnings("unchecked")
     public static int refresh(MinecraftServer server) {        probe();
         ENTRIES.clear();
@@ -360,6 +387,10 @@ public final class PhysicsBlueprintLibrary {
             scanBlueprintFolder(dirName);
         }
 
+        // 3) 服务端预制载具：config/deepspacedeployer/vehicles/*.nbt
+        //    模块打印机的预设走 modules/，两边从目录上就分开。
+        scanVehiclePresetFolder();
+
         List<BlueprintInfo> list = new ArrayList<>();
         for (Entry entry : ENTRIES.values()) {
             list.add(new BlueprintInfo(entry.name(), entry.sizeX(), entry.sizeY(), entry.sizeZ(),
@@ -378,9 +409,9 @@ public final class PhysicsBlueprintLibrary {
     }
 
     @SuppressWarnings("unchecked")
-    private static void addEntry(String name, Object blueprint) throws Exception {
+    private static Entry buildEntry(String name, Object blueprint) throws Exception {
         if (blueprint == null) {
-            return;
+            return null;
         }
         Map<String, Integer> materials = new LinkedHashMap<>();
         int blocks = 0;
@@ -422,9 +453,37 @@ public final class PhysicsBlueprintLibrary {
             // 拿不到就用默认尺寸，不影响功能
         }
 
-        ENTRIES.put(name, new Entry(name, blueprint, blocks, sizeX, sizeY, sizeZ, materials));
+        return new Entry(name, blueprint, blocks, sizeX, sizeY, sizeZ, materials);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void addEntry(String name, Object blueprint) throws Exception {
+        Entry entry = buildEntry(name, blueprint);
+        if (entry == null) {
+            return;
+        }
+        ENTRIES.put(name, entry);
         LOGGER.info("[深空铸造体] 物理蓝图 {} 已读取：{} 方块，尺寸 {}×{}×{}，{} 种材料",
-                name, blocks, sizeX, sizeY, sizeZ, materials.size());
+                name, entry.blocks(), entry.sizeX(), entry.sizeY(), entry.sizeZ(), entry.materials().size());
+    }
+
+    /**
+     * 读取一个外部 Sable {@code .nbt}，但不放进"载具蓝图"列表。
+     * 模块打印机专用：这样玩家的载具蓝图和模块预设从数据层就分开了。
+     */
+    public static Entry loadExternal(String name, Path path) {
+        probe();
+        if (!available) {
+            return null;
+        }
+        try {
+            CompoundTag tag = NbtIo.readCompressed(path, NbtAccounter.unlimitedHeap());
+            Object blueprint = loadFromTag.invoke(null, tag);
+            return buildEntry(name, blueprint);
+        } catch (Throwable t) {
+            LOGGER.warn("[深空铸造体] 外部蓝图 {} 读取失败：{}", path, rootOf(t).toString());
+            return null;
+        }
     }
 
     private static boolean hasCanonical(Object blueprint) {
@@ -464,12 +523,11 @@ public final class PhysicsBlueprintLibrary {
         return ENTRIES.get(name);
     }
 
-    /** 把蓝图直接生成成物理结构（位置是结构中心） */
-    public static Result spawn(ServerLevel level, String name, Vec3 center) {
+    /** 把一份 Entry 直接生成成物理结构（不要求它在载具蓝图列表里）。 */
+    public static Result spawnEntry(ServerLevel level, Entry entry, Vec3 center) {
         probe();
-        Entry entry = ENTRIES.get(name);
         if (!available || entry == null) {
-            return new Result(false, 0, available ? "没有这份蓝图：" + name : "缺少 Sable Photomancy");
+            return new Result(false, 0, available ? "没有这份蓝图" : "缺少 Sable Photomancy");
         }
         try {
             Object result = placerPlace.invoke(null, level, entry.blueprint(), center);
@@ -486,10 +544,9 @@ public final class PhysicsBlueprintLibrary {
         }
     }
 
-    /** 某个方块位置能不能放下（按蓝图里的方块位置检查） */
+    /** 某份 Entry 在某个方块位置能不能放下。 */
     @SuppressWarnings("unchecked")
-    public static boolean areaClear(ServerLevel level, String name, BlockPos origin) {
-        Entry entry = ENTRIES.get(name);
+    public static boolean areaClearEntry(ServerLevel level, Entry entry, BlockPos origin) {
         if (entry == null) {
             return false;
         }
@@ -504,8 +561,23 @@ public final class PhysicsBlueprintLibrary {
             }
             return true;
         } catch (Throwable t) {
-            return true;   // 检查本身出错就不拦着玩家
+            return true;
         }
+    }
+
+    /** 把蓝图直接生成成物理结构（位置是结构中心） */
+    public static Result spawn(ServerLevel level, String name, Vec3 center) {
+        probe();
+        Entry entry = ENTRIES.get(name);
+        if (!available || entry == null) {
+            return new Result(false, 0, available ? "没有这份蓝图：" + name : "缺少 Sable Photomancy");
+        }
+        return spawnEntry(level, entry, center);
+    }
+
+    /** 某个方块位置能不能放下（按蓝图里的方块位置检查） */
+    public static boolean areaClear(ServerLevel level, String name, BlockPos origin) {
+        return areaClearEntry(level, ENTRIES.get(name), origin);
     }
 
     private PhysicsBlueprintLibrary() {

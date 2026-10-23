@@ -15,12 +15,6 @@ public final class ClientScreenBridge {
         net.minecraft.client.Minecraft.getInstance().setScreen(new CardBindScreen(hand));
     }
 
-    public static void openCurrencyBankScreen() {
-        BankStateClient.clear();
-        CardListClient.clear();
-        net.minecraft.client.Minecraft.getInstance().setScreen(new CurrencyBankScreen());
-    }
-
     private ClientScreenBridge() {
     }
 }

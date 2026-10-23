@@ -29,7 +29,8 @@ public record BankStatePayload(List<Slot> slots, long[] balances, long totalAsse
         implements CustomPacketPayload {
 
     public record Slot(boolean empty, ItemStack stack, String name, String ownerName,
-                       String ownerUuid, boolean mine, boolean voided) {
+                       String ownerUuid, boolean mine, boolean voided, long totalAssets,
+                       long[] balances) {
     }
 
     public static final CustomPacketPayload.Type<BankStatePayload> TYPE =
@@ -48,6 +49,10 @@ public record BankStatePayload(List<Slot> slots, long[] balances, long totalAsse
                             buf.writeUtf(slot.ownerUuid() == null ? "" : slot.ownerUuid(), 36);
                             buf.writeBoolean(slot.mine());
                             buf.writeBoolean(slot.voided());
+                            buf.writeLong(slot.totalAssets());
+                            for (long value : slot.balances()) {
+                                buf.writeLong(value);
+                            }
                         }
                         for (long value : payload.balances()) {
                             buf.writeLong(value);
@@ -68,7 +73,13 @@ public record BankStatePayload(List<Slot> slots, long[] balances, long totalAsse
                             String ownerUuid = buf.readUtf(36);
                             boolean mine = buf.readBoolean();
                             boolean voided = buf.readBoolean();
-                            slots.add(new Slot(empty, stack, name, ownerName, ownerUuid, mine, voided));
+                            long slotTotal = buf.readLong();
+                            long[] slotBalances = new long[7];
+                            for (int j = 0; j < slotBalances.length; j++) {
+                                slotBalances[j] = buf.readLong();
+                            }
+                            slots.add(new Slot(empty, stack, name, ownerName, ownerUuid, mine, voided,
+                                    slotTotal, slotBalances));
                         }
                         long[] balances = new long[7];
                         for (int i = 0; i < balances.length; i++) {

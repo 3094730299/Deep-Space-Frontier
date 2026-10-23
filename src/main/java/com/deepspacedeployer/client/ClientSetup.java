@@ -98,9 +98,11 @@ public final class ClientSetup {
     private static void onRegisterMenuScreens(RegisterMenuScreensEvent event) {
         event.register(ModMenus.TERMINAL.get(), MachineScreen::new);
         event.register(ModMenus.CORE.get(), MachineScreen::new);
+        event.register(ModMenus.MODULE_PRINTER.get(), MachineScreen::new);
         event.register(ModMenus.BUYER.get(), MachineScreen::new);
         event.register(ModMenus.TRANSFER.get(), TransferScreen::new);
         event.register(ModMenus.TERMINAL_UI.get(), TerminalScreen::new);
+        event.register(ModMenus.CURRENCY_BANK.get(), CurrencyBankScreen::new);
     }
 
 

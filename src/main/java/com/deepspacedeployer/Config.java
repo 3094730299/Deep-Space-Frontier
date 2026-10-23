@@ -88,6 +88,18 @@ public final class Config {
             .comment("【已弃用】旧参数，保留只为兼容老配置文件；实际节奏看 buyer.ticks_per_batch")
             .defineInRange("buyer.batches_per_tick", 1, 1, 100);
 
+    /** 单台收购机每 tick 最多处理多少个物品；超出的留在输入格排队。 */
+    public static final ModConfigSpec.IntValue BUYER_ITEMS_PER_TICK = BUILDER
+            .comment("单台收购投送机每 tick 最多处理多少个物品",
+                    "64 = 每秒最多 1280 个；超出的留在输入格排队，不会丢")
+            .defineInRange("buyer.items_per_tick", 64, 1, 10000);
+
+    /** 全服所有收购机每 tick 合计最多处理多少个物品；超出的排队。 */
+    public static final ModConfigSpec.IntValue BUYER_GLOBAL_ITEMS_PER_TICK = BUILDER
+            .comment("全服所有收购投送机每 tick 合计最多处理多少个物品",
+                    "2000 = 防多个收购机同时抢服务器；超出的留在各自输入格排队")
+            .defineInRange("buyer.global_items_per_tick", 2000, 1, 1_000_000);
+
     public static final ModConfigSpec.IntValue PHYSICS_MAX_BLOCKS = BUILDER
             .comment("物理化时最多收集多少方块（太大的结构不物理化，避免卡服）")
             .defineInRange("factory.physics_max_blocks", 4096, 64, 100000);

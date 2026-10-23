@@ -30,16 +30,24 @@ public final class ModCreativeTabs {
                         for (Company company : Company.VALUES) {
                             output.accept(ModItems.licenseItem(company));
                         }
+                        // 36 种实体货币：按公司、面额 1/5/10/20/50/100 排列
+                        for (var currency : ModItems.currencies()) {
+                            output.accept(currency.get());
+                        }
                         // 通用终端：纯装饰方块
                         output.accept(ModItems.UNIVERSAL_TERMINAL.get());
                         // 精构仪：装饰方块（老板 2026-10-19 新建模，暂时只当摆设）
                         output.accept(ModItems.PRECISION_FABRICATOR.get());
                         // 深空货币银行：全局功能方块（无公司、无等级）
                         output.accept(ModItems.CURRENCY_BANK.get());
-                        // 功能方块：有归属的机器 6 家公司各一件、无归属的（寄售市场）就一件。
-                        // 老板要求"无法切换"，所以这里列出来是什么就是什么。
+                        // 功能方块：有归属的机器 6 家公司各一件；收购机 3 个等级；
+                        // 无归属的（寄售市场）就一件。老板要求"无法切换"。
                         for (MachineKind kind : MachineKind.values()) {
-                            if (kind.isCompanyBound()) {
+                            if (kind == MachineKind.BUYER) {
+                                for (Tier tier : Tier.VALUES) {
+                                    output.accept(ModItems.machineStack(kind, tier));
+                                }
+                            } else if (kind.isCompanyBound()) {
                                 for (Company company : Company.VALUES) {
                                     ItemStack stack = ModItems.machineStack(kind, company);
                                     if (!stack.isEmpty()) {

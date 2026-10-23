@@ -36,10 +36,14 @@ public final class FactoryCommands {
                         .requires(source -> source.hasPermission(2))
                         .executes(context -> {
                             int count = PhysicsBlueprintLibrary.refresh(context.getSource().getServer());
+                            int modules = ModulePresetLibrary.reload(context.getSource().getServer());
                             context.getSource().sendSuccess(
                                     () -> Component.translatable("cmd.deepspacedeployer.reloadblueprints", count),
                                     true);
-                            return count;
+                            context.getSource().sendSuccess(
+                                    () -> Component.translatable("cmd.deepspacedeployer.reloadmodules", modules),
+                                    true);
+                            return count + modules;
                         }))
                 .then(Commands.literal("integration")
                         .executes(context -> {

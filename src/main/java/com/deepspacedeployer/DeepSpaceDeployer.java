@@ -104,7 +104,9 @@ public class DeepSpaceDeployer {
     /** 服务器起来了就读一遍物理蓝图（两个文件夹），并打印联动探测报告 */
     private static void onServerStarted(net.neoforged.neoforge.event.server.ServerStartedEvent event) {
         int count = com.deepspacedeployer.factory.PhysicsBlueprintLibrary.refresh(event.getServer());
+        int modules = com.deepspacedeployer.factory.ModulePresetLibrary.reload(event.getServer());
         LOGGER.info("[深空铸造体] 物理蓝图已加载：{} 份（Sable-Schematics + enxv_aeronautics_structures）", count);
+        LOGGER.info("[深空铸造体] 模块预设已加载：{} 份（config/deepspacedeployer/modules）", modules);
         for (String line : IntegrationProbe.describe()) {
             LOGGER.info("[深空铸造体][联动] {}", line);
         }

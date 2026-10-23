@@ -116,7 +116,8 @@ public final class SelfTest {
         lines.add("创造板条箱无限材料 " + Config.CREATIVE_CRATE_INFINITE.get()
                 + "（半径 " + Config.CREATIVE_CRATE_RANGE.get() + " 格）｜ 桥："
                 + com.deepspacedeployer.integration.CreativeCrateBridge.describe());
-        lines.add("收购站每 tick 结算 " + Config.BUYER_BATCHES_PER_TICK.get() + " 次");
+        lines.add("收购站限流：单机 " + Config.BUYER_ITEMS_PER_TICK.get()
+                + " 物品/tick，全服 " + Config.BUYER_GLOBAL_ITEMS_PER_TICK.get() + " 物品/tick");
 
         // 5) 存档数据
         lines.add("--- 存档 ---");

@@ -27,6 +27,7 @@ public final class ModBlockEntities {
                     MachineBlockEntity::new,
                     ModBlocks.FACTORY_TERMINAL.get(),
                     ModBlocks.FACTORY_CORE.get(),
+                    ModBlocks.MODULE_PRINTER.get(),
                     ModBlocks.BUYER.get(),
                     ModBlocks.MARKET.get()
             ).build(null));

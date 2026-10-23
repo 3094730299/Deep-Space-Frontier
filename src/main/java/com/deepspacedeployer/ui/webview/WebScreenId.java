@@ -19,6 +19,8 @@ public enum WebScreenId {
     BUYER("buyer.html", "收购投送机", 288, 300),
     /** 载具打印机（选蓝图 + 材料 + 组装） */
     FACTORY_CORE("factory_core.html", "载具打印机", 288, 300),
+    /** 模块打印机（只读服务端模块预设；主题文件缺失时自动回退原生界面） */
+    MODULE_PRINTER("module_printer.html", "模块打印机", 288, 300),
     /** 寄售市场（逛市场 / 我要卖） */
     MARKET("market.html", "寄售市场", 288, 300),
     /** 资金转化（卡↔卡、卡↔公司账户） */

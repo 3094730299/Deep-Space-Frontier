@@ -68,14 +68,34 @@ public enum Tier implements StringRepresentable {
     }
 
     /**
-     * 收购价倍率：低级厂压价（0.8），中级正常（1.0），高级溢价（1.2）。
-     * 这就是"按公司 / 等级差异化定价"里等级的那一半。
+     * 收购投送机：每处理「一组」需要多少 tick。
+     *
+     * <p>老板 2026-10-23 定稿：低级 1.5 秒 / 1 组，中级 1 秒 / 2 组，高级 0.5 秒 / 3 组。
+     * 一组 = 一个输入格里的那叠物品（最多 64 个）。</p>
      */
-    public double sellMultiplier() {
+    public int buyerIntervalTicks() {
         return switch (this) {
-            case LOW -> 0.8D;
-            case MID -> 1.0D;
-            case HIGH -> 1.2D;
+            case LOW -> 30;
+            case MID -> 20;
+            case HIGH -> 10;
+        };
+    }
+
+    /** 每个 {@link #buyerIntervalTicks()} 间隔处理几组。 */
+    public int buyerGroupsPerInterval() {
+        return switch (this) {
+            case LOW -> 1;
+            case MID -> 2;
+            case HIGH -> 3;
+        };
+    }
+
+    /** 工厂终端商店补货间隔：低级 5 分钟 / 中级 3 分钟 / 高级 1 分钟。 */
+    public int shopRestockTicks() {
+        return switch (this) {
+            case LOW -> 20 * 60 * 5;
+            case MID -> 20 * 60 * 3;
+            case HIGH -> 20 * 60;
         };
     }
 

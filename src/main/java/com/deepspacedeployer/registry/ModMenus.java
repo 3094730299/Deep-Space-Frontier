@@ -2,6 +2,7 @@ package com.deepspacedeployer.registry;
 
 import com.deepspacedeployer.DeepSpaceDeployer;
 import com.deepspacedeployer.blockentity.MachineKind;
+import com.deepspacedeployer.menu.CurrencyBankMenu;
 import com.deepspacedeployer.menu.MachineMenu;
 import com.deepspacedeployer.menu.TerminalMenu;
 import com.deepspacedeployer.menu.TransferMenu;
@@ -27,6 +28,7 @@ public final class ModMenus {
 
     public static final DeferredHolder<MenuType<?>, MenuType<MachineMenu>> TERMINAL = register(MachineKind.TERMINAL);
     public static final DeferredHolder<MenuType<?>, MenuType<MachineMenu>> CORE = register(MachineKind.CORE);
+    public static final DeferredHolder<MenuType<?>, MenuType<MachineMenu>> MODULE_PRINTER = register(MachineKind.MODULE_PRINTER);
     public static final DeferredHolder<MenuType<?>, MenuType<MachineMenu>> BUYER = register(MachineKind.BUYER);
     public static final DeferredHolder<MenuType<?>, MenuType<MachineMenu>> MARKET = register(MachineKind.MARKET);
 
@@ -48,6 +50,11 @@ public final class ModMenus {
             MENUS.register("terminal_ui", () -> IMenuTypeExtension.create(
                     (windowId, inventory, data) -> new TerminalMenu(windowId, inventory, data)));
 
+    /** 货币银行：两个共享卡槽 + 玩家背包。 */
+    public static final DeferredHolder<MenuType<?>, MenuType<CurrencyBankMenu>> CURRENCY_BANK =
+            MENUS.register("currency_bank", () -> IMenuTypeExtension.create(
+                    (windowId, inventory, data) -> new CurrencyBankMenu(windowId, inventory)));
+
     private static DeferredHolder<MenuType<?>, MenuType<MachineMenu>> register(MachineKind kind) {
         return MENUS.register(kind.id(), () -> IMenuTypeExtension.create(
                 (windowId, inventory, data) -> MachineMenu.forClient(windowId, inventory, kind)));
@@ -57,6 +64,7 @@ public final class ModMenus {
         return switch (kind) {
             case TERMINAL -> TERMINAL.get();
             case CORE -> CORE.get();
+            case MODULE_PRINTER -> MODULE_PRINTER.get();
             case BUYER -> BUYER.get();
             case MARKET -> MARKET.get();
         };

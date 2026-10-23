@@ -4,6 +4,7 @@ import com.deepspacedeployer.Company;
 import com.deepspacedeployer.Tier;
 import com.deepspacedeployer.blockentity.MachineBlockEntity;
 import com.deepspacedeployer.blockentity.MachineKind;
+import com.deepspacedeployer.item.BuyerBlockItem;
 import com.deepspacedeployer.menu.MachineMenu;
 import com.deepspacedeployer.net.ShopDataPayload;
 import com.deepspacedeployer.registry.ModItems;
@@ -121,6 +122,12 @@ public class MachineBlock extends Block implements EntityBlock {
         // 3) 无归属的方块（工厂装配核心）：公司属性一律归零，
         //    免得放下之后带着某家公司的外观/名称（挖起来再放下也不会"认领"公司）
         state = state.setValue(COMPANY, kind.isCompanyBound() ? state.getValue(COMPANY) : Company.VALUES[0]);
+
+        // 3.5) 收购投送机：3 个等级物品自己带等级（/give 出来的也要放对）
+        if (kind == MachineKind.BUYER
+                && stack.getItem() instanceof BuyerBlockItem buyerItem) {
+            state = state.setValue(TIER, buyerItem.tier());
+        }
 
         // 4) 朝向：正面朝着玩家（和通用终端一致）
         Direction facing = context.getHorizontalDirection().getOpposite();

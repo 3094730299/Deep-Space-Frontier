@@ -42,6 +42,11 @@ public class CompanyLicenseItem extends Item implements MachineTargetItem {
         if (context.getLevel().isClientSide || context.getPlayer() == null) {
             return InteractionResult.SUCCESS;
         }
+        if (machine.kind() == com.deepspacedeployer.blockentity.MachineKind.BUYER) {
+            context.getPlayer().displayClientMessage(Component.translatable(
+                    "msg.deepspacedeployer.buyer_no_license"), true);
+            return InteractionResult.CONSUME;
+        }
         if (machine.company() == company) {
             context.getPlayer().displayClientMessage(
                     Component.translatable("msg.deepspacedeployer.license_same", company.displayName()), true);

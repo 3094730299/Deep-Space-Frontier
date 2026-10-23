@@ -39,6 +39,16 @@ public final class ClientShopCache {
         return payload == null ? List.of() : payload.sellOffers();
     }
 
+    /** 第 index 个商品当前的库存；没有数据时按满库存 3 处理（服务端仍会校验）。 */
+    public static int stockAt(Company company, int index) {
+        ShopDataPayload payload = CACHE.get(company.id());
+        if (payload == null || payload.buyStock() == null
+                || index < 0 || index >= payload.buyStock().size()) {
+            return 3;
+        }
+        return Math.max(0, payload.buyStock().get(index));
+    }
+
     private ClientShopCache() {
     }
 }

@@ -13,11 +13,12 @@ import java.util.List;
 /**
  * 服务端 → 客户端：玩家名下的银行卡列表（挂失选卡用）。
  *
- * @param cards 卡 id / 卡名 / 是否废卡（废卡只展示，不参与选择）
+ * @param cards 卡 id / 卡名 / 是否废卡 / 7 账户 / 总资产
  */
 public record CardListPayload(List<CardEntry> cards) implements CustomPacketPayload {
 
-    public record CardEntry(String cardId, String name, boolean voided) {
+    public record CardEntry(String cardId, String name, boolean voided,
+                            long[] balances, long totalAssets) {
     }
 
     public static final CustomPacketPayload.Type<CardListPayload> TYPE =
@@ -32,13 +33,25 @@ public record CardListPayload(List<CardEntry> cards) implements CustomPacketPayl
                             buf.writeUtf(entry.cardId(), 36);
                             buf.writeUtf(entry.name() == null ? "" : entry.name(), 64);
                             buf.writeBoolean(entry.voided());
+                            for (long value : entry.balances()) {
+                                buf.writeLong(value);
+                            }
+                            buf.writeLong(entry.totalAssets());
                         }
                     },
                     buf -> {
                         int size = Math.max(0, Math.min(32, buf.readVarInt()));
                         List<CardEntry> list = new ArrayList<>(size);
                         for (int i = 0; i < size; i++) {
-                            list.add(new CardEntry(buf.readUtf(36), buf.readUtf(64), buf.readBoolean()));
+                            String cardId = buf.readUtf(36);
+                            String name = buf.readUtf(64);
+                            boolean voided = buf.readBoolean();
+                            long[] balances = new long[7];
+                            for (int j = 0; j < balances.length; j++) {
+                                balances[j] = buf.readLong();
+                            }
+                            long total = buf.readLong();
+                            list.add(new CardEntry(cardId, name, voided, balances, total));
                         }
                         return new CardListPayload(List.copyOf(list));
                     });

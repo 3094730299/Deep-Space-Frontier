@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "deepspacedeployer:item/threshold_scrip_50"
+  }
+}

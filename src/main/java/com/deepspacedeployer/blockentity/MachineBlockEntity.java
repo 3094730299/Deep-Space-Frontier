@@ -7,6 +7,7 @@ import com.deepspacedeployer.Tier;
 import com.deepspacedeployer.block.MachineBlock;
 import com.deepspacedeployer.economy.CardData;
 import com.deepspacedeployer.economy.CompanyFunds;
+import com.deepspacedeployer.economy.PaymentService;
 import com.deepspacedeployer.economy.ReputationData;
 import com.deepspacedeployer.economy.WalletService;
 import com.deepspacedeployer.menu.MachineMenu;
@@ -21,7 +22,9 @@ import com.deepspacedeployer.registry.ModMenus;
 import com.deepspacedeployer.shop.ShopData;
 import com.deepspacedeployer.shop.TradeEntry;
 import com.deepspacedeployer.factory.BlueprintInfo;
+import com.deepspacedeployer.factory.ModulePresetLibrary;
 import com.deepspacedeployer.factory.PhysicsBlueprintLibrary;
+import com.deepspacedeployer.net.ModuleListPayload;
 import net.minecraft.world.phys.Vec3;
 import com.deepspacedeployer.factory.BlueprintLibrary;
 import com.deepspacedeployer.factory.ParsedBlueprint;
@@ -99,6 +102,7 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
 
     private static final String NBT_ITEMS = "Items";
     private static final String NBT_COMPANY = "Company";
+    private static final String NBT_BUYER_COMPANY = "BuyerCompany";
     private static final String NBT_AUTO_SELL = "AutoSell";
     private static final String NBT_TIER = "Tier";
     private static final String NBT_BLUEPRINT = "Blueprint";
@@ -117,8 +121,26 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
     /** 收购站：true = 自动收购（东西放进去就卖），false = 点击收购（按按钮才卖） */
     private boolean autoSell = true;
 
-    /** 属于哪家公司 */
+    /** 工厂终端商店：每件商品最多 3 个库存；按条目签名存，价目表改了自动补满。 */
+    public static final int SHOP_STOCK_MAX = 3;
+    private final Map<String, Integer> shopStock = new HashMap<>();
+    private int shopRestockTicks;
+
+    /** 收购限流：全服每 tick 已处理的物品数（静态，所有收购机共享） */
+    private static int buyerGlobalTick = -1;
+    private static int buyerGlobalUsed;
+    /** 收购限流：本机当前 tick 已处理的物品数 */
+    private int buyerMachineTick = -1;
+    private int buyerMachineUsed;
+    /** 收购节奏：按等级累计的“组”额度；每处理一组扣 1。 */
+    private double buyerBatchCredit;
+    private int buyerCreditTick = -1;
+
+    /** 属于哪家公司（商店/核心用方块状态；收购机用运行时选择） */
     private int companyIndex;
+
+    /** 收购投送机：界面里选择按哪家公司结算（不改变方块归属）。null = 还没从老存档迁移。 */
+    private Company buyerCompany;
 
     /** 机器种类缓存（见 {@link #kind()}） */
     private MachineKind cachedKind = MachineKind.TERMINAL;
@@ -209,11 +231,120 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
             pushMarketNow(serverPlayer);
         }
         // 价目表
+        sendShopData(serverPlayer);
+        if (k == MachineKind.MODULE_PRINTER) {
+            sendModuleList(serverPlayer);
+        }
+    }
+
+    /** 模块打印机：把当前预设列表发给客户端（蓝图本体留在服务端）。 */
+    private void sendModuleList(ServerPlayer player) {
+        List<ModuleListPayload.ModuleEntry> entries = new ArrayList<>();
+        for (ModulePresetLibrary.Preset preset : ModulePresetLibrary.all()) {
+            entries.add(new ModuleListPayload.ModuleEntry(
+                    preset.name(), preset.display(), preset.price(), preset.tier().rank(),
+                    preset.company(), preset.entry().sizeX(), preset.entry().sizeY(),
+                    preset.entry().sizeZ(), preset.blocks()));
+        }
+        PacketDistributor.sendToPlayer(player, new ModuleListPayload(List.copyOf(entries)));
+    }
+
+    /** 把当前结算公司的收购/出售价目表推给客户端（收购机切换公司也要重推）。 */
+    private void sendShopData(ServerPlayer player) {
         com.deepspacedeployer.shop.ShopData shop = com.deepspacedeployer.shop.ShopData.get();
-        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(serverPlayer,
-                new com.deepspacedeployer.net.ShopDataPayload(
-                        company().id(), tier().rank(),
-                        shop.buyOffers(company()), shop.sellOffers(company())));
+        List<TradeEntry> offers = shop.buyOffers(company());
+        ensureShopStock(offers);
+        PacketDistributor.sendToPlayer(player, new ShopDataPayload(
+                company().id(), tier().rank(),
+                offers, shop.sellOffers(company()), shopStockFor(offers)));
+    }
+
+    /** 把当前库存推给正在追踪这个方块的客户端（买完 / 补货后刷新界面）。 */
+    private void broadcastShopData() {
+        if (!(level instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        com.deepspacedeployer.shop.ShopData shop = com.deepspacedeployer.shop.ShopData.get();
+        List<TradeEntry> offers = shop.buyOffers(company());
+        ensureShopStock(offers);
+        PacketDistributor.sendToPlayersTrackingChunk(serverLevel,
+                new net.minecraft.world.level.ChunkPos(worldPosition),
+                new ShopDataPayload(company().id(), tier().rank(),
+                        offers, shop.sellOffers(company()), shopStockFor(offers)));
+    }
+
+    /** 老存档/新价目表：缺失的条目默认补满 3 个。 */
+    private void ensureShopStock(List<TradeEntry> offers) {
+        for (TradeEntry entry : offers) {
+            shopStock.putIfAbsent(shopStockKey(entry), SHOP_STOCK_MAX);
+        }
+    }
+
+    private List<Integer> shopStockFor(List<TradeEntry> offers) {
+        List<Integer> stocks = new ArrayList<>(offers.size());
+        for (TradeEntry entry : offers) {
+            stocks.add(Math.max(0, shopStock.getOrDefault(shopStockKey(entry), SHOP_STOCK_MAX)));
+        }
+        return List.copyOf(stocks);
+    }
+
+    private static String shopStockKey(TradeEntry entry) {
+        return entry.itemId() + "|" + entry.count() + "|" + entry.price() + "|"
+                + entry.tier().rank() + "|" + entry.reputation() + "|" + entry.blueprint();
+    }
+
+    private int shopStockOf(TradeEntry entry) {
+        ensureShopStock(List.of(entry));
+        return Math.max(0, shopStock.getOrDefault(shopStockKey(entry), SHOP_STOCK_MAX));
+    }
+
+    private void takeShopStock(TradeEntry entry) {
+        String key = shopStockKey(entry);
+        int stock = Math.max(0, shopStock.getOrDefault(key, SHOP_STOCK_MAX));
+        shopStock.put(key, Math.max(0, stock - 1));
+        setChanged();
+    }
+
+    /** 工厂终端每 tick 走一次；到间隔就把当前价目表补满。 */
+    public void tickShopRestock() {
+        if (kind() != MachineKind.TERMINAL) {
+            return;
+        }
+        if (shopRestockTicks > 0) {
+            shopRestockTicks--;
+            return;
+        }
+        List<TradeEntry> offers = ShopData.get().buyOffers(company());
+        ensureShopStock(offers);
+        boolean changed = false;
+        for (TradeEntry entry : offers) {
+            String key = shopStockKey(entry);
+            int stock = shopStock.getOrDefault(key, SHOP_STOCK_MAX);
+            if (stock < SHOP_STOCK_MAX) {
+                shopStock.put(key, SHOP_STOCK_MAX);
+                changed = true;
+            }
+        }
+        shopRestockTicks = tier().shopRestockTicks();
+        if (changed) {
+            setChanged();
+            broadcastShopData();
+        }
+    }
+
+    private CompoundTag writeShopStock() {
+        CompoundTag tag = new CompoundTag();
+        for (Map.Entry<String, Integer> entry : shopStock.entrySet()) {
+            tag.putInt(entry.getKey(), Math.max(0, entry.getValue()));
+        }
+        return tag;
+    }
+
+    private void readShopStock(CompoundTag tag) {
+        shopStock.clear();
+        for (String key : tag.getAllKeys()) {
+            shopStock.put(key, Math.max(0, tag.getInt(key)));
+        }
     }
 
     @Override
@@ -244,6 +375,18 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
      * 见 {@code tryPay} → {@code CardData}）。</p>
      */
     public Company company() {
+        // 收购投送机不归公司：界面里选的结算公司存在方块实体里。
+        // 老存档没有 BuyerCompany 时，从旧方块状态的 company 属性迁移（新方块默认第一家）。
+        if (kind() == MachineKind.BUYER) {
+            if (buyerCompany == null) {
+                BlockState state = getBlockState();
+                buyerCompany = state.hasProperty(MachineBlock.COMPANY)
+                        ? state.getValue(MachineBlock.COMPANY)
+                        : Company.VALUES[0];
+                companyIndex = buyerCompany.ordinal();
+            }
+            return buyerCompany;
+        }
         if (!kind().isCompanyBound()) {
             return Company.VALUES[0];
         }
@@ -254,7 +397,18 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
         return Company.byIndex(companyIndex);
     }
 
+    /** 收购投送机：切换按哪家公司结算；不动方块状态，不算“公司归属”。 */
+    public void setBuyerCompany(Company company) {
+        this.buyerCompany = company;
+        this.companyIndex = company.ordinal();
+        afterChange();
+    }
+
     public void setCompany(Company company) {
+        if (kind() == MachineKind.BUYER) {
+            setBuyerCompany(company);
+            return;
+        }
         this.companyIndex = company.ordinal();
         updateStateProperty(MachineBlock.COMPANY, company);
         afterChange();
@@ -677,6 +831,8 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
             // 商店（星联那套）：检查有没有玩家在 2 格内 → 驱动展开/闭合动画。
             // 每 5 tick 算一次就够（0.25 秒），不必每 tick 遍历玩家列表。
             case TERMINAL -> {
+                // 商店库存：每 tick 走倒计时，到间隔补满当前价目表
+                blockEntity.tickShopRestock();
                 if (level.getGameTime() % 5L == 0L) {
                     blockEntity.updateAnyoneNear();
                 }
@@ -763,79 +919,95 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
      * <p>老板的设计：收购效率由动画时长决定 —— 收一轮 → 播一次「投送」→ 等播完 → 再收。</p>
      */
     private boolean processBuyerCycle() {
-        if (!isOnline() || activeAccount() == null || !autoSell) {
+        return autoSell && processBuyerBatch();
+    }
+
+    /**
+     * 尝试处理「一组」：按等级累计额度（低级 1 组/1.5s、中级 2 组/1s、高级 3 组/0.5s）。
+     *
+     * <p>一组 = 一个输入格里的那叠物品。每 tick 最多处理一组，所以单机仍不会超过
+     * 64 物品/tick；全服 2000/tick 的硬上限也保留。</p>
+     */
+    private boolean processBuyerBatch() {
+        if (!isOnline() || activeAccount() == null) {
             return false;
         }
         // ★ 头顶被方块挡住 → 不工作（老板要求；界面里会提示"上方被阻挡无法工作"）
         if (blockedAbove()) {
             return false;
         }
-        // 等客户端的「动画播完了」回执 —— 这就是"收一次 = 播一次"。
-        // 兜底：万一回执丢了（客户端卡顿/掉线），超过 FALLBACK 也放行，避免永久卡死。
-        if (!animAckReady) {
-            long nowNs = System.nanoTime();
-            boolean timeout = lastSoldAnimNs != 0L
-                    && (nowNs - lastSoldAnimNs) / 1_000_000L >= ANIM_FALLBACK_MS;
-            if (!timeout) {
-                return false;
-            }
-            animAckReady = true;      // 兜底放行
+        updateBuyerCredit();
+        if (buyerBatchCredit < 1.0D) {
+            return false;
         }
-        animAckReady = false;         // 这一轮用掉了这次许可
-        return sellAllSlots();
+        if (!sellOneBatch()) {
+            return false;
+        }
+        buyerBatchCredit = Math.max(0.0D, buyerBatchCredit - 1.0D);
+        return true;
+    }
+
+    /** 按等级把时间换成“组”额度；最多攒一个间隔的量，避免离线/停机后爆一大波。 */
+    private void updateBuyerCredit() {
+        if (!(level instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        int tick = serverLevel.getServer().getTickCount();
+        if (buyerCreditTick < 0) {
+            buyerCreditTick = tick;
+            return;
+        }
+        int delta = tick - buyerCreditTick;
+        if (delta <= 0) {
+            return;
+        }
+        buyerCreditTick = tick;
+        Tier currentTier = tier();
+        double rate = (double) currentTier.buyerGroupsPerInterval()
+                / currentTier.buyerIntervalTicks();
+        double cap = currentTier.buyerGroupsPerInterval();
+        buyerBatchCredit = Math.min(cap, buyerBatchCredit + delta * rate);
+    }
+
+    /**
+     * 本 tick 这台收购机还能处理多少物品 = min(单机 64, 全服剩余 2000)。
+     */
+    private int buyerBudget() {
+        if (!(level instanceof ServerLevel serverLevel)) {
+            return 0;
+        }
+        int tick = serverLevel.getServer().getTickCount();
+        if (tick != buyerMachineTick) {
+            buyerMachineTick = tick;
+            buyerMachineUsed = 0;
+        }
+        if (tick != buyerGlobalTick) {
+            buyerGlobalTick = tick;
+            buyerGlobalUsed = 0;
+        }
+        int machineLeft = Math.max(0, Config.BUYER_ITEMS_PER_TICK.get() - buyerMachineUsed);
+        int globalLeft = Math.max(0, Config.BUYER_GLOBAL_ITEMS_PER_TICK.get() - buyerGlobalUsed);
+        return Math.min(machineLeft, globalLeft);
+    }
+
+    private void buyerRecordSold(int count) {
+        if (count <= 0) {
+            return;
+        }
+        buyerMachineUsed += count;
+        buyerGlobalUsed += count;
     }
 
     /**
      * 客户端回执：「投送」动画播完了。
      *
-     * <p>收到就允许收下一轮 —— 服务端不再自己掐秒表。</p>
+     * <p>只影响表现，不影响结算（老板 2026-10-23 定：动画不一定要匹配）。</p>
      */
     public void onAnimDone() {
         if (level == null || level.isClientSide) {
             return;
         }
         animAckReady = true;
-    }
-
-    /**
-     * 把**所有投料格子**的物品一次性收掉（不是一格一格），累加收益后播一次动画。
-     *
-     * @return 是否真的收到了东西
-     */
-    private boolean sellAllSlots() {
-        if (!isOnline() || activeAccount() == null) {
-            return false;
-        }
-        // ★ 头顶被挡 → 连手动「立即收购」也不工作（老板要求"顶上有方块时不工作"）
-        if (blockedAbove()) {
-            return false;
-        }
-        ShopData shop = ShopData.get();
-        Company company = company();
-        long totalEarned = 0L;
-        int soldSlots = 0;
-        for (int slot = SLOT_INPUT_START; slot < SLOT_COUNT; slot++) {
-            ItemStack stack = items.get(slot);
-            if (stack.isEmpty()) {
-                continue;
-            }
-            TradeEntry entry = shop.findSellEntry(company, stack);
-            if (entry == null) {
-                continue;
-            }
-            int perItem = Math.max(1, (int) Math.round(
-                    (double) entry.price() / Math.max(1, entry.count()) * tier().sellMultiplier()));
-            totalEarned += (long) perItem * stack.getCount();
-            items.set(slot, ItemStack.EMPTY);
-            soldSlots++;
-        }
-        if (soldSlots == 0) {
-            return false;      // 这一轮没有可收的东西
-        }
-        addLocal(activeAccount(), totalEarned);
-        afterChange();
-        notifySold();          // 播一次「投送」（下一轮要等它播完）
-        return true;
     }
 
     /**
@@ -846,12 +1018,16 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
         if (!isOnline() || activeAccount() == null || !autoSell) {
             return false;
         }
-        return sellOneBatch();
+        return processBuyerBatch();
     }
 
     /** 卖一批（一个格子的东西）：自动模式每周期调一次，点击模式由按钮触发 */
     private boolean sellOneBatch() {
         if (!isOnline() || activeAccount() == null) {
+            return false;
+        }
+        int budget = buyerBudget();
+        if (budget <= 0) {
             return false;
         }
         ShopData shop = ShopData.get();
@@ -865,13 +1041,16 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
             if (entry == null) {
                 continue;
             }
+            int count = Math.min(stack.getCount(), budget);
             int perItem = Math.max(1, (int) Math.round(
-                    (double) entry.price() / Math.max(1, entry.count()) * tier().sellMultiplier()));
-            long earned = (long) perItem * stack.getCount();
+                    (double) entry.price() / Math.max(1, entry.count())));
+            long earned = (long) perItem * count;
+            buyerRecordSold(count);
             addLocal(activeAccount(), earned);
-            items.set(slot, ItemStack.EMPTY);
+            stack.shrink(count);
+            items.set(slot, stack.isEmpty() ? ItemStack.EMPTY : stack);
             afterChange();
-            notifySold();      // 播「投送」动画（播完才允许下一次）
+            notifySold();      // 播「投送」动画（只做表现，不再阻塞）
             return true;
         }
         return false;
@@ -911,6 +1090,11 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
             player.displayClientMessage(Component.translatable("msg.deepspacedeployer.offer_invalid"), true);
             return false;
         }
+        ensureShopStock(offers);
+        if (shopStockOf(entry) <= 0) {
+            player.displayClientMessage(Component.translatable("msg.deepspacedeployer.shop_out_of_stock"), true);
+            return false;
+        }
         if (entry.tier().rank() > tierIndex) {
             player.displayClientMessage(Component.translatable("msg.deepspacedeployer.tier_locked",
                     entry.tier().displayName(), tier().displayName()), true);
@@ -924,11 +1108,11 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
                     entry.reputation(), reputation), true);
             return false;
         }
-        if (companyBalance(account, company()) < entry.price()) {
+        if (!PaymentService.canPay(player, account, company(), entry.price())) {
             WalletService.companyInsufficientMessage(player);
             return false;
         }
-        if (!tryPay(entry.price(), card)) {
+        if (!tryPay(player, entry.price(), company())) {
             WalletService.companyInsufficientMessage(player);
             return false;
         }
@@ -939,7 +1123,9 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
         if (!player.getInventory().add(result)) {
             player.drop(result, false);
         }
+        takeShopStock(entry);
         afterChange();
+        broadcastShopData();
         Component name = result.getHoverName();
         player.displayClientMessage(Component.translatable("msg.deepspacedeployer.bought",
                 name, entry.price(), activeAccountName()), false);
@@ -947,31 +1133,21 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
     }
 
     /**
-     * 扣款：从<b>当前账户</b>在本公司的余额扣。
+     * 扣款：账户优先；账户不够时自动用实体币，实体币找零只给 1 元券。
      *
      * <p>老板 2026-10-19 的钱包定稿：卡只是账户指针，卡上不再放便携余额；
      * 所以这里不再有"方块里不够再扣卡上"的第二层。</p>
      *
      * @return 是否扣款成功
      */
-    public boolean tryPay(long amount, ItemStack card) {
-        return tryPay(amount, card, company());
-    }
-
-    /**
-     * 扣款（指定公司）：无归属的方块（工厂核心 / 寄售市场）用它按"玩家选的那家公司"结算。
-     *
-     * @param payCompany 从哪家公司的账户扣
-     */
-    public boolean tryPay(long amount, ItemStack card, Company payCompany) {
+    public boolean tryPay(ServerPlayer player, long amount, Company payCompany) {
         if (amount <= 0L) {
             return true;
         }
         UUID account = activeAccount();
-        if (account == null || companyBalance(account, payCompany) < amount) {
+        if (PaymentService.pay(player, account, payCompany, amount) == null) {
             return false;
         }
-        addCompany(account, payCompany, -amount);
         afterChange();
         return true;
     }
@@ -1143,6 +1319,91 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
         return startAssembly(player, card, company());
     }
 
+    /**
+     * 模块打印机：直接打印第 index 个预设模块（只收本公司货币，不消耗材料）。
+     */
+    private boolean printModule(ServerPlayer player, ItemStack card, int index) {
+        List<ModulePresetLibrary.Preset> presets =
+                ModulePresetLibrary.visible(company(), tier());
+        if (index < 0 || index >= presets.size()) {
+            player.displayClientMessage(Component.translatable(
+                    "msg.deepspacedeployer.module_no_presets"), true);
+            return false;
+        }
+        ModulePresetLibrary.Preset preset = presets.get(index);
+        if (card.isEmpty()) {
+            player.displayClientMessage(Component.translatable(
+                    "msg.deepspacedeployer.need_card"), true);
+            return false;
+        }
+        if (!CardData.hasAccount(card) && !WalletService.canAdd(player)) {
+            WalletService.limitMessage(player);
+            return false;
+        }
+        CardData.bindIfMissing(card, player);
+        afterChange();
+        UUID account = activeAccount();
+        if (account == null) {
+            player.displayClientMessage(Component.translatable(
+                    "msg.deepspacedeployer.no_account"), false);
+            return false;
+        }
+        CompanyFunds funds = CompanyFunds.get(player.server);
+        long balance = funds.balance(account, company());
+        if (balance < preset.price()) {
+            player.displayClientMessage(Component.translatable(
+                    "msg.deepspacedeployer.module_insufficient", preset.price(), balance), true);
+            return false;
+        }
+
+        PhysicsBlueprintLibrary.Entry entry = preset.entry();
+        BlockPos target;
+        if (hasTargetOverride) {
+            double dx = overrideX - (worldPosition.getX() + 0.5);
+            double dz = overrideZ - (worldPosition.getZ() + 0.5);
+            int maxRadius = Config.ASSEMBLY_MAX_RADIUS.get();
+            if (dx * dx + dz * dz > (double) maxRadius * maxRadius) {
+                player.displayClientMessage(Component.translatable(
+                        "msg.deepspacedeployer.target_too_far", maxRadius), true);
+                return false;
+            }
+            target = new BlockPos(overrideX - entry.sizeX() / 2,
+                    worldPosition.getY(), overrideZ - entry.sizeZ() / 2);
+        } else {
+            Direction dir = player.getDirection();
+            if (dir.getAxis().isVertical()) {
+                dir = Direction.NORTH;
+            }
+            target = worldPosition.relative(dir, 3)
+                    .offset(-(entry.sizeX() / 2), 0, -(entry.sizeZ() / 2));
+        }
+        if (!(level instanceof ServerLevel serverLevel)
+                || !PhysicsBlueprintLibrary.areaClearEntry(serverLevel, entry, target)) {
+            player.displayClientMessage(Component.translatable(
+                    "msg.deepspacedeployer.area_blocked"), true);
+            return false;
+        }
+
+        // 只扣对应公司的账户余额；实体币/通用账户不参与模块打印
+        funds.add(account, company(), -preset.price());
+        Vec3 center = new Vec3(
+                target.getX() + entry.sizeX() / 2.0D + 0.5D,
+                target.getY(),
+                target.getZ() + entry.sizeZ() / 2.0D + 0.5D);
+        PhysicsBlueprintLibrary.Result result =
+                PhysicsBlueprintLibrary.spawnEntry(serverLevel, entry, center);
+        if (!result.success()) {
+            funds.add(account, company(), preset.price());   // 生成失败退款
+            player.displayClientMessage(Component.translatable(
+                    "msg.deepspacedeployer.module_print_failed", result.detail()), true);
+            return false;
+        }
+        broadcastNearby(Component.translatable(
+                "msg.deepspacedeployer.module_print_done", preset.display(), result.detail()));
+        afterChange();
+        return true;
+    }
+
     /** 一键组装（指定付费用的公司；保留这个重载给"核心按公司结算"和其它调用方） */
     private boolean startAssembly(ServerPlayer player, ItemStack card, Company payCompany) {
         if (isAssembling()) {
@@ -1217,7 +1478,7 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
         }
         // 3) 收组装费（创造板条箱模式免费）；核心无归属，从玩家选的 payCompany 扣
         long fee = creative ? 0L : (long) Config.ASSEMBLY_FEE_PER_BLOCK.get() * info.totalBlocks();
-        if (fee > 0L && !tryPay(fee, card, payCompany)) {
+        if (fee > 0L && !tryPay(player, fee, payCompany)) {
             player.displayClientMessage(Component.translatable("msg.deepspacedeployer.cannot_pay", fee,
                     activeAccountName(), companyBalance(activeAccount(), payCompany)), true);
             return false;
@@ -1481,7 +1742,7 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
                     case MachineMenu.DATA_POS_X -> worldPosition.getX();
                     case MachineMenu.DATA_POS_Y -> worldPosition.getY();
                     case MachineMenu.DATA_POS_Z -> worldPosition.getZ();
-                    case MachineMenu.DATA_COMPANY -> companyIndex;
+                    case MachineMenu.DATA_COMPANY -> company().ordinal();
                     case MachineMenu.DATA_ONLINE -> isOnline() ? 1 : 0;
                     case MachineMenu.DATA_LOCAL_LOW -> (int) (local & 0xFFFFFFFFL);
                     case MachineMenu.DATA_LOCAL_HIGH -> (int) (local >>> 32);
@@ -1531,6 +1792,12 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
                 && id >= MachineMenu.ACTION_BLUEPRINT_BASE && id < MachineMenu.ACTION_BLUEPRINT_BASE + 256) {
             return selectBlueprint(serverPlayer, id - MachineMenu.ACTION_BLUEPRINT_BASE);
         }
+        // 模块打印机：di = 1200 + 预设下标
+        if (kind() == MachineKind.MODULE_PRINTER
+                && id >= MachineMenu.ACTION_MODULE_PRINT_BASE
+                && id < MachineMenu.ACTION_MODULE_PRINT_BASE + 256) {
+            return printModule(serverPlayer, card, id - MachineMenu.ACTION_MODULE_PRINT_BASE);
+        }
         // 购买商品：id = 100 + 商品下标（只有商店终端用这个区间）
         if (kind() == MachineKind.TERMINAL
                 && id >= MachineMenu.ACTION_BUY_BASE && id < MachineMenu.ACTION_BUY_BASE + 100) {
@@ -1546,6 +1813,7 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
             // 终端：金钱相关的按钮（存票据/取现/兑换/余额）都搬进「资金转化界面」了，
             // 这里只剩"购买商品"（上面 id = 100 + 下标那段），别的 id 一律不认。
             case TERMINAL -> false;
+            case MODULE_PRINTER -> false;
             case BUYER -> {
                 yield switch (id) {
                     case 1 -> {
@@ -1558,20 +1826,30 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
                         yield true;
                     }
                     case 2 -> {
-                        // 立即收购一批（关掉自动收购后手动卖）
+                        // 立即收购一批（关掉自动收购后手动卖）；同样受等级节奏/限流约束
                         int sold = 0;
-                        while (sold < 9 && sellOneBatch()) {
+                        while (sold < 9 && processBuyerBatch()) {
                             sold++;
                         }
                         player.displayClientMessage(Component.translatable(
                                 "msg.deepspacedeployer.buyer_manual_sold", sold), sold == 0);
                         yield true;
                     }
-                    default -> {
+                    case 3 -> {
+                        // 切换收购结算公司（不改变方块归属）
+                        setBuyerCompany(company().next());
+                        sendShopData(serverPlayer);
+                        player.displayClientMessage(Component.translatable(
+                                "msg.deepspacedeployer.buyer_company_set",
+                                company().displayName()), false);
+                        yield true;
+                    }
+                    case 4 -> {
                         player.displayClientMessage(Component.translatable("msg.deepspacedeployer.buyer_report",
                                 activeAccountName(), activeLocalBalance()), false);
                         yield true;
                     }
+                    default -> false;
                 };
             }
             case CORE -> switch (id) {
@@ -1677,10 +1955,7 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
         // 菜单包之后补三包：插回去的卡、价目表、蓝图列表（和 MachineBlock#openMenu 保持一致）
         PacketDistributor.sendToPlayer(player, new TransferSyncPayload(
                 List.of(items.get(SLOT_CARD).copyWithCount(1), ItemStack.EMPTY)));
-        ShopData shop = ShopData.get();
-        PacketDistributor.sendToPlayer(player, new ShopDataPayload(
-                company().id(), tier().rank(),
-                shop.buyOffers(company()), shop.sellOffers(company())));
+        sendShopData(player);
         if (kind() == MachineKind.CORE) {
             syncToClient();
         }
@@ -1971,6 +2246,11 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
 
         // 余额是世界级存档（CompanyFunds），不再写进方块 NBT
         tag.putInt(NBT_COMPANY, companyIndex);
+        if (kind() == MachineKind.BUYER) {
+            tag.putString(NBT_BUYER_COMPANY, company().id());
+        }
+        tag.put("ShopStock", writeShopStock());
+        tag.putInt("ShopRestockTicks", shopRestockTicks);
         tag.putBoolean(NBT_AUTO_SELL, autoSell);
         tag.putInt(NBT_TIER, tierIndex);
 
@@ -2091,6 +2371,11 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
         ContainerHelper.loadAllItems(tag, items, registries);
 
         companyIndex = tag.getInt(NBT_COMPANY);
+        buyerCompany = tag.contains(NBT_BUYER_COMPANY)
+                ? Company.byId(tag.getString(NBT_BUYER_COMPANY))
+                : null;
+        readShopStock(tag.getCompound("ShopStock"));
+        shopRestockTicks = tag.getInt("ShopRestockTicks");
         autoSell = !tag.contains(NBT_AUTO_SELL) || tag.getBoolean(NBT_AUTO_SELL);
         tierIndex = tag.contains(NBT_TIER) ? tag.getInt(NBT_TIER) : Tier.HIGH.rank();
 

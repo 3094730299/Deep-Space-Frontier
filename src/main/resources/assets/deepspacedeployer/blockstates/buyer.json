@@ -1,543 +1,543 @@
 {
   "variants": {
     "facing=north,company=threshold,tier=low,lit=false": {
-      "model": "deepspacedeployer:block/buyer_threshold_low"
+      "model": "deepspacedeployer:block/buyer_low"
+    },
+    "facing=north,company=threshold,tier=low,lit=true": {
+      "model": "deepspacedeployer:block/buyer_low_lit"
     },
     "facing=east,company=threshold,tier=low,lit=false": {
-      "model": "deepspacedeployer:block/buyer_threshold_low",
+      "model": "deepspacedeployer:block/buyer_low",
+      "y": 90
+    },
+    "facing=east,company=threshold,tier=low,lit=true": {
+      "model": "deepspacedeployer:block/buyer_low_lit",
       "y": 90
     },
     "facing=south,company=threshold,tier=low,lit=false": {
-      "model": "deepspacedeployer:block/buyer_threshold_low",
+      "model": "deepspacedeployer:block/buyer_low",
+      "y": 180
+    },
+    "facing=south,company=threshold,tier=low,lit=true": {
+      "model": "deepspacedeployer:block/buyer_low_lit",
       "y": 180
     },
     "facing=west,company=threshold,tier=low,lit=false": {
-      "model": "deepspacedeployer:block/buyer_threshold_low",
+      "model": "deepspacedeployer:block/buyer_low",
       "y": 270
     },
-    "facing=north,company=threshold,tier=low,lit=true": {
-      "model": "deepspacedeployer:block/buyer_threshold_low_lit"
-    },
-    "facing=east,company=threshold,tier=low,lit=true": {
-      "model": "deepspacedeployer:block/buyer_threshold_low_lit",
-      "y": 90
-    },
-    "facing=south,company=threshold,tier=low,lit=true": {
-      "model": "deepspacedeployer:block/buyer_threshold_low_lit",
-      "y": 180
-    },
     "facing=west,company=threshold,tier=low,lit=true": {
-      "model": "deepspacedeployer:block/buyer_threshold_low_lit",
+      "model": "deepspacedeployer:block/buyer_low_lit",
       "y": 270
     },
     "facing=north,company=threshold,tier=mid,lit=false": {
-      "model": "deepspacedeployer:block/buyer_threshold_mid"
+      "model": "deepspacedeployer:block/buyer_mid"
+    },
+    "facing=north,company=threshold,tier=mid,lit=true": {
+      "model": "deepspacedeployer:block/buyer_mid_lit"
     },
     "facing=east,company=threshold,tier=mid,lit=false": {
-      "model": "deepspacedeployer:block/buyer_threshold_mid",
+      "model": "deepspacedeployer:block/buyer_mid",
+      "y": 90
+    },
+    "facing=east,company=threshold,tier=mid,lit=true": {
+      "model": "deepspacedeployer:block/buyer_mid_lit",
       "y": 90
     },
     "facing=south,company=threshold,tier=mid,lit=false": {
-      "model": "deepspacedeployer:block/buyer_threshold_mid",
+      "model": "deepspacedeployer:block/buyer_mid",
+      "y": 180
+    },
+    "facing=south,company=threshold,tier=mid,lit=true": {
+      "model": "deepspacedeployer:block/buyer_mid_lit",
       "y": 180
     },
     "facing=west,company=threshold,tier=mid,lit=false": {
-      "model": "deepspacedeployer:block/buyer_threshold_mid",
+      "model": "deepspacedeployer:block/buyer_mid",
       "y": 270
     },
-    "facing=north,company=threshold,tier=mid,lit=true": {
-      "model": "deepspacedeployer:block/buyer_threshold_mid_lit"
-    },
-    "facing=east,company=threshold,tier=mid,lit=true": {
-      "model": "deepspacedeployer:block/buyer_threshold_mid_lit",
-      "y": 90
-    },
-    "facing=south,company=threshold,tier=mid,lit=true": {
-      "model": "deepspacedeployer:block/buyer_threshold_mid_lit",
-      "y": 180
-    },
     "facing=west,company=threshold,tier=mid,lit=true": {
-      "model": "deepspacedeployer:block/buyer_threshold_mid_lit",
+      "model": "deepspacedeployer:block/buyer_mid_lit",
       "y": 270
     },
     "facing=north,company=threshold,tier=high,lit=false": {
-      "model": "deepspacedeployer:block/buyer_threshold_high"
+      "model": "deepspacedeployer:block/buyer_high"
+    },
+    "facing=north,company=threshold,tier=high,lit=true": {
+      "model": "deepspacedeployer:block/buyer_high_lit"
     },
     "facing=east,company=threshold,tier=high,lit=false": {
-      "model": "deepspacedeployer:block/buyer_threshold_high",
+      "model": "deepspacedeployer:block/buyer_high",
+      "y": 90
+    },
+    "facing=east,company=threshold,tier=high,lit=true": {
+      "model": "deepspacedeployer:block/buyer_high_lit",
       "y": 90
     },
     "facing=south,company=threshold,tier=high,lit=false": {
-      "model": "deepspacedeployer:block/buyer_threshold_high",
+      "model": "deepspacedeployer:block/buyer_high",
+      "y": 180
+    },
+    "facing=south,company=threshold,tier=high,lit=true": {
+      "model": "deepspacedeployer:block/buyer_high_lit",
       "y": 180
     },
     "facing=west,company=threshold,tier=high,lit=false": {
-      "model": "deepspacedeployer:block/buyer_threshold_high",
+      "model": "deepspacedeployer:block/buyer_high",
       "y": 270
     },
-    "facing=north,company=threshold,tier=high,lit=true": {
-      "model": "deepspacedeployer:block/buyer_threshold_high_lit"
-    },
-    "facing=east,company=threshold,tier=high,lit=true": {
-      "model": "deepspacedeployer:block/buyer_threshold_high_lit",
-      "y": 90
-    },
-    "facing=south,company=threshold,tier=high,lit=true": {
-      "model": "deepspacedeployer:block/buyer_threshold_high_lit",
-      "y": 180
-    },
     "facing=west,company=threshold,tier=high,lit=true": {
-      "model": "deepspacedeployer:block/buyer_threshold_high_lit",
+      "model": "deepspacedeployer:block/buyer_high_lit",
       "y": 270
     },
     "facing=north,company=whisperbelt,tier=low,lit=false": {
-      "model": "deepspacedeployer:block/buyer_whisperbelt_low"
+      "model": "deepspacedeployer:block/buyer_low"
+    },
+    "facing=north,company=whisperbelt,tier=low,lit=true": {
+      "model": "deepspacedeployer:block/buyer_low_lit"
     },
     "facing=east,company=whisperbelt,tier=low,lit=false": {
-      "model": "deepspacedeployer:block/buyer_whisperbelt_low",
+      "model": "deepspacedeployer:block/buyer_low",
+      "y": 90
+    },
+    "facing=east,company=whisperbelt,tier=low,lit=true": {
+      "model": "deepspacedeployer:block/buyer_low_lit",
       "y": 90
     },
     "facing=south,company=whisperbelt,tier=low,lit=false": {
-      "model": "deepspacedeployer:block/buyer_whisperbelt_low",
+      "model": "deepspacedeployer:block/buyer_low",
+      "y": 180
+    },
+    "facing=south,company=whisperbelt,tier=low,lit=true": {
+      "model": "deepspacedeployer:block/buyer_low_lit",
       "y": 180
     },
     "facing=west,company=whisperbelt,tier=low,lit=false": {
-      "model": "deepspacedeployer:block/buyer_whisperbelt_low",
+      "model": "deepspacedeployer:block/buyer_low",
       "y": 270
     },
-    "facing=north,company=whisperbelt,tier=low,lit=true": {
-      "model": "deepspacedeployer:block/buyer_whisperbelt_low_lit"
-    },
-    "facing=east,company=whisperbelt,tier=low,lit=true": {
-      "model": "deepspacedeployer:block/buyer_whisperbelt_low_lit",
-      "y": 90
-    },
-    "facing=south,company=whisperbelt,tier=low,lit=true": {
-      "model": "deepspacedeployer:block/buyer_whisperbelt_low_lit",
-      "y": 180
-    },
     "facing=west,company=whisperbelt,tier=low,lit=true": {
-      "model": "deepspacedeployer:block/buyer_whisperbelt_low_lit",
+      "model": "deepspacedeployer:block/buyer_low_lit",
       "y": 270
     },
     "facing=north,company=whisperbelt,tier=mid,lit=false": {
-      "model": "deepspacedeployer:block/buyer_whisperbelt_mid"
+      "model": "deepspacedeployer:block/buyer_mid"
+    },
+    "facing=north,company=whisperbelt,tier=mid,lit=true": {
+      "model": "deepspacedeployer:block/buyer_mid_lit"
     },
     "facing=east,company=whisperbelt,tier=mid,lit=false": {
-      "model": "deepspacedeployer:block/buyer_whisperbelt_mid",
+      "model": "deepspacedeployer:block/buyer_mid",
+      "y": 90
+    },
+    "facing=east,company=whisperbelt,tier=mid,lit=true": {
+      "model": "deepspacedeployer:block/buyer_mid_lit",
       "y": 90
     },
     "facing=south,company=whisperbelt,tier=mid,lit=false": {
-      "model": "deepspacedeployer:block/buyer_whisperbelt_mid",
+      "model": "deepspacedeployer:block/buyer_mid",
+      "y": 180
+    },
+    "facing=south,company=whisperbelt,tier=mid,lit=true": {
+      "model": "deepspacedeployer:block/buyer_mid_lit",
       "y": 180
     },
     "facing=west,company=whisperbelt,tier=mid,lit=false": {
-      "model": "deepspacedeployer:block/buyer_whisperbelt_mid",
+      "model": "deepspacedeployer:block/buyer_mid",
       "y": 270
     },
-    "facing=north,company=whisperbelt,tier=mid,lit=true": {
-      "model": "deepspacedeployer:block/buyer_whisperbelt_mid_lit"
-    },
-    "facing=east,company=whisperbelt,tier=mid,lit=true": {
-      "model": "deepspacedeployer:block/buyer_whisperbelt_mid_lit",
-      "y": 90
-    },
-    "facing=south,company=whisperbelt,tier=mid,lit=true": {
-      "model": "deepspacedeployer:block/buyer_whisperbelt_mid_lit",
-      "y": 180
-    },
     "facing=west,company=whisperbelt,tier=mid,lit=true": {
-      "model": "deepspacedeployer:block/buyer_whisperbelt_mid_lit",
+      "model": "deepspacedeployer:block/buyer_mid_lit",
       "y": 270
     },
     "facing=north,company=whisperbelt,tier=high,lit=false": {
-      "model": "deepspacedeployer:block/buyer_whisperbelt_high"
+      "model": "deepspacedeployer:block/buyer_high"
+    },
+    "facing=north,company=whisperbelt,tier=high,lit=true": {
+      "model": "deepspacedeployer:block/buyer_high_lit"
     },
     "facing=east,company=whisperbelt,tier=high,lit=false": {
-      "model": "deepspacedeployer:block/buyer_whisperbelt_high",
+      "model": "deepspacedeployer:block/buyer_high",
+      "y": 90
+    },
+    "facing=east,company=whisperbelt,tier=high,lit=true": {
+      "model": "deepspacedeployer:block/buyer_high_lit",
       "y": 90
     },
     "facing=south,company=whisperbelt,tier=high,lit=false": {
-      "model": "deepspacedeployer:block/buyer_whisperbelt_high",
+      "model": "deepspacedeployer:block/buyer_high",
+      "y": 180
+    },
+    "facing=south,company=whisperbelt,tier=high,lit=true": {
+      "model": "deepspacedeployer:block/buyer_high_lit",
       "y": 180
     },
     "facing=west,company=whisperbelt,tier=high,lit=false": {
-      "model": "deepspacedeployer:block/buyer_whisperbelt_high",
+      "model": "deepspacedeployer:block/buyer_high",
       "y": 270
     },
-    "facing=north,company=whisperbelt,tier=high,lit=true": {
-      "model": "deepspacedeployer:block/buyer_whisperbelt_high_lit"
-    },
-    "facing=east,company=whisperbelt,tier=high,lit=true": {
-      "model": "deepspacedeployer:block/buyer_whisperbelt_high_lit",
-      "y": 90
-    },
-    "facing=south,company=whisperbelt,tier=high,lit=true": {
-      "model": "deepspacedeployer:block/buyer_whisperbelt_high_lit",
-      "y": 180
-    },
     "facing=west,company=whisperbelt,tier=high,lit=true": {
-      "model": "deepspacedeployer:block/buyer_whisperbelt_high_lit",
+      "model": "deepspacedeployer:block/buyer_high_lit",
       "y": 270
     },
     "facing=north,company=brokenedge,tier=low,lit=false": {
-      "model": "deepspacedeployer:block/buyer_brokenedge_low"
+      "model": "deepspacedeployer:block/buyer_low"
+    },
+    "facing=north,company=brokenedge,tier=low,lit=true": {
+      "model": "deepspacedeployer:block/buyer_low_lit"
     },
     "facing=east,company=brokenedge,tier=low,lit=false": {
-      "model": "deepspacedeployer:block/buyer_brokenedge_low",
+      "model": "deepspacedeployer:block/buyer_low",
+      "y": 90
+    },
+    "facing=east,company=brokenedge,tier=low,lit=true": {
+      "model": "deepspacedeployer:block/buyer_low_lit",
       "y": 90
     },
     "facing=south,company=brokenedge,tier=low,lit=false": {
-      "model": "deepspacedeployer:block/buyer_brokenedge_low",
+      "model": "deepspacedeployer:block/buyer_low",
+      "y": 180
+    },
+    "facing=south,company=brokenedge,tier=low,lit=true": {
+      "model": "deepspacedeployer:block/buyer_low_lit",
       "y": 180
     },
     "facing=west,company=brokenedge,tier=low,lit=false": {
-      "model": "deepspacedeployer:block/buyer_brokenedge_low",
+      "model": "deepspacedeployer:block/buyer_low",
       "y": 270
     },
-    "facing=north,company=brokenedge,tier=low,lit=true": {
-      "model": "deepspacedeployer:block/buyer_brokenedge_low_lit"
-    },
-    "facing=east,company=brokenedge,tier=low,lit=true": {
-      "model": "deepspacedeployer:block/buyer_brokenedge_low_lit",
-      "y": 90
-    },
-    "facing=south,company=brokenedge,tier=low,lit=true": {
-      "model": "deepspacedeployer:block/buyer_brokenedge_low_lit",
-      "y": 180
-    },
     "facing=west,company=brokenedge,tier=low,lit=true": {
-      "model": "deepspacedeployer:block/buyer_brokenedge_low_lit",
+      "model": "deepspacedeployer:block/buyer_low_lit",
       "y": 270
     },
     "facing=north,company=brokenedge,tier=mid,lit=false": {
-      "model": "deepspacedeployer:block/buyer_brokenedge_mid"
+      "model": "deepspacedeployer:block/buyer_mid"
+    },
+    "facing=north,company=brokenedge,tier=mid,lit=true": {
+      "model": "deepspacedeployer:block/buyer_mid_lit"
     },
     "facing=east,company=brokenedge,tier=mid,lit=false": {
-      "model": "deepspacedeployer:block/buyer_brokenedge_mid",
+      "model": "deepspacedeployer:block/buyer_mid",
+      "y": 90
+    },
+    "facing=east,company=brokenedge,tier=mid,lit=true": {
+      "model": "deepspacedeployer:block/buyer_mid_lit",
       "y": 90
     },
     "facing=south,company=brokenedge,tier=mid,lit=false": {
-      "model": "deepspacedeployer:block/buyer_brokenedge_mid",
+      "model": "deepspacedeployer:block/buyer_mid",
+      "y": 180
+    },
+    "facing=south,company=brokenedge,tier=mid,lit=true": {
+      "model": "deepspacedeployer:block/buyer_mid_lit",
       "y": 180
     },
     "facing=west,company=brokenedge,tier=mid,lit=false": {
-      "model": "deepspacedeployer:block/buyer_brokenedge_mid",
+      "model": "deepspacedeployer:block/buyer_mid",
       "y": 270
     },
-    "facing=north,company=brokenedge,tier=mid,lit=true": {
-      "model": "deepspacedeployer:block/buyer_brokenedge_mid_lit"
-    },
-    "facing=east,company=brokenedge,tier=mid,lit=true": {
-      "model": "deepspacedeployer:block/buyer_brokenedge_mid_lit",
-      "y": 90
-    },
-    "facing=south,company=brokenedge,tier=mid,lit=true": {
-      "model": "deepspacedeployer:block/buyer_brokenedge_mid_lit",
-      "y": 180
-    },
     "facing=west,company=brokenedge,tier=mid,lit=true": {
-      "model": "deepspacedeployer:block/buyer_brokenedge_mid_lit",
+      "model": "deepspacedeployer:block/buyer_mid_lit",
       "y": 270
     },
     "facing=north,company=brokenedge,tier=high,lit=false": {
-      "model": "deepspacedeployer:block/buyer_brokenedge_high"
+      "model": "deepspacedeployer:block/buyer_high"
+    },
+    "facing=north,company=brokenedge,tier=high,lit=true": {
+      "model": "deepspacedeployer:block/buyer_high_lit"
     },
     "facing=east,company=brokenedge,tier=high,lit=false": {
-      "model": "deepspacedeployer:block/buyer_brokenedge_high",
+      "model": "deepspacedeployer:block/buyer_high",
+      "y": 90
+    },
+    "facing=east,company=brokenedge,tier=high,lit=true": {
+      "model": "deepspacedeployer:block/buyer_high_lit",
       "y": 90
     },
     "facing=south,company=brokenedge,tier=high,lit=false": {
-      "model": "deepspacedeployer:block/buyer_brokenedge_high",
+      "model": "deepspacedeployer:block/buyer_high",
+      "y": 180
+    },
+    "facing=south,company=brokenedge,tier=high,lit=true": {
+      "model": "deepspacedeployer:block/buyer_high_lit",
       "y": 180
     },
     "facing=west,company=brokenedge,tier=high,lit=false": {
-      "model": "deepspacedeployer:block/buyer_brokenedge_high",
+      "model": "deepspacedeployer:block/buyer_high",
       "y": 270
     },
-    "facing=north,company=brokenedge,tier=high,lit=true": {
-      "model": "deepspacedeployer:block/buyer_brokenedge_high_lit"
-    },
-    "facing=east,company=brokenedge,tier=high,lit=true": {
-      "model": "deepspacedeployer:block/buyer_brokenedge_high_lit",
-      "y": 90
-    },
-    "facing=south,company=brokenedge,tier=high,lit=true": {
-      "model": "deepspacedeployer:block/buyer_brokenedge_high_lit",
-      "y": 180
-    },
     "facing=west,company=brokenedge,tier=high,lit=true": {
-      "model": "deepspacedeployer:block/buyer_brokenedge_high_lit",
+      "model": "deepspacedeployer:block/buyer_high_lit",
       "y": 270
     },
     "facing=north,company=skimmer,tier=low,lit=false": {
-      "model": "deepspacedeployer:block/buyer_skimmer_low"
+      "model": "deepspacedeployer:block/buyer_low"
+    },
+    "facing=north,company=skimmer,tier=low,lit=true": {
+      "model": "deepspacedeployer:block/buyer_low_lit"
     },
     "facing=east,company=skimmer,tier=low,lit=false": {
-      "model": "deepspacedeployer:block/buyer_skimmer_low",
+      "model": "deepspacedeployer:block/buyer_low",
+      "y": 90
+    },
+    "facing=east,company=skimmer,tier=low,lit=true": {
+      "model": "deepspacedeployer:block/buyer_low_lit",
       "y": 90
     },
     "facing=south,company=skimmer,tier=low,lit=false": {
-      "model": "deepspacedeployer:block/buyer_skimmer_low",
+      "model": "deepspacedeployer:block/buyer_low",
+      "y": 180
+    },
+    "facing=south,company=skimmer,tier=low,lit=true": {
+      "model": "deepspacedeployer:block/buyer_low_lit",
       "y": 180
     },
     "facing=west,company=skimmer,tier=low,lit=false": {
-      "model": "deepspacedeployer:block/buyer_skimmer_low",
+      "model": "deepspacedeployer:block/buyer_low",
       "y": 270
     },
-    "facing=north,company=skimmer,tier=low,lit=true": {
-      "model": "deepspacedeployer:block/buyer_skimmer_low_lit"
-    },
-    "facing=east,company=skimmer,tier=low,lit=true": {
-      "model": "deepspacedeployer:block/buyer_skimmer_low_lit",
-      "y": 90
-    },
-    "facing=south,company=skimmer,tier=low,lit=true": {
-      "model": "deepspacedeployer:block/buyer_skimmer_low_lit",
-      "y": 180
-    },
     "facing=west,company=skimmer,tier=low,lit=true": {
-      "model": "deepspacedeployer:block/buyer_skimmer_low_lit",
+      "model": "deepspacedeployer:block/buyer_low_lit",
       "y": 270
     },
     "facing=north,company=skimmer,tier=mid,lit=false": {
-      "model": "deepspacedeployer:block/buyer_skimmer_mid"
+      "model": "deepspacedeployer:block/buyer_mid"
+    },
+    "facing=north,company=skimmer,tier=mid,lit=true": {
+      "model": "deepspacedeployer:block/buyer_mid_lit"
     },
     "facing=east,company=skimmer,tier=mid,lit=false": {
-      "model": "deepspacedeployer:block/buyer_skimmer_mid",
+      "model": "deepspacedeployer:block/buyer_mid",
+      "y": 90
+    },
+    "facing=east,company=skimmer,tier=mid,lit=true": {
+      "model": "deepspacedeployer:block/buyer_mid_lit",
       "y": 90
     },
     "facing=south,company=skimmer,tier=mid,lit=false": {
-      "model": "deepspacedeployer:block/buyer_skimmer_mid",
+      "model": "deepspacedeployer:block/buyer_mid",
+      "y": 180
+    },
+    "facing=south,company=skimmer,tier=mid,lit=true": {
+      "model": "deepspacedeployer:block/buyer_mid_lit",
       "y": 180
     },
     "facing=west,company=skimmer,tier=mid,lit=false": {
-      "model": "deepspacedeployer:block/buyer_skimmer_mid",
+      "model": "deepspacedeployer:block/buyer_mid",
       "y": 270
     },
-    "facing=north,company=skimmer,tier=mid,lit=true": {
-      "model": "deepspacedeployer:block/buyer_skimmer_mid_lit"
-    },
-    "facing=east,company=skimmer,tier=mid,lit=true": {
-      "model": "deepspacedeployer:block/buyer_skimmer_mid_lit",
-      "y": 90
-    },
-    "facing=south,company=skimmer,tier=mid,lit=true": {
-      "model": "deepspacedeployer:block/buyer_skimmer_mid_lit",
-      "y": 180
-    },
     "facing=west,company=skimmer,tier=mid,lit=true": {
-      "model": "deepspacedeployer:block/buyer_skimmer_mid_lit",
+      "model": "deepspacedeployer:block/buyer_mid_lit",
       "y": 270
     },
     "facing=north,company=skimmer,tier=high,lit=false": {
-      "model": "deepspacedeployer:block/buyer_skimmer_high"
+      "model": "deepspacedeployer:block/buyer_high"
+    },
+    "facing=north,company=skimmer,tier=high,lit=true": {
+      "model": "deepspacedeployer:block/buyer_high_lit"
     },
     "facing=east,company=skimmer,tier=high,lit=false": {
-      "model": "deepspacedeployer:block/buyer_skimmer_high",
+      "model": "deepspacedeployer:block/buyer_high",
+      "y": 90
+    },
+    "facing=east,company=skimmer,tier=high,lit=true": {
+      "model": "deepspacedeployer:block/buyer_high_lit",
       "y": 90
     },
     "facing=south,company=skimmer,tier=high,lit=false": {
-      "model": "deepspacedeployer:block/buyer_skimmer_high",
+      "model": "deepspacedeployer:block/buyer_high",
+      "y": 180
+    },
+    "facing=south,company=skimmer,tier=high,lit=true": {
+      "model": "deepspacedeployer:block/buyer_high_lit",
       "y": 180
     },
     "facing=west,company=skimmer,tier=high,lit=false": {
-      "model": "deepspacedeployer:block/buyer_skimmer_high",
+      "model": "deepspacedeployer:block/buyer_high",
       "y": 270
     },
-    "facing=north,company=skimmer,tier=high,lit=true": {
-      "model": "deepspacedeployer:block/buyer_skimmer_high_lit"
-    },
-    "facing=east,company=skimmer,tier=high,lit=true": {
-      "model": "deepspacedeployer:block/buyer_skimmer_high_lit",
-      "y": 90
-    },
-    "facing=south,company=skimmer,tier=high,lit=true": {
-      "model": "deepspacedeployer:block/buyer_skimmer_high_lit",
-      "y": 180
-    },
     "facing=west,company=skimmer,tier=high,lit=true": {
-      "model": "deepspacedeployer:block/buyer_skimmer_high_lit",
+      "model": "deepspacedeployer:block/buyer_high_lit",
       "y": 270
     },
     "facing=north,company=bedrock,tier=low,lit=false": {
-      "model": "deepspacedeployer:block/buyer_bedrock_low"
+      "model": "deepspacedeployer:block/buyer_low"
+    },
+    "facing=north,company=bedrock,tier=low,lit=true": {
+      "model": "deepspacedeployer:block/buyer_low_lit"
     },
     "facing=east,company=bedrock,tier=low,lit=false": {
-      "model": "deepspacedeployer:block/buyer_bedrock_low",
+      "model": "deepspacedeployer:block/buyer_low",
+      "y": 90
+    },
+    "facing=east,company=bedrock,tier=low,lit=true": {
+      "model": "deepspacedeployer:block/buyer_low_lit",
       "y": 90
     },
     "facing=south,company=bedrock,tier=low,lit=false": {
-      "model": "deepspacedeployer:block/buyer_bedrock_low",
+      "model": "deepspacedeployer:block/buyer_low",
+      "y": 180
+    },
+    "facing=south,company=bedrock,tier=low,lit=true": {
+      "model": "deepspacedeployer:block/buyer_low_lit",
       "y": 180
     },
     "facing=west,company=bedrock,tier=low,lit=false": {
-      "model": "deepspacedeployer:block/buyer_bedrock_low",
+      "model": "deepspacedeployer:block/buyer_low",
       "y": 270
     },
-    "facing=north,company=bedrock,tier=low,lit=true": {
-      "model": "deepspacedeployer:block/buyer_bedrock_low_lit"
-    },
-    "facing=east,company=bedrock,tier=low,lit=true": {
-      "model": "deepspacedeployer:block/buyer_bedrock_low_lit",
-      "y": 90
-    },
-    "facing=south,company=bedrock,tier=low,lit=true": {
-      "model": "deepspacedeployer:block/buyer_bedrock_low_lit",
-      "y": 180
-    },
     "facing=west,company=bedrock,tier=low,lit=true": {
-      "model": "deepspacedeployer:block/buyer_bedrock_low_lit",
+      "model": "deepspacedeployer:block/buyer_low_lit",
       "y": 270
     },
     "facing=north,company=bedrock,tier=mid,lit=false": {
-      "model": "deepspacedeployer:block/buyer_bedrock_mid"
+      "model": "deepspacedeployer:block/buyer_mid"
+    },
+    "facing=north,company=bedrock,tier=mid,lit=true": {
+      "model": "deepspacedeployer:block/buyer_mid_lit"
     },
     "facing=east,company=bedrock,tier=mid,lit=false": {
-      "model": "deepspacedeployer:block/buyer_bedrock_mid",
+      "model": "deepspacedeployer:block/buyer_mid",
+      "y": 90
+    },
+    "facing=east,company=bedrock,tier=mid,lit=true": {
+      "model": "deepspacedeployer:block/buyer_mid_lit",
       "y": 90
     },
     "facing=south,company=bedrock,tier=mid,lit=false": {
-      "model": "deepspacedeployer:block/buyer_bedrock_mid",
+      "model": "deepspacedeployer:block/buyer_mid",
+      "y": 180
+    },
+    "facing=south,company=bedrock,tier=mid,lit=true": {
+      "model": "deepspacedeployer:block/buyer_mid_lit",
       "y": 180
     },
     "facing=west,company=bedrock,tier=mid,lit=false": {
-      "model": "deepspacedeployer:block/buyer_bedrock_mid",
+      "model": "deepspacedeployer:block/buyer_mid",
       "y": 270
     },
-    "facing=north,company=bedrock,tier=mid,lit=true": {
-      "model": "deepspacedeployer:block/buyer_bedrock_mid_lit"
-    },
-    "facing=east,company=bedrock,tier=mid,lit=true": {
-      "model": "deepspacedeployer:block/buyer_bedrock_mid_lit",
-      "y": 90
-    },
-    "facing=south,company=bedrock,tier=mid,lit=true": {
-      "model": "deepspacedeployer:block/buyer_bedrock_mid_lit",
-      "y": 180
-    },
     "facing=west,company=bedrock,tier=mid,lit=true": {
-      "model": "deepspacedeployer:block/buyer_bedrock_mid_lit",
+      "model": "deepspacedeployer:block/buyer_mid_lit",
       "y": 270
     },
     "facing=north,company=bedrock,tier=high,lit=false": {
-      "model": "deepspacedeployer:block/buyer_bedrock_high"
+      "model": "deepspacedeployer:block/buyer_high"
+    },
+    "facing=north,company=bedrock,tier=high,lit=true": {
+      "model": "deepspacedeployer:block/buyer_high_lit"
     },
     "facing=east,company=bedrock,tier=high,lit=false": {
-      "model": "deepspacedeployer:block/buyer_bedrock_high",
+      "model": "deepspacedeployer:block/buyer_high",
+      "y": 90
+    },
+    "facing=east,company=bedrock,tier=high,lit=true": {
+      "model": "deepspacedeployer:block/buyer_high_lit",
       "y": 90
     },
     "facing=south,company=bedrock,tier=high,lit=false": {
-      "model": "deepspacedeployer:block/buyer_bedrock_high",
+      "model": "deepspacedeployer:block/buyer_high",
+      "y": 180
+    },
+    "facing=south,company=bedrock,tier=high,lit=true": {
+      "model": "deepspacedeployer:block/buyer_high_lit",
       "y": 180
     },
     "facing=west,company=bedrock,tier=high,lit=false": {
-      "model": "deepspacedeployer:block/buyer_bedrock_high",
+      "model": "deepspacedeployer:block/buyer_high",
       "y": 270
     },
-    "facing=north,company=bedrock,tier=high,lit=true": {
-      "model": "deepspacedeployer:block/buyer_bedrock_high_lit"
-    },
-    "facing=east,company=bedrock,tier=high,lit=true": {
-      "model": "deepspacedeployer:block/buyer_bedrock_high_lit",
-      "y": 90
-    },
-    "facing=south,company=bedrock,tier=high,lit=true": {
-      "model": "deepspacedeployer:block/buyer_bedrock_high_lit",
-      "y": 180
-    },
     "facing=west,company=bedrock,tier=high,lit=true": {
-      "model": "deepspacedeployer:block/buyer_bedrock_high_lit",
+      "model": "deepspacedeployer:block/buyer_high_lit",
       "y": 270
     },
     "facing=north,company=astralink,tier=low,lit=false": {
-      "model": "deepspacedeployer:block/buyer_astralink_low"
+      "model": "deepspacedeployer:block/buyer_low"
+    },
+    "facing=north,company=astralink,tier=low,lit=true": {
+      "model": "deepspacedeployer:block/buyer_low_lit"
     },
     "facing=east,company=astralink,tier=low,lit=false": {
-      "model": "deepspacedeployer:block/buyer_astralink_low",
+      "model": "deepspacedeployer:block/buyer_low",
+      "y": 90
+    },
+    "facing=east,company=astralink,tier=low,lit=true": {
+      "model": "deepspacedeployer:block/buyer_low_lit",
       "y": 90
     },
     "facing=south,company=astralink,tier=low,lit=false": {
-      "model": "deepspacedeployer:block/buyer_astralink_low",
+      "model": "deepspacedeployer:block/buyer_low",
+      "y": 180
+    },
+    "facing=south,company=astralink,tier=low,lit=true": {
+      "model": "deepspacedeployer:block/buyer_low_lit",
       "y": 180
     },
     "facing=west,company=astralink,tier=low,lit=false": {
-      "model": "deepspacedeployer:block/buyer_astralink_low",
+      "model": "deepspacedeployer:block/buyer_low",
       "y": 270
     },
-    "facing=north,company=astralink,tier=low,lit=true": {
-      "model": "deepspacedeployer:block/buyer_astralink_low_lit"
-    },
-    "facing=east,company=astralink,tier=low,lit=true": {
-      "model": "deepspacedeployer:block/buyer_astralink_low_lit",
-      "y": 90
-    },
-    "facing=south,company=astralink,tier=low,lit=true": {
-      "model": "deepspacedeployer:block/buyer_astralink_low_lit",
-      "y": 180
-    },
     "facing=west,company=astralink,tier=low,lit=true": {
-      "model": "deepspacedeployer:block/buyer_astralink_low_lit",
+      "model": "deepspacedeployer:block/buyer_low_lit",
       "y": 270
     },
     "facing=north,company=astralink,tier=mid,lit=false": {
-      "model": "deepspacedeployer:block/buyer_astralink_mid"
+      "model": "deepspacedeployer:block/buyer_mid"
+    },
+    "facing=north,company=astralink,tier=mid,lit=true": {
+      "model": "deepspacedeployer:block/buyer_mid_lit"
     },
     "facing=east,company=astralink,tier=mid,lit=false": {
-      "model": "deepspacedeployer:block/buyer_astralink_mid",
+      "model": "deepspacedeployer:block/buyer_mid",
+      "y": 90
+    },
+    "facing=east,company=astralink,tier=mid,lit=true": {
+      "model": "deepspacedeployer:block/buyer_mid_lit",
       "y": 90
     },
     "facing=south,company=astralink,tier=mid,lit=false": {
-      "model": "deepspacedeployer:block/buyer_astralink_mid",
+      "model": "deepspacedeployer:block/buyer_mid",
+      "y": 180
+    },
+    "facing=south,company=astralink,tier=mid,lit=true": {
+      "model": "deepspacedeployer:block/buyer_mid_lit",
       "y": 180
     },
     "facing=west,company=astralink,tier=mid,lit=false": {
-      "model": "deepspacedeployer:block/buyer_astralink_mid",
+      "model": "deepspacedeployer:block/buyer_mid",
       "y": 270
     },
-    "facing=north,company=astralink,tier=mid,lit=true": {
-      "model": "deepspacedeployer:block/buyer_astralink_mid_lit"
-    },
-    "facing=east,company=astralink,tier=mid,lit=true": {
-      "model": "deepspacedeployer:block/buyer_astralink_mid_lit",
-      "y": 90
-    },
-    "facing=south,company=astralink,tier=mid,lit=true": {
-      "model": "deepspacedeployer:block/buyer_astralink_mid_lit",
-      "y": 180
-    },
     "facing=west,company=astralink,tier=mid,lit=true": {
-      "model": "deepspacedeployer:block/buyer_astralink_mid_lit",
+      "model": "deepspacedeployer:block/buyer_mid_lit",
       "y": 270
     },
     "facing=north,company=astralink,tier=high,lit=false": {
-      "model": "deepspacedeployer:block/buyer_astralink_high"
+      "model": "deepspacedeployer:block/buyer_high"
+    },
+    "facing=north,company=astralink,tier=high,lit=true": {
+      "model": "deepspacedeployer:block/buyer_high_lit"
     },
     "facing=east,company=astralink,tier=high,lit=false": {
-      "model": "deepspacedeployer:block/buyer_astralink_high",
+      "model": "deepspacedeployer:block/buyer_high",
+      "y": 90
+    },
+    "facing=east,company=astralink,tier=high,lit=true": {
+      "model": "deepspacedeployer:block/buyer_high_lit",
       "y": 90
     },
     "facing=south,company=astralink,tier=high,lit=false": {
-      "model": "deepspacedeployer:block/buyer_astralink_high",
+      "model": "deepspacedeployer:block/buyer_high",
+      "y": 180
+    },
+    "facing=south,company=astralink,tier=high,lit=true": {
+      "model": "deepspacedeployer:block/buyer_high_lit",
       "y": 180
     },
     "facing=west,company=astralink,tier=high,lit=false": {
-      "model": "deepspacedeployer:block/buyer_astralink_high",
+      "model": "deepspacedeployer:block/buyer_high",
       "y": 270
     },
-    "facing=north,company=astralink,tier=high,lit=true": {
-      "model": "deepspacedeployer:block/buyer_astralink_high_lit"
-    },
-    "facing=east,company=astralink,tier=high,lit=true": {
-      "model": "deepspacedeployer:block/buyer_astralink_high_lit",
-      "y": 90
-    },
-    "facing=south,company=astralink,tier=high,lit=true": {
-      "model": "deepspacedeployer:block/buyer_astralink_high_lit",
-      "y": 180
-    },
     "facing=west,company=astralink,tier=high,lit=true": {
-      "model": "deepspacedeployer:block/buyer_astralink_high_lit",
+      "model": "deepspacedeployer:block/buyer_high_lit",
       "y": 270
     }
   }

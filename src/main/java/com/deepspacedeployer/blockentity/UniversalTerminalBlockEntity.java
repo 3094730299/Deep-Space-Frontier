@@ -3,6 +3,7 @@ package com.deepspacedeployer.blockentity;
 import com.deepspacedeployer.Company;
 import com.deepspacedeployer.economy.CardData;
 import com.deepspacedeployer.economy.CompanyFunds;
+import com.deepspacedeployer.economy.PaymentService;
 import com.deepspacedeployer.economy.ReputationData;
 import com.deepspacedeployer.economy.WalletService;
 import com.deepspacedeployer.registry.ModBlockEntities;
@@ -182,11 +183,11 @@ public class UniversalTerminalBlockEntity extends BlockEntity implements GeoBloc
                     entry.reputation(), reputation), true);
             return false;
         }
-        if (CompanyFunds.get(player.server).balance(account, company) < entry.price()) {
+        if (!PaymentService.canPay(player, account, company, entry.price())) {
             WalletService.companyInsufficientMessage(player);
             return false;
         }
-        if (!pay(card, account, entry.price())) {
+        if (!pay(player, account, entry.price())) {
             WalletService.companyInsufficientMessage(player);
             return false;
         }
@@ -201,18 +202,9 @@ public class UniversalTerminalBlockEntity extends BlockEntity implements GeoBloc
         return true;
     }
 
-    /** 扣款：从世界账户的公司余额扣（卡上不再有便携余额） */
-    private boolean pay(ItemStack card, UUID account, long amount) {
-        if (amount <= 0L) {
-            return true;
-        }
-        net.minecraft.server.MinecraftServer server = level == null ? null : level.getServer();
-        CompanyFunds funds = server == null ? null : CompanyFunds.get(server);
-        if (funds == null || funds.balance(account, company) < amount) {
-            return false;
-        }
-        funds.add(account, company, -amount);
-        return true;
+    /** 扣款：账户优先；账户不够时自动用实体币，找零只给 1 元券。 */
+    private boolean pay(ServerPlayer player, UUID account, long amount) {
+        return PaymentService.pay(player, account, company, amount) != null;
     }
 
     // ---------------- 动画 / 每 tick ----------------

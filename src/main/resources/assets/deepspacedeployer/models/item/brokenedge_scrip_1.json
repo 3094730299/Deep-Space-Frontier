@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "deepspacedeployer:item/brokenedge_scrip_1"
+  }
+}

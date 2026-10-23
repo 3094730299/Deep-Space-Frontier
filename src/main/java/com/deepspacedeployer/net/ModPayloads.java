@@ -18,9 +18,15 @@ public final class ModPayloads {
      * 10 → 11 加入货币银行操作包；
      * 11 → 12 银行挂失改成选卡：操作包带 cardId，并加玩家卡列表包；
      * 12 → 13 银行改成两个共享卡槽：加银行状态包，确认转账合并成一个动作；
-     * 13 → 14 银行卡槽状态带卡物品图标。</p>
+     * 13 → 14 银行卡槽状态带卡物品图标；
+     * 14 → 15 银行状态每个卡槽带自己的总资产（两侧卡槽下方分别显示）；
+     * 15 → 16 银行状态带每个卡槽的 7 账户；挂失包加 force 和按卡槽挂失动作；
+     * 16 → 17 卡列表带每张卡的 7 账户/总资产（挂失页选“其他卡”）；
+     * 17 → 18 银行新增实体币存入/取出动作（36 种实体货币）；
+     * 18 → 19 商店数据包带每件商品库存；
+     * 19 → 20 模块打印机预设列表包。</p>
      */
-    public static final String VERSION = "14";
+    public static final String VERSION = "20";
 
     public static void register(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar(VERSION);
@@ -55,6 +61,9 @@ public final class ModPayloads {
         // 银行两个共享卡槽 + 自己卡的账户数据
         registrar.playToClient(BankStatePayload.TYPE, BankStatePayload.STREAM_CODEC,
                 BankStatePayload::handle);
+        // 模块打印机预设列表
+        registrar.playToClient(ModuleListPayload.TYPE, ModuleListPayload.STREAM_CODEC,
+                ModuleListPayload::handle);
     }
 
     private ModPayloads() {

@@ -3,6 +3,7 @@ package com.deepspacedeployer.market;
 import com.deepspacedeployer.Company;
 import com.deepspacedeployer.blockentity.MachineBlockEntity;
 import com.deepspacedeployer.economy.CompanyFunds;
+import com.deepspacedeployer.economy.PaymentService;
 import com.deepspacedeployer.economy.WalletService;
 import com.deepspacedeployer.factory.PhysicsBlueprintLibrary;
 import com.deepspacedeployer.menu.MachineMenu;
@@ -156,6 +157,7 @@ public final class MarketActions {
             return;
         }
 
+        PaymentService.Result payment = null;
         if (listing.isBarter()) {
             // 以物易物：先确认买方背包里有够数的东西
             if (!takeFromInventory(player, listing.barter(), listing.barterCount())) {
@@ -164,15 +166,16 @@ public final class MarketActions {
                 return;
             }
         } else {
-            // 以币：买方要在**这张挂单的公司**里有余额（市场本身无归属，所以公司跟着挂单走）
+            // 以币：买方要在**这张挂单的公司**里有账户余额或足够的实体币
             long price = listing.price();
-            if (funds.balance(player.getUUID(), company) < price) {
+            if (!PaymentService.canPay(player, player.getUUID(), company, price)) {
                 WalletService.companyInsufficientMessage(player);
                 return;
             }
-            funds.add(player.getUUID(), company, -price);
-            if (listing.seller() != null) {
-                funds.add(listing.seller(), company, price);
+            payment = PaymentService.pay(player, player.getUUID(), company, price);
+            if (payment == null) {
+                WalletService.companyInsufficientMessage(player);
+                return;
             }
         }
 
@@ -182,16 +185,18 @@ public final class MarketActions {
                     (net.minecraft.server.level.ServerLevel) machine.getLevel(),
                     listing.vehicle(), machine.getBlockPos().getCenter());
             if (!result.success()) {
-                // 生成失败：把付出去的东西退回来（钱或物），挂单保留
-                refund(player, machine, listing, company, funds);
+                // 生成失败：把付出去的东西退回来（钱或物），挂单保留；卖家还没入账
+                refund(player, machine, listing, company, payment);
                 player.displayClientMessage(Component.translatable("msg.deepspacedeployer.market_spawn_failed",
                         result.detail()), true);
                 return;
             }
+            creditSeller(funds, listing, company);
             machine.bumpMarketVersion();
             player.displayClientMessage(Component.translatable("msg.deepspacedeployer.market_bought_vehicle",
                     listing.vehicle(), result.placedSubLevels()), false);
         } else {
+            creditSeller(funds, listing, company);
             machine.setCollectSlot(listing.item().copy());
             player.displayClientMessage(Component.translatable("msg.deepspacedeployer.market_bought",
                     listing.item().getHoverName()), false);
@@ -200,15 +205,22 @@ public final class MarketActions {
         machine.bumpMarketVersion();
     }
 
-    /** 生成失败时退款：钱或物按原路退回买家 */
+    /** 币交易成功后卖家入账；以物易物不走这里。 */
+    private static void creditSeller(CompanyFunds funds, Listing listing, Company company) {
+        if (!listing.isBarter() && listing.seller() != null) {
+            funds.add(listing.seller(), company, listing.price());
+        }
+    }
+
+    /** 生成失败时退款：钱按原支付明细退回（实体券退 1 元券），物按原路退回。 */
     private static void refund(ServerPlayer player, MachineBlockEntity machine, Listing listing,
-                               Company company, CompanyFunds funds) {
+                               Company company, PaymentService.Result payment) {
         if (listing.isBarter()) {
             if (!player.getInventory().add(listing.barter().copyWithCount(listing.barterCount()))) {
                 player.drop(listing.barter().copyWithCount(listing.barterCount()), false);
             }
         } else {
-            funds.add(player.getUUID(), company, listing.price());
+            PaymentService.refund(player, player.getUUID(), company, payment);
         }
     }
 

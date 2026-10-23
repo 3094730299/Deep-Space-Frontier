@@ -42,6 +42,8 @@ public class MachineGeoModel extends GeoModel<MachineBlockEntity> {
         return switch (be.kind()) {
             case BUYER -> "buyer";
             case CORE -> "factory_core";
+            // 模块打印机先用普通方块模型，不走 GeckoLib
+            case MODULE_PRINTER -> null;
             // 星联的商店（三个等级共用一套模型）
             case TERMINAL -> Company.ASTRALINK == be.company() ? "terminal_astralink" : null;
             default -> null;
@@ -63,6 +65,10 @@ public class MachineGeoModel extends GeoModel<MachineBlockEntity> {
         String geo = geoName(be);
         if (geo == null) {
             return null;
+        }
+        // 收购机不归公司：3 个等级各一张中立贴图（256x256，和 geo 的 UV 布局一致）
+        if (be.kind() == MachineKind.BUYER) {
+            return "buyer_neutral_" + be.tier().id();
         }
         return geo.startsWith("terminal_") ? geo : geo + "_" + companyId(be);
     }
