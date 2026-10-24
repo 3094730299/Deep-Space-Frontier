@@ -20,6 +20,7 @@ import com.deepspacedeployer.registry.ModBlockEntities;
 import com.deepspacedeployer.registry.ModItems;
 import com.deepspacedeployer.registry.ModMenus;
 import com.deepspacedeployer.shop.ShopData;
+import com.deepspacedeployer.shop.ShopRulesData;
 import com.deepspacedeployer.shop.TradeEntry;
 import com.deepspacedeployer.factory.BlueprintInfo;
 import com.deepspacedeployer.factory.ModulePresetLibrary;
@@ -121,10 +122,12 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
     /** 收购站：true = 自动收购（东西放进去就卖），false = 点击收购（按按钮才卖） */
     private boolean autoSell = true;
 
-    /** 工厂终端商店：每件商品最多 3 个库存；按条目签名存，价目表改了自动补满。 */
+    /** 旧版固定上限；现在实际值按公司规则 + 每轮波动。 */
     public static final int SHOP_STOCK_MAX = 3;
     private final Map<String, Integer> shopStock = new HashMap<>();
-    private int shopRestockTicks;
+    private final List<String> cycleKeys = new ArrayList<>();
+    private int cycleMaxStock = SHOP_STOCK_MAX;
+    private long cycleRestockAt;
 
     /** 收购限流：全服每 tick 已处理的物品数（静态，所有收购机共享） */
     private static int buyerGlobalTick = -1;
@@ -249,14 +252,70 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
         PacketDistributor.sendToPlayer(player, new ModuleListPayload(List.copyOf(entries)));
     }
 
-    /** 把当前结算公司的收购/出售价目表推给客户端（收购机切换公司也要重推）。 */
+    private List<TradeEntry> currentBuyOffers() {
+        List<TradeEntry> all = ShopData.get().buyOffers(company());
+        if (cycleKeys.isEmpty()) {
+            return all;
+        }
+        List<TradeEntry> out = new ArrayList<>();
+        for (TradeEntry entry : all) {
+            if (cycleKeys.contains(shopStockKey(entry))) {
+                out.add(entry);
+            }
+        }
+        return out;
+    }
+
+    private void ensureShopCycle() {
+        if (cycleKeys.isEmpty() && level instanceof ServerLevel serverLevel) {
+            rollShopCycle(serverLevel);
+        }
+    }
+
+    /** 每轮补货：按公司规则 roll 本轮种类/库存，随机换商品。 */
+    private void rollShopCycle(ServerLevel serverLevel) {
+        ShopRulesData rules = ShopRulesData.get(serverLevel.getServer());
+        ShopRulesData.Rule rule = rules.rule(company());
+        List<TradeEntry> catalog = new ArrayList<>(ShopData.get().buyOffers(company()));
+        int types = rule.varyTypes
+                ? fluctuate(rule.baseTypes, rules.typePercent(), serverLevel.random)
+                : rule.baseTypes;
+        types = Math.max(1, Math.min(types, catalog.size()));
+        if (rule.randomItems) {
+            java.util.Collections.shuffle(catalog, new java.util.Random(serverLevel.random.nextLong()));
+        }
+        List<TradeEntry> selected = catalog.subList(0, Math.min(types, catalog.size()));
+        cycleKeys.clear();
+        shopStock.clear();
+        for (TradeEntry entry : selected) {
+            String key = shopStockKey(entry);
+            cycleKeys.add(key);
+            shopStock.put(key, cycleMaxStock);
+        }
+        cycleMaxStock = fluctuate(rule.baseStock, rules.stockPercent(), serverLevel.random);
+        for (String key : cycleKeys) {
+            shopStock.put(key, cycleMaxStock);
+        }
+        cycleRestockAt = serverLevel.getGameTime() + tier().shopRestockTicks();
+        setChanged();
+    }
+
+    private static int fluctuate(int base, int percent, net.minecraft.util.RandomSource random) {
+        if (percent <= 0 || base <= 0) {
+            return Math.max(1, base);
+        }
+        double factor = 1.0D + (random.nextDouble() * 2.0D - 1.0D) * (percent / 100.0D);
+        return Math.max(1, Math.min(64, (int) Math.round(base * factor)));
+    }
+
+    /** 把当前结算公司的价目表推给客户端（收购机切换公司也要重推）。 */
     private void sendShopData(ServerPlayer player) {
-        com.deepspacedeployer.shop.ShopData shop = com.deepspacedeployer.shop.ShopData.get();
-        List<TradeEntry> offers = shop.buyOffers(company());
-        ensureShopStock(offers);
+        ensureShopCycle();
+        List<TradeEntry> offers = currentBuyOffers();
         PacketDistributor.sendToPlayer(player, new ShopDataPayload(
                 company().id(), tier().rank(),
-                offers, shop.sellOffers(company()), shopStockFor(offers)));
+                offers, ShopData.get().sellOffers(company()), shopStockFor(offers),
+                cycleMaxStock, cycleRestockAt));
     }
 
     /** 把当前库存推给正在追踪这个方块的客户端（买完 / 补货后刷新界面）。 */
@@ -264,26 +323,26 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
         if (!(level instanceof ServerLevel serverLevel)) {
             return;
         }
-        com.deepspacedeployer.shop.ShopData shop = com.deepspacedeployer.shop.ShopData.get();
-        List<TradeEntry> offers = shop.buyOffers(company());
-        ensureShopStock(offers);
+        ensureShopCycle();
+        List<TradeEntry> offers = currentBuyOffers();
         PacketDistributor.sendToPlayersTrackingChunk(serverLevel,
                 new net.minecraft.world.level.ChunkPos(worldPosition),
                 new ShopDataPayload(company().id(), tier().rank(),
-                        offers, shop.sellOffers(company()), shopStockFor(offers)));
+                        offers, ShopData.get().sellOffers(company()), shopStockFor(offers),
+                        cycleMaxStock, cycleRestockAt));
     }
 
-    /** 老存档/新价目表：缺失的条目默认补满 3 个。 */
     private void ensureShopStock(List<TradeEntry> offers) {
         for (TradeEntry entry : offers) {
-            shopStock.putIfAbsent(shopStockKey(entry), SHOP_STOCK_MAX);
+            shopStock.putIfAbsent(shopStockKey(entry), cycleMaxStock);
         }
     }
 
     private List<Integer> shopStockFor(List<TradeEntry> offers) {
         List<Integer> stocks = new ArrayList<>(offers.size());
         for (TradeEntry entry : offers) {
-            stocks.add(Math.max(0, shopStock.getOrDefault(shopStockKey(entry), SHOP_STOCK_MAX)));
+            stocks.add(Math.min(cycleMaxStock, Math.max(0,
+                    shopStock.getOrDefault(shopStockKey(entry), cycleMaxStock))));
         }
         return List.copyOf(stocks);
     }
@@ -294,42 +353,33 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
     }
 
     private int shopStockOf(TradeEntry entry) {
-        ensureShopStock(List.of(entry));
-        return Math.max(0, shopStock.getOrDefault(shopStockKey(entry), SHOP_STOCK_MAX));
+        return Math.min(cycleMaxStock, Math.max(0,
+                shopStock.getOrDefault(shopStockKey(entry), cycleMaxStock)));
     }
 
     private void takeShopStock(TradeEntry entry) {
         String key = shopStockKey(entry);
-        int stock = Math.max(0, shopStock.getOrDefault(key, SHOP_STOCK_MAX));
+        int stock = Math.min(cycleMaxStock, Math.max(0,
+                shopStock.getOrDefault(key, cycleMaxStock)));
         shopStock.put(key, Math.max(0, stock - 1));
         setChanged();
     }
 
-    /** 工厂终端每 tick 走一次；到间隔就把当前价目表补满。 */
+    /** 工厂终端每 tick 走一次；到点 roll 新一轮并补满。 */
     public void tickShopRestock() {
-        if (kind() != MachineKind.TERMINAL) {
+        if (kind() != MachineKind.TERMINAL || !(level instanceof ServerLevel serverLevel)) {
             return;
         }
-        if (shopRestockTicks > 0) {
-            shopRestockTicks--;
-            return;
-        }
-        List<TradeEntry> offers = ShopData.get().buyOffers(company());
-        ensureShopStock(offers);
-        boolean changed = false;
-        for (TradeEntry entry : offers) {
-            String key = shopStockKey(entry);
-            int stock = shopStock.getOrDefault(key, SHOP_STOCK_MAX);
-            if (stock < SHOP_STOCK_MAX) {
-                shopStock.put(key, SHOP_STOCK_MAX);
-                changed = true;
-            }
-        }
-        shopRestockTicks = tier().shopRestockTicks();
-        if (changed) {
-            setChanged();
+        if (cycleKeys.isEmpty() || cycleRestockAt <= 0L) {
+            rollShopCycle(serverLevel);
             broadcastShopData();
+            return;
         }
+        if (serverLevel.getGameTime() < cycleRestockAt) {
+            return;
+        }
+        rollShopCycle(serverLevel);
+        broadcastShopData();
     }
 
     private CompoundTag writeShopStock() {
@@ -1081,7 +1131,8 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
             player.displayClientMessage(Component.translatable("msg.deepspacedeployer.no_account"), false);
             return false;
         }
-        List<TradeEntry> offers = ShopData.get().buyOffers(company());
+        ensureShopCycle();
+        List<TradeEntry> offers = currentBuyOffers();
         if (index < 0 || index >= offers.size()) {
             return false;
         }
@@ -2250,7 +2301,13 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
             tag.putString(NBT_BUYER_COMPANY, company().id());
         }
         tag.put("ShopStock", writeShopStock());
-        tag.putInt("ShopRestockTicks", shopRestockTicks);
+        tag.putInt("ShopCycleMaxStock", cycleMaxStock);
+        tag.putLong("ShopCycleRestockAt", cycleRestockAt);
+        net.minecraft.nbt.ListTag keys = new net.minecraft.nbt.ListTag();
+        for (String key : cycleKeys) {
+            keys.add(net.minecraft.nbt.StringTag.valueOf(key));
+        }
+        tag.put("ShopCycleKeys", keys);
         tag.putBoolean(NBT_AUTO_SELL, autoSell);
         tag.putInt(NBT_TIER, tierIndex);
 
@@ -2375,7 +2432,13 @@ public class MachineBlockEntity extends BlockEntity implements WorldlyContainer,
                 ? Company.byId(tag.getString(NBT_BUYER_COMPANY))
                 : null;
         readShopStock(tag.getCompound("ShopStock"));
-        shopRestockTicks = tag.getInt("ShopRestockTicks");
+        cycleMaxStock = Math.max(1, tag.getInt("ShopCycleMaxStock"));
+        cycleRestockAt = tag.getLong("ShopCycleRestockAt");
+        cycleKeys.clear();
+        net.minecraft.nbt.ListTag keys = tag.getList("ShopCycleKeys", net.minecraft.nbt.Tag.TAG_STRING);
+        for (int i = 0; i < keys.size(); i++) {
+            cycleKeys.add(keys.getString(i));
+        }
         autoSell = !tag.contains(NBT_AUTO_SELL) || tag.getBoolean(NBT_AUTO_SELL);
         tierIndex = tag.contains(NBT_TIER) ? tag.getInt(NBT_TIER) : Tier.HIGH.rank();
 

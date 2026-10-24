@@ -24,9 +24,10 @@ public final class ModPayloads {
      * 16 → 17 卡列表带每张卡的 7 账户/总资产（挂失页选“其他卡”）；
      * 17 → 18 银行新增实体币存入/取出动作（36 种实体货币）；
      * 18 → 19 商店数据包带每件商品库存；
-     * 19 → 20 模块打印机预设列表包。</p>
+     * 19 → 20 模块打印机预设列表包；
+     * 20 → 21 商店规则包。</p>
      */
-    public static final String VERSION = "20";
+    public static final String VERSION = "21";
 
     public static void register(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar(VERSION);
@@ -64,6 +65,9 @@ public final class ModPayloads {
         // 模块打印机预设列表
         registrar.playToClient(ModuleListPayload.TYPE, ModuleListPayload.STREAM_CODEC,
                 ModuleListPayload::handle);
+        // OP 商店规则
+        registrar.playToClient(ShopRulesPayload.TYPE, ShopRulesPayload.STREAM_CODEC,
+                ShopRulesPayload::handle);
     }
 
     private ModPayloads() {

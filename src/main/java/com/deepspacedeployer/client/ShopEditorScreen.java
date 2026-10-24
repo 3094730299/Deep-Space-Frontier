@@ -53,6 +53,7 @@ public class ShopEditorScreen extends Screen {
     private int listKind;
     private int page;
     private int lastVersion = -1;
+    private int lastRulesVersion = -1;
     /** 上一次见到的行数：用来判断"要不要重建控件"（行数没变就只刷新价格框） */
     private int lastListSize = -1;
     /** 每行的价格输入框（重建界面时要清掉重加） */
@@ -228,6 +229,15 @@ public class ShopEditorScreen extends Screen {
             rows.add(r);
         }
         d.list("条目", rows);
+        var rules = ShopRulesClient.get();
+        if (rules != null && rules.companyId().equals(this.company.id())) {
+            d.put("基准种类", rules.baseTypes());
+            d.put("基准库存", rules.baseStock());
+            d.put("随机换商品", rules.randomItems() ? "开" : "关");
+            d.put("种类数量变化", rules.varyTypes() ? "开" : "关");
+            d.put("种类波动", rules.typePercent());
+            d.put("库存波动", rules.stockPercent());
+        }
         return d;
     }
 
@@ -300,6 +310,30 @@ public class ShopEditorScreen extends Screen {
             }
             case "save" -> {
                 edit(ShopEditor.ACTION_SAVE, 0, 0);
+                return true;
+            }
+            case "rule_types" -> {
+                edit(ShopEditor.ACTION_BASE_TYPES, 0, parseInt(arg, 0));
+                return true;
+            }
+            case "rule_stock" -> {
+                edit(ShopEditor.ACTION_BASE_STOCK, 0, parseInt(arg, 0));
+                return true;
+            }
+            case "rule_random" -> {
+                edit(ShopEditor.ACTION_TOGGLE_RANDOM, 0, 0);
+                return true;
+            }
+            case "rule_vary" -> {
+                edit(ShopEditor.ACTION_TOGGLE_VARY, 0, 0);
+                return true;
+            }
+            case "rule_type_pct" -> {
+                edit(ShopEditor.ACTION_TYPE_PERCENT, 0, parseInt(arg, 0));
+                return true;
+            }
+            case "rule_stock_pct" -> {
+                edit(ShopEditor.ACTION_STOCK_PERCENT, 0, parseInt(arg, 0));
                 return true;
             }
             case "close" -> {
@@ -378,6 +412,10 @@ public class ShopEditorScreen extends Screen {
     @Override
     public void tick() {
         super.tick();
+        if (ShopRulesClient.version() != this.lastRulesVersion) {
+            this.lastRulesVersion = ShopRulesClient.version();
+            syncTheme();
+        }
         // 服务器推了新数据：只有"行数或内容真的变了"才重建整套控件。
         // 以前是收到任何一包就 rebuildWidgets()，而每次改价格都会来一包 ->
         // 正在输入的价格框每点一下就被重建、丢掉焦点（看起来就是"卡一下"）。

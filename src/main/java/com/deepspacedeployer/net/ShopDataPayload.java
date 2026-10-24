@@ -13,13 +13,21 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import java.util.List;
 
 /**
- * 服务端 → 客户端：把这家公司的价目表 + 商店库存发给打开界面的玩家。
+ * 服务端 → 客户端：把这家公司的价目表 + 本轮库存发给打开界面的玩家。
  *
- * @param buyStock 与 {@code buyOffers} 一一对应的库存（0~3）
+ * @param buyStock   与 {@code buyOffers} 一一对应的库存
+ * @param maxStock   本轮单件库存上限
+ * @param restockAt  下次补货的世界时间
  */
 public record ShopDataPayload(String companyId, int tier, List<TradeEntry> buyOffers,
-                              List<TradeEntry> sellOffers, List<Integer> buyStock)
+                              List<TradeEntry> sellOffers, List<Integer> buyStock,
+                              int maxStock, long restockAt)
         implements CustomPacketPayload {
+
+    public ShopDataPayload(String companyId, int tier, List<TradeEntry> buyOffers,
+                           List<TradeEntry> sellOffers, List<Integer> buyStock) {
+        this(companyId, tier, buyOffers, sellOffers, buyStock, 3, 0L);
+    }
 
     public ShopDataPayload(String companyId, int tier, List<TradeEntry> buyOffers,
                            List<TradeEntry> sellOffers) {
@@ -37,13 +45,20 @@ public record ShopDataPayload(String companyId, int tier, List<TradeEntry> buyOf
             ByteBufCodecs.<ByteBuf, Integer>list(256).apply(ByteBufCodecs.VAR_INT);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, ShopDataPayload> STREAM_CODEC =
-            StreamCodec.composite(
-                    ByteBufCodecs.STRING_UTF8, ShopDataPayload::companyId,
-                    ByteBufCodecs.VAR_INT, ShopDataPayload::tier,
-                    ENTRY_LIST, ShopDataPayload::buyOffers,
-                    ENTRY_LIST, ShopDataPayload::sellOffers,
-                    INT_LIST, ShopDataPayload::buyStock,
-                    ShopDataPayload::new);
+            StreamCodec.of(
+                    (buf, payload) -> {
+                        buf.writeUtf(payload.companyId());
+                        buf.writeVarInt(payload.tier());
+                        ENTRY_LIST.encode(buf, payload.buyOffers());
+                        ENTRY_LIST.encode(buf, payload.sellOffers());
+                        INT_LIST.encode(buf, payload.buyStock());
+                        buf.writeVarInt(payload.maxStock());
+                        buf.writeLong(payload.restockAt());
+                    },
+                    buf -> new ShopDataPayload(
+                            buf.readUtf(), buf.readVarInt(),
+                            ENTRY_LIST.decode(buf), ENTRY_LIST.decode(buf), INT_LIST.decode(buf),
+                            buf.readVarInt(), buf.readLong()));
 
     @Override
     public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {

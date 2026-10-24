@@ -1419,9 +1419,16 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
             drawRight(graphics, Component.translatable("gui.deepspacedeployer.price_tag", entry.price()),
                     244, rowY + 6, unlocked ? GOLD : TEXT_DIM);
             int stock = ClientShopCache.stockAt(company(), index);
-            graphics.drawString(this.font,
-                    Component.translatable("gui.deepspacedeployer.shop_stock", stock,
-                            com.deepspacedeployer.blockentity.MachineBlockEntity.SHOP_STOCK_MAX),
+            int maxStock = ClientShopCache.maxStock(company());
+            int restock = ClientShopCache.restockRemaining(company());
+            String stockText = Component.translatable(
+                    "gui.deepspacedeployer.shop_stock", stock, maxStock).getString();
+            if (restock > 0) {
+                stockText += " · " + Component.translatable(
+                        "gui.deepspacedeployer.restock_in",
+                        String.format("%02d:%02d", restock / 60, restock % 60)).getString();
+            }
+            graphics.drawString(this.font, stockText,
                     190, rowY + 15, stock > 0 ? TEXT_DIM : WARN, false);
 
             if (!unlocked) {

@@ -5,6 +5,7 @@ import com.deepspacedeployer.Tier;
 import com.deepspacedeployer.net.ShopDataPayload;
 import com.deepspacedeployer.net.ShopEditPayload;
 import com.deepspacedeployer.shop.ShopData;
+import com.deepspacedeployer.shop.ShopRulesData;
 import com.deepspacedeployer.shop.TradeEntry;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -49,6 +50,12 @@ public final class ShopEditor {
     public static final int ACTION_SAVE = 5;
     /** 直接设成某个价格（客户端输入框 + 确定按钮） */
     public static final int ACTION_SET_PRICE = 6;
+    public static final int ACTION_BASE_TYPES = 7;
+    public static final int ACTION_BASE_STOCK = 8;
+    public static final int ACTION_TOGGLE_RANDOM = 9;
+    public static final int ACTION_TOGGLE_VARY = 10;
+    public static final int ACTION_TYPE_PERCENT = 11;
+    public static final int ACTION_STOCK_PERCENT = 12;
 
     private static final Map<Company, List<TradeEntry>> BUY = new EnumMap<>(Company.class);
     private static final Map<Company, List<TradeEntry>> SELL = new EnumMap<>(Company.class);
@@ -93,6 +100,42 @@ public final class ShopEditor {
                 save(player.server, player);
                 return;
             }
+            case ACTION_BASE_TYPES -> {
+                ShopRulesData rules = ShopRulesData.get(player.server);
+                rules.adjustTypes(company, payload.value(), BUY.get(company).size());
+                sendRules(player, company, rules);
+                return;
+            }
+            case ACTION_BASE_STOCK -> {
+                ShopRulesData rules = ShopRulesData.get(player.server);
+                rules.adjustStock(company, payload.value());
+                sendRules(player, company, rules);
+                return;
+            }
+            case ACTION_TOGGLE_RANDOM -> {
+                ShopRulesData rules = ShopRulesData.get(player.server);
+                rules.toggleRandomItems(company);
+                sendRules(player, company, rules);
+                return;
+            }
+            case ACTION_TOGGLE_VARY -> {
+                ShopRulesData rules = ShopRulesData.get(player.server);
+                rules.toggleVaryTypes(company);
+                sendRules(player, company, rules);
+                return;
+            }
+            case ACTION_TYPE_PERCENT -> {
+                ShopRulesData rules = ShopRulesData.get(player.server);
+                rules.adjustTypePercent(payload.value());
+                sendRules(player, company, rules);
+                return;
+            }
+            case ACTION_STOCK_PERCENT -> {
+                ShopRulesData rules = ShopRulesData.get(player.server);
+                rules.adjustStockPercent(payload.value());
+                sendRules(player, company, rules);
+                return;
+            }
             default -> {
             }
         }
@@ -120,6 +163,16 @@ public final class ShopEditor {
             return;
         }
         String id = BuiltInRegistries.ITEM.getKey(held.getItem()).toString();
+        // 商品种类上限只限制“公司出售”表；收购表不受库存种类上限影响
+        if (payload.listKind() == 0) {
+            ShopRulesData rules = ShopRulesData.get(player.server);
+            int maxTypes = rules.rule(company).baseTypes;
+            if (list.size() >= maxTypes) {
+                player.displayClientMessage(Component.translatable(
+                        "msg.deepspacedeployer.editor_type_limit", maxTypes), true);
+                return;
+            }
+        }
         // 手里拿的是"指定某份蓝图"的凭证时，把蓝图一起记下来
         String blueprint = com.deepspacedeployer.economy.VoucherData.blueprint(held);
         for (TradeEntry entry : list) {
@@ -199,6 +252,14 @@ public final class ShopEditor {
         ShopData data = ShopData.get();
         PacketDistributor.sendToPlayer(player, new ShopDataPayload(company.id(), 2,
                 data.buyOffers(company), data.sellOffers(company)));
+        sendRules(player, company, ShopRulesData.get(player.server));
+    }
+
+    private static void sendRules(ServerPlayer player, Company company, ShopRulesData rules) {
+        ShopRulesData.Rule rule = rules.rule(company);
+        PacketDistributor.sendToPlayer(player, new com.deepspacedeployer.net.ShopRulesPayload(
+                company.id(), rule.baseTypes, rule.baseStock, rule.randomItems, rule.varyTypes,
+                rules.typePercent(), rules.stockPercent()));
     }
 
     // ---------------- 保存到世界数据包 ----------------

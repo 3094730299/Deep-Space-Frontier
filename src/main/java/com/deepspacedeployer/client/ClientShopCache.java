@@ -39,14 +39,32 @@ public final class ClientShopCache {
         return payload == null ? List.of() : payload.sellOffers();
     }
 
-    /** 第 index 个商品当前的库存；没有数据时按满库存 3 处理（服务端仍会校验）。 */
+    /** 第 index 个商品当前的库存；没有数据时按满库存处理（服务端仍会校验）。 */
     public static int stockAt(Company company, int index) {
         ShopDataPayload payload = CACHE.get(company.id());
         if (payload == null || payload.buyStock() == null
                 || index < 0 || index >= payload.buyStock().size()) {
-            return 3;
+            return maxStock(company);
         }
         return Math.max(0, payload.buyStock().get(index));
+    }
+
+    public static int maxStock(Company company) {
+        ShopDataPayload payload = CACHE.get(company.id());
+        return payload == null ? 3 : Math.max(1, payload.maxStock());
+    }
+
+    public static int restockRemaining(Company company) {
+        ShopDataPayload payload = CACHE.get(company.id());
+        if (payload == null || payload.restockAt() <= 0L) {
+            return 0;
+        }
+        var level = net.minecraft.client.Minecraft.getInstance().level;
+        if (level == null) {
+            return 0;
+        }
+        long delta = payload.restockAt() - level.getGameTime();
+        return Math.max(0, (int) ((delta + 19L) / 20L));
     }
 
     private ClientShopCache() {

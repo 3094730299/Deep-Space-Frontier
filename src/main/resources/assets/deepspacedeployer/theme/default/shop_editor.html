@@ -50,6 +50,27 @@
     </div>
 
     <div class="btns">
+      <div class="chip">规则：{{基准种类}} 种 / {{基准库存}} 个</div>
+      <div class="btn ghost" data-action="rule_types:-1">种类 -</div>
+      <div class="btn ghost" data-action="rule_types:1">种类 +</div>
+      <div class="btn ghost" data-action="rule_stock:-1">库存 -</div>
+      <div class="btn ghost" data-action="rule_stock:1">库存 +</div>
+    </div>
+    <div class="btns">
+      <div class="btn ghost" data-action="rule_random">随机换商品：{{随机换商品}}</div>
+      <div class="btn ghost" data-action="rule_vary">种类数量变化：{{种类数量变化}}</div>
+    </div>
+    <div class="btns">
+      <div class="chip">全局波动</div>
+      <div class="btn ghost" data-action="rule_type_pct:-5">种类 -5%</div>
+      <div class="btn ghost" data-action="rule_type_pct:5">种类 +5%</div>
+      <div class="chip">{{种类波动}}%</div>
+      <div class="btn ghost" data-action="rule_stock_pct:-5">库存 -5%</div>
+      <div class="btn ghost" data-action="rule_stock_pct:5">库存 +5%</div>
+      <div class="chip">{{库存波动}}%</div>
+    </div>
+
+    <div class="btns">
       <div class="btn" data-action="save">保存</div>
       <div class="btn ghost" data-action="close">关闭</div>
     </div>
