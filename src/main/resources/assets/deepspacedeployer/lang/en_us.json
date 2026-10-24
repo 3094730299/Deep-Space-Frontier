@@ -536,5 +536,10 @@
   "msg.deepspacedeployer.module_insufficient": "Not enough company currency: need %s, have %s",
   "msg.deepspacedeployer.module_print_done": "Module printed: %s (%s)",
   "msg.deepspacedeployer.module_print_failed": "Module print failed: %s",
-  "msg.deepspacedeployer.module_no_presets": "No module presets available"
+  "msg.deepspacedeployer.module_no_presets": "No module presets available",
+  "gui.deepspacedeployer.restock_in": "restock %s",
+  "msg.deepspacedeployer.editor_type_limit": "Item type limit reached (%s); remove one first",
+  "block.deepspacedeployer.corrosive_solution": "High-Corrosion Solution",
+  "fluid_type.deepspacedeployer.corrosive_solution": "High-Corrosion Solution",
+  "item.deepspacedeployer.corrosive_solution_bucket": "High-Corrosion Solution Bucket"
 }

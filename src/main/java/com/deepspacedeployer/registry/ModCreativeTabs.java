@@ -25,6 +25,8 @@ public final class ModCreativeTabs {
                         // 卡：主卡 / 副卡（老板说"卡保留"）
                         // 卡：唯一一种（旧副卡只保留注册 id 做存档迁移，不在创造栏发放）
                         output.accept(ModItems.BANK_CARD.get());
+                        // 高腐蚀溶液桶（2026-10-24 新内容）
+                        output.accept(ModItems.CORROSIVE_BUCKET.get());
                         output.accept(ModItems.BLUEPRINT_VOUCHER.get());
                         output.accept(ModItems.TIER_UPGRADE_KIT.get());
                         for (Company company : Company.VALUES) {

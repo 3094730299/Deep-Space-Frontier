@@ -53,6 +53,17 @@ public final class FactoryCommands {
                             }
                             return lines.size();
                         }))
+                .then(Commands.literal("corrosion")
+                        .requires(source -> source.hasPermission(2))
+                        .executes(context -> {
+                            List<String> lines =
+                                    com.deepspacedeployer.corrosion.CorrosiveErosion.diagnose(context.getSource().getServer());
+                            for (String line : lines) {
+                                context.getSource().sendSuccess(() -> Component.literal(line), false);
+                                com.deepspacedeployer.DeepSpaceDeployer.LOGGER.info("[腐蚀诊断] {}", line);
+                            }
+                            return lines.size();
+                        }))
                 .then(Commands.literal("selftest")
                         .executes(context -> {
                             List<String> lines = SelfTest.run(context.getSource().getServer());

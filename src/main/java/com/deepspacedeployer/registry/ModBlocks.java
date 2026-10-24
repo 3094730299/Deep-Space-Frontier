@@ -98,6 +98,26 @@ public final class ModBlocks {
                             .sound(SoundType.METAL)
                             .requiresCorrectToolForDrops()));
 
+    /**
+     * 高腐蚀溶液（流体方块）。
+     *
+     * <p>参数照着水的液体方块抄：无碰撞、可被替换、不掉落、不挡光。
+     * 真正的危害不在这里，在 {@code corrosion/CorrosiveErosion}：它只溶 Sable 物理结构。</p>
+     */
+    public static final DeferredHolder<Block, com.deepspacedeployer.block.CorrosiveLiquidBlock>
+            CORROSIVE_SOLUTION = BLOCKS.register(com.deepspacedeployer.fluid.ModFluids.NAME,
+                    () -> new com.deepspacedeployer.block.CorrosiveLiquidBlock(
+                            com.deepspacedeployer.fluid.ModFluids.CORROSIVE_STILL.get(),
+                            Block.Properties.of()
+                                    .mapColor(net.minecraft.world.level.material.MapColor.COLOR_GREEN)
+                                    .replaceable()
+                                    .noCollission()
+                                    .strength(100.0F)
+                                    .pushReaction(net.minecraft.world.level.material.PushReaction.DESTROY)
+                                    .noLootTable()
+                                    .liquid()
+                                    .sound(SoundType.EMPTY)));
+
     private static DeferredHolder<Block, MachineBlock> register(MachineKind kind) {
         return BLOCKS.register(kind.id(), () -> new MachineBlock(kind));
     }

@@ -205,6 +205,9 @@ def check_tool_tags():
     （原版 Tool.Rule 匹配的是方块标签：state.is(rule.blocks)）
     """
     blockstates = [os.path.basename(p)[:-5] for p in glob.glob(os.path.join(ASSETS, "blockstates", "*.json"))]
+    # 流体方块用桶收集，不参与"挖掘判定"（没有掉落表、也不是用镐子挖的），跳过它们
+    fluid_blocks = {"corrosive_solution"}
+    blockstates = [n for n in blockstates if n not in fluid_blocks]
     tag_dir = os.path.join(DATA, "tags", "block", "mineable")
     found = {}
     if os.path.isdir(tag_dir):

@@ -301,6 +301,20 @@ public final class ModItems {
             ITEMS.register("printer_part",
                     () -> new BlockItem(ModBlocks.PRINTER_PART.get(), new Item.Properties()));
 
+    /**
+     * 高腐蚀溶液桶。
+     *
+     * <p>用原版 {@link net.minecraft.world.item.BucketItem}：右键流体方块装、右键地面倒，
+     * 空桶留在手里。真正的流体逻辑在 {@code fluid/ModFluids}。</p>
+     */
+    public static final DeferredHolder<Item, net.minecraft.world.item.BucketItem> CORROSIVE_BUCKET =
+            ITEMS.register("corrosive_solution_bucket",
+                    () -> new net.minecraft.world.item.BucketItem(
+                            com.deepspacedeployer.fluid.ModFluids.CORROSIVE_STILL.get(),
+                            new Item.Properties()
+                                    .stacksTo(1)
+                                    .craftRemainder(net.minecraft.world.item.Items.BUCKET)));
+
     /** 是不是银行卡（唯一卡 / 老存档里的旧副卡都算） */
     public static boolean isBankCard(ItemStack stack) {
         return !stack.isEmpty() && (stack.is(BANK_CARD.get()) || stack.is(BANK_CARD_SUB.get()));

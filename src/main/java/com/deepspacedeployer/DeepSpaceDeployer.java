@@ -41,6 +41,8 @@ public class DeepSpaceDeployer {
         // ---- 注册（顺序无所谓，但都要挂在 mod 事件总线上）----
         ModBlocks.register(modEventBus);
         ModItems.register(modEventBus);
+        // 高腐蚀溶液：流体类型 + 源/流动两个流体（方块在 ModBlocks、桶在 ModItems）
+        com.deepspacedeployer.fluid.ModFluids.register(modEventBus);
         ModBlockEntities.register(modEventBus);
         ModMenus.register(modEventBus);
         ModCreativeTabs.register(modEventBus);
@@ -62,6 +64,9 @@ public class DeepSpaceDeployer {
 
         // ---- 空卡自动挂失（老板 2026-10-19：空卡 30 游戏日自动按"第三张卡"处理）----
         NeoForge.EVENT_BUS.addListener(DeepSpaceDeployer::onServerTick);
+
+        // ---- 高腐蚀溶液溶蚀物理结构（老板 2026-10-24）----
+        NeoForge.EVENT_BUS.addListener(com.deepspacedeployer.corrosion.CorrosiveErosion::onServerTick);
 
         // ---- 客户端专属：界面注册（服务器不会执行到这里）----
         if (FMLEnvironment.dist == Dist.CLIENT) {

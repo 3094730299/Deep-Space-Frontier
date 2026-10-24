@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "deepspacedeployer:block/corrosive_solution"
+    }
+  }
+}

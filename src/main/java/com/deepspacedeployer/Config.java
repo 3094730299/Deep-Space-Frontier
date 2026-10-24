@@ -184,6 +184,91 @@ public final class Config {
                     "由「界面主题 → 高级界面设置」自动维护")
             .define("ui.theme_assign", "");
 
+    // ---------------- 高腐蚀溶液 / 溶蚀 ----------------
+
+    /** 溶蚀系统总开关 */
+    public static final ModConfigSpec.BooleanValue CORROSION_ENABLED = BUILDER
+            .comment("高腐蚀溶液是否溶蚀 Sable 物理结构（关掉后腐蚀液只是一滩绿水）")
+            .define("corrosion.enabled", true);
+
+    /** 扫描周期 */
+    public static final ModConfigSpec.IntValue CORROSION_SCAN_INTERVAL = BUILDER
+            .comment("多少 tick 扫一次腐蚀接触面（20 = 每秒一次；调大省性能，调小更细）")
+            .defineInRange("corrosion.scan_interval_ticks", 20, 1, 200);
+
+    /** 每次扫描最多溶掉多少块 */
+    public static final ModConfigSpec.IntValue CORROSION_MAX_BLOCKS_PER_SCAN = BUILDER
+            .comment("每次扫描全局最多溶掉多少块（限流，防止一整片腐蚀海把服务器拖崩）")
+            .defineInRange("corrosion.max_blocks_per_scan", 4, 1, 256);
+
+    /** 本模组方块：最快 / 最慢 */
+    public static final ModConfigSpec.IntValue CORROSION_SECONDS_FASTEST = BUILDER
+            .comment("结构越轻溶得越快：这一档是「最快」（默认 2 秒一个方块）")
+            .defineInRange("corrosion.seconds_fastest", 2, 1, 600);
+
+    public static final ModConfigSpec.IntValue CORROSION_SECONDS_SLOWEST = BUILDER
+            .comment("结构越重溶得越慢：这一档是「最慢」（默认 8 秒一个方块）")
+            .defineInRange("corrosion.seconds_slowest", 8, 1, 600);
+
+    /** 非本模组方块固定秒数 */
+    public static final ModConfigSpec.IntValue CORROSION_NON_MOD_SECONDS = BUILDER
+            .comment("普通方块（非本模组：原版/别家模组）固定腐蚀秒数 —— 老板定的是最慢档 8 秒")
+            .defineInRange("corrosion.non_mod_seconds", 8, 1, 600);
+
+    /** 质量映射区间 */
+    public static final ModConfigSpec.DoubleValue CORROSION_MASS_PER_BLOCK_MIN = BUILDER
+            .comment("Sable「平均每方块质量」到这个值（或更低）= 最快档（2 秒）")
+            .defineInRange("corrosion.mass_per_block_min", 1.0D, 0.0D, 100000.0D);
+
+    public static final ModConfigSpec.DoubleValue CORROSION_MASS_PER_BLOCK_MAX = BUILDER
+            .comment("Sable「平均每方块质量」到这个值（或更高）= 最慢档（8 秒）")
+            .defineInRange("corrosion.mass_per_block_max", 20.0D, 0.01D, 1000000.0D);
+
+    /**
+     * 结构最小方块数：小于这个数就不腐蚀。
+     *
+     * <p>Sable 对很小的物理结构（比如玩家测试用的两三块木头）在方块变动后会
+     * 把整片拆成掉落物，看起来像"莫名其妙全掉了"。所以默认跳过太小的结构，
+     * 并把原因写进日志；想用两块原木测试就把它改成 1。</p>
+     */
+    public static final ModConfigSpec.IntValue CORROSION_MIN_STRUCTURE_BLOCKS = BUILDER
+            .comment("小于这么多方块的结构不腐蚀（1 = 不设下限）",
+                    "小结构被 Sable 拆散的问题已经用「断裂」机制缓解，所以默认不设下限；",
+                    "如果还是被整片拆掉，可以调大这个值把它跳过")
+            .defineInRange("corrosion.min_structure_blocks", 1, 1, 64);
+
+    /**
+     * 一个方块要被<b>几格</b>溶液贴着才开始腐蚀（默认 1）。
+     *
+     * <p>老板反馈"太敏感"之后的调节口：调到 2 表示只擦到一个面不算，
+     * 至少两面被泡才腐蚀（浮在液面上通常只有底面，那就不会腐蚀了，按需选择）。</p>
+     */
+    public static final ModConfigSpec.IntValue CORROSION_MIN_CONTACT_FACES = BUILDER
+            .comment("一个方块至少被几格溶液贴着才腐蚀（1 = 擦到就算；2 = 至少两面）")
+            .defineInRange("corrosion.min_contact_faces", 1, 1, 6);
+
+    /**
+     * 断裂机制（老板 2026-10-24 定）：方块泡够时间后先<b>从结构上断裂</b>成落沙实体，
+     * 过 {@code corrosion.detach_ticks} 再消失 —— 比原地凭空消失有手感。
+     */
+    public static final ModConfigSpec.BooleanValue CORROSION_DETACH_ENABLED = BUILDER
+            .comment("方块泡够时间后先断裂成落沙实体（关掉=原地直接消失）")
+            .define("corrosion.detach_enabled", true);
+
+    public static final ModConfigSpec.IntValue CORROSION_DETACH_TICKS = BUILDER
+            .comment("断裂后多久消失（tick；20 = 1 秒）")
+            .defineInRange("corrosion.detach_ticks", 20, 1, 200);
+
+    /** 性能护栏 */
+    public static final ModConfigSpec.IntValue CORROSION_MAX_SCAN_VOLUME = BUILDER
+            .comment("单个物理结构的 AABB 体积超过这个数就跳过溶蚀（防止整座建筑变成物理结构时卡服）",
+                    "代价 = 每次扫描要查这么多格的流体，结构大就调小；普通载具一般 1 万以内")
+            .defineInRange("corrosion.max_scan_volume", 200000, 1000, 5000000);
+
+    public static final ModConfigSpec.IntValue CORROSION_MAX_STRUCTURE_BLOCKS = BUILDER
+            .comment("统计结构实心方块数的上限；超过就按最慢档处理（不再逐格数）")
+            .defineInRange("corrosion.max_structure_blocks", 200000, 1000, 5000000);
+
     /** SPEC 必须在所有配置项之后（下面这行必须在最后） */
     public static final ModConfigSpec SPEC = BUILDER.build();
 

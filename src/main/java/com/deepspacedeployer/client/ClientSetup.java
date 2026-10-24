@@ -39,6 +39,9 @@ public final class ClientSetup {
         modEventBus.addListener(ClientSetup::onRegisterTerminalRenderers);
         modEventBus.addListener(ClientSetup::onRegisterMachineRenderer);
         modEventBus.addListener(ClientSetup::onRegisterMenuScreens);
+        // ★ 高腐蚀溶液：流体贴图（静止/流动）
+        modEventBus.addListener(com.deepspacedeployer.client.CorrosiveFluidClient::register);
+        modEventBus.addListener(ClientSetup::onClientSetup);
         // ★ 按键绑定：「按钮移动」（默认鼠标中键）
         ThemeKeys.register(modEventBus);
         NeoForge.EVENT_BUS.addListener(ClientSetup::onScreenInit);
@@ -93,6 +96,31 @@ public final class ClientSetup {
                 com.deepspacedeployer.client.gecko.PrecisionFabricatorRenderer::new);
         com.deepspacedeployer.DeepSpaceDeployer.LOGGER.info(
                 "[深空铸造体] 已启用 GeckoLib 渲染：精构仪");
+    }
+
+    /**
+     * 客户端初始化：把腐蚀液<b>流体</b>指定成半透明渲染层。
+     *
+     * <p>⚠️ 2026-10-24 修正两点（老板反馈"流起来像素变 8×8 / 看不到水底"）：</p>
+     * <ol>
+     *   <li><b>设置的是流体，不是方块</b>：{@code LiquidBlock} 自己是 INVISIBLE，方块渲染层设了没用；
+     *       真正决定液体怎么画的是 {@code ItemBlockRenderTypes.setRenderLayer(Fluid, RenderType)}；</li>
+     *   <li><b>必须要 translucent</b>：不设的话走 solid，贴图里 alpha=180 会被当成不透明，
+     *       就成了"绿油漆"，看不到水底。</li>
+     * </ol>
+     *
+     * <p>另外流动贴图已经改成 <b>32×32</b>（原版 water_flow 也是 32 宽）——
+     * 16 宽的流动贴图会被渲染器按"半张图铺一格"采样，视觉上就变成 8×8 像素块。</p>
+     */
+    private static void onClientSetup(net.neoforged.fml.event.lifecycle.FMLClientSetupEvent event) {
+        event.enqueueWork(() -> {
+            net.minecraft.client.renderer.ItemBlockRenderTypes.setRenderLayer(
+                    com.deepspacedeployer.fluid.ModFluids.CORROSIVE_STILL.get(),
+                    net.minecraft.client.renderer.RenderType.translucent());
+            net.minecraft.client.renderer.ItemBlockRenderTypes.setRenderLayer(
+                    com.deepspacedeployer.fluid.ModFluids.CORROSIVE_FLOWING.get(),
+                    net.minecraft.client.renderer.RenderType.translucent());
+        });
     }
 
     private static void onRegisterMenuScreens(RegisterMenuScreensEvent event) {
